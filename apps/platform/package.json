@@ -14,10 +14,10 @@
 		"format": "prettier --write ."
 	},
 	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"@project-vyasa/vyasa-compiler-wasm": "file:../../../vyasa/vyasac/pkg",
 		"@project-vyasa/vyasa-ui": "file:../../../vyasa-ui/svelte",
 		"@project-vyasa/vyasa-viewer-wasm": "file:../../../vyasa/vyasav/pkg",
-		"@project-vyasa/vyasa-compiler-wasm": "file:../../../vyasa/vyasac/pkg",
-		"@eslint/js": "^10.0.1",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.63.0",
 		"@sveltejs/vite-plugin-svelte": "^7.1.2",
@@ -33,5 +33,9 @@
 		"typescript": "^6.0.3",
 		"typescript-eslint": "^8.60.1",
 		"vite": "^8.0.16"
+	},
+	"dependencies": {
+		"lucide-svelte": "^1.0.1",
+		"wa-sqlite": "^1.0.0"
 	}
 }
