@@ -1,0 +1,7 @@
+{
+  "name": "vyasa-apps",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ]
+}
