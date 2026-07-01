@@ -101,7 +101,7 @@
 			
 			await viewerDb.loadFromUrl(payloadFullUrl + "?t=" + Date.now());
 			
-			const manifestRows = await viewerDb.query("SELECT key, value FROM manifest");
+			const manifestRows = await viewerDb.query(VyasaViewerRuntime.build_manifest_query());
 			const manifest: Record<string, string> = {};
 			for (const row of manifestRows) {
 				manifest[row[0] as string] = row[1] as string;
@@ -109,7 +109,7 @@
 			
 			if (manifest['package_type'] !== 'view') throw new Error("Unsupported package type.");
 			
-			const tplRows = await viewerDb.query("SELECT view_name, block_type, content FROM html_templates");
+			const tplRows = await viewerDb.query(VyasaViewerRuntime.build_templates_query());
 			const projections: Record<string, string> = {};
 			const viewSet = new Set<string>();
 			for (const row of tplRows) {
@@ -240,9 +240,9 @@
 				rowsJson = rowsJson.map(r => ({ ...r, stream: r.stream.replace(/^local\./, '') }));
 			}
 			
-			const tplRows = await viewerDb.query("SELECT view_name, block_type, content FROM html_templates");
+			const tplRows = await viewerDb.query(VyasaViewerRuntime.build_templates_query());
 			if (availableViews.length === 0) {
-				const viewsRows = await viewerDb.query("SELECT DISTINCT view_name FROM html_templates");
+				const viewsRows = await viewerDb.query(VyasaViewerRuntime.build_views_query());
 				availableViews = viewsRows.map(r => r[0] as string);
 				if (availableViews.length > 0) {
 					if (availableViews.includes('reference')) {
@@ -408,14 +408,14 @@
 		{:else}
 			<!-- TODO: Consider using direct contentDocument mutation or a shadow DOM instead of srcdoc 
 			     to prevent flashing on slower devices when the content updates. -->
-			{#key srcdocContent}
+			<!-- TODO: Consider using direct contentDocument mutation or a shadow DOM instead of srcdoc 
+			     to prevent flashing on slower devices when the content updates. -->
 			<iframe 
 				bind:this={iframeElement}
 				srcdoc={srcdocContent} 
 				title="Vyasa Content"
 				style="width: 100%; max-width: 900px; height: 100%; border: 0; border-left: 1px solid var(--border-base); border-right: 1px solid var(--border-base); background-color: var(--color-white); box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);"
 			></iframe>
-			{/key}
 		{/if}
 	</div>
 </AppShell>
