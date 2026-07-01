@@ -50,7 +50,12 @@ export class ViewerDb {
         if (!this.db) throw new Error("DB not loaded");
         try {
             const str = this.sqlite3.str_new(this.db, sql);
-            const preparedResult = await this.sqlite3.prepare_v2(this.db, this.sqlite3.str_value(str));
+            let preparedResult;
+            try {
+                preparedResult = await this.sqlite3.prepare_v2(this.db, this.sqlite3.str_value(str));
+            } finally {
+                this.sqlite3.str_finish(str);
+            }
             if (!preparedResult) return [];
 
             const prepared = (preparedResult.stmt !== undefined) ? preparedResult.stmt : preparedResult;
