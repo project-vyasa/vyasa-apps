@@ -15,19 +15,23 @@ export class SQLiteService {
 
         console.log('Initializing SQLite WASM (vyasa-v2)...');
         // Dynamic imports to avoid SSR/Build issues
+        // @ts-ignore
         const { default: SQLiteAsyncESMFactory } = await import('wa-sqlite/dist/wa-sqlite-async.mjs');
+        // @ts-ignore
         const { IDBBatchAtomicVFS } = await import('wa-sqlite/src/examples/IDBBatchAtomicVFS.js');
+        // @ts-ignore
         const { MemoryVFS } = await import('wa-sqlite/src/examples/MemoryVFS.js');
+        // @ts-ignore
         const SQLite = await import('wa-sqlite');
+        // @ts-ignore
+        const { default: wasmUrl } = await import('wa-sqlite/dist/wa-sqlite-async.wasm?url');
         this.SQLiteModule = SQLite;
         this.SQLite = SQLite;
 
-        const baseUrl = import.meta.env.BASE_URL.replace(/\/$/, "");
-
         const module = await SQLiteAsyncESMFactory({
-            locateFile: (file: string) => {
-                console.log('SQLite requesting:', file);
-                return `${baseUrl}/wasm/${file}`;
+            locateFile: () => {
+                console.log('SQLite requesting WASM from:', wasmUrl);
+                return wasmUrl;
             }
         });
 

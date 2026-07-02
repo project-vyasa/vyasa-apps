@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { base } from '$app/paths';
 	import { AppShell, Button, Icon, Input, Panel } from '@project-vyasa/vyasa-ui';
 	import { Menu, Search, Sun, Moon, Maximize2, Settings, AlignLeft, ChevronLeft, ChevronRight, LayoutPanelTop, PanelRight, Library, BookOpen } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
@@ -37,7 +38,7 @@
 		projections: Record<string, string>;
 	} | null>(null);
 
-	let iframeElement: HTMLIFrameElement;
+	let iframeElement = $state<HTMLIFrameElement>();
 	let viewerDb = new ViewerDb();
 	let graphRuntime = $state<VyasaViewerRuntime | null>(null);
 	let schemeParts = $state<string[]>([]);
@@ -82,7 +83,7 @@
 			let catalogUrl = pubEntry.catalog_url;
 			// Local dev intercept
 			if (catalogUrl.includes('project-vyasa.github.io/vyasa-samples')) {
-				catalogUrl = '/samples/catalog.json';
+				catalogUrl = `${base}/samples/catalog.json`;
 			}
 			
 			const res = await fetch(catalogUrl);

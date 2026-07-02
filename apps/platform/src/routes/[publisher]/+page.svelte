@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { base } from '$app/paths';
 	import { AppShell, Button } from '@project-vyasa/vyasa-ui';
 	import { Settings, Library, BookOpen } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -24,15 +25,17 @@
 			if (!pubEntry) throw new Error(`Publisher ${publisher} not found in global registry`);
 			
 			let catalogUrl = pubEntry.catalog_url;
-			// Local dev intercept
-			if (catalogUrl.includes('project-vyasa.github.io/vyasa-samples')) {
-				catalogUrl = '/samples/catalog.json';
+
+			// TODO: Add local development intercept as a setting for the viewer publisher workflow
+
+			try {
+				const res = await fetch(catalogUrl);
+				if (!res.ok) throw new Error(`Catalog not found at ${catalogUrl} (Status: ${res.status})`);
+				catalogData = await res.json();
+			} catch (fetchError: any) {
+				throw new Error(`Failed to fetch from ${catalogUrl}: ${fetchError.message || String(fetchError)}`);
 			}
 			
-			const res = await fetch(catalogUrl);
-			if (!res.ok) throw new Error('Catalog not found');
-			
-			catalogData = await res.json();
 		} catch (e: any) {
 			console.error("Failed to load catalog:", e);
 			errorMessage = e.message || String(e);
@@ -63,8 +66,6 @@
 <AppShell 
 	appBar={appBarContent} 
 	header={headerContent} 
-	leftSidebar={null} 
-	rightSidebar={null} 
 >
 	<div style="padding: var(--space-8); max-width: 1200px; margin: 0 auto;">
 		{#if loading}
@@ -93,7 +94,9 @@
 						onclick={() => goto(`/${publisher}/${item.id}/root`)}
 						style="background-color: var(--bg-surface-alt); border: 1px solid var(--border-base); border-radius: var(--control-radius); padding: var(--space-6); cursor: pointer; display: flex; flex-direction: column; gap: var(--space-3); transition: transform 0.2s, box-shadow 0.2s;"
 						onmouseover={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+						onfocus={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
 						onmouseout={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
+						onblur={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
 					>
 						<h3 style="font-size: 1.25rem; font-weight: 600; margin: 0;">{item.name || item.id}</h3>
 						<div style="display: flex; flex-direction: column; gap: var(--space-1); margin-top: auto; color: var(--text-tertiary); font-size: 0.875rem;">
