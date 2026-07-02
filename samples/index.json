@@ -1,0 +1,19 @@
+{
+  "catalog": {
+    "urn": "urn:vyasa:catalog:examples",
+    "publisher": "Project Vyasa Examples",
+    "description": "Sample packages for the Vyasa project."
+  },
+  "items": [
+    {
+      "name": "vedabase-bg.sqlite",
+      "description": "Bhagavad Gita Sample (Vyasa View Format)",
+      "target": "view"
+    },
+    {
+      "name": "vedabase-bg.vypkg",
+      "description": "Bhagavad Gita Source Package (Zip Format)",
+      "target": "ast"
+    }
+  ]
+}
