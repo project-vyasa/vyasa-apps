@@ -1,26 +1,40 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { AppShell, Button, Icon, Input, Panel } from '@project-vyasa/vyasa-ui';
-	import { Menu, Search, Sun, Moon, Maximize2, Settings, AlignLeft, ChevronLeft, ChevronRight, LayoutPanelTop, PanelRight, Library, BookOpen } from 'lucide-svelte';
+	import { AppShell, Button, Input, Panel } from '@project-vyasa/vyasa-ui';
+	import { Menu, Sun, Moon, Maximize2, Settings, ChevronLeft, ChevronRight, PanelRight, Library, BookOpen, Bug } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy, untrack, getContext } from 'svelte';
 	import { ViewerDb } from '$lib/ViewerDb';
 	import initWasm, { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
+	import { resolvePublisherCatalogUrl, fetchCatalog, getPublicationPayloadUrl } from '$lib/registry';
+	import { flattenTree, matchUrns } from '$lib/urn-utils';
+	import type { PackageData, Manifest, Catalog } from '$lib/types';
+	import ViewerHeader from '$lib/components/ViewerHeader.svelte';
+	import ViewerAppBar from '$lib/components/ViewerAppBar.svelte';
 
 	// Extract URL parameters
-	const publisher = $derived($page.params.publisher);
-	const publication = $derived($page.params.publication);
+	const publisher = $derived($page.params.publisher || '');
+	const publication = $derived($page.params.publication || '');
 	const urn = $derived($page.params.urn || 'root');
 	
 	// Query parameters
 	const embed = $derived($page.url.searchParams.get('embed') === 'true');
+	const showDiagnosticsQuery = $derived($page.url.searchParams.get('diagnostics') === 'true');
 
 	// --- AppShell State ---
 	let leftVisible = $state(true);
 	let rightVisible = $state(false);
 	let topVisible = $state(true);
 	let maximizedZone = $state<'none' | 'bottom' | 'content'>('none');
+	
+	// Diagnostics Query Param
+	$effect(() => {
+		if (showDiagnosticsQuery) {
+			// Note: We no longer auto-open from query param since state is in AppBar
+			// A future enhancement could be to expose an open method or global store
+		}
+	});
 
 	// --- Context ---
 	const themeContext = getContext<{ toggleTheme: () => void; cycleDensity: () => void; current: 'light' | 'dark' }>('theme');
@@ -32,11 +46,7 @@
 	let availableViews = $state<string[]>([]);
 	let activeUrns = $state<string[]>([]);
 
-	let packageData = $state<{
-		manifest: any;
-		structure: any;
-		projections: Record<string, string>;
-	} | null>(null);
+	let packageData = $state<PackageData | null>(null);
 
 	let iframeElement = $state<HTMLIFrameElement>();
 	let viewerDb = new ViewerDb();
@@ -46,6 +56,11 @@
 	let flatUrns = $state<string[]>([]);
 	
 	let currentUrnParts = $state<string[]>([]);
+	
+	// Diagnostic info
+	let diagRegistryUrl = $state('');
+	let diagCatalogUrl = $state('');
+	let diagCatalog = $state<Catalog | null>(null);
 	
 	// Update currentUrnParts when URL changes
 	$effect(() => {
@@ -64,6 +79,10 @@
 		}
 	});
 
+	onDestroy(() => {
+		viewerDb.close();
+	});
+
 	async function loadPublication() {
 		errorMessage = null;
 		try {
@@ -71,34 +90,18 @@
 			await initWasm();
 			
 			// 2. Fetch the global registry
-			// TODO: Allow overriding the global registry URL in Settings
-			const registryUrl = 'https://project-vyasa.github.io/vyasa-docs/registry.json';
-			const registryRes = await fetch(registryUrl);
-			if (!registryRes.ok) throw new Error('Global registry not found');
+			const catalogUrl = await resolvePublisherCatalogUrl(publisher);
+			diagCatalogUrl = catalogUrl;
+			diagRegistryUrl = 'https://project-vyasa.github.io/vyasa-docs/registry.json';
 			
-			const registry = await registryRes.json();
-			const pubEntry = registry.publishers?.find((p: any) => p.identifier === publisher);
-			if (!pubEntry) throw new Error(`Publisher ${publisher} not found in global registry`);
+			const catalogData = await fetchCatalog(catalogUrl);
+			diagCatalog = catalogData;
+			const items = catalogData.items || [];
 			
-			let catalogUrl = pubEntry.catalog_url;
-			// Local dev intercept
-			if (catalogUrl.includes('project-vyasa.github.io/vyasa-samples')) {
-				catalogUrl = `${base}/samples/catalog.json`;
-			}
-			
-			const res = await fetch(catalogUrl);
-			if (!res.ok) throw new Error('Catalog not found');
-			
-			const data = await res.json();
-			const items = data.items || data;
-			
-			const pubItem = items.find((item: any) => item.id === publication);
-			if (!pubItem) throw new Error(`Publication ${publication} not found in catalog`);
+			const pubItem = items.find((item) => item.id === publication);
+			if (!pubItem) throw new Error(`Publication ${publication} not found in catalog at ${catalogUrl}`);
 
-			const catalogBase = catalogUrl.substring(0, catalogUrl.lastIndexOf('/') + 1);
-			const payloadFullUrl = pubItem.payloadUrl.startsWith('http') || pubItem.payloadUrl.startsWith('/') 
-								   ? pubItem.payloadUrl 
-								   : catalogBase + pubItem.payloadUrl;
+			const payloadFullUrl = getPublicationPayloadUrl(catalogUrl, pubItem);
 			
 			await viewerDb.loadFromUrl(payloadFullUrl + "?t=" + Date.now());
 			
@@ -108,7 +111,7 @@
 				manifest[row[0] as string] = row[1] as string;
 			}
 			
-			if (manifest['package_type'] !== 'view') throw new Error("Unsupported package type.");
+			if (manifest['package_type'] !== 'view') throw new Error(`Unsupported package type in ${payloadFullUrl}`);
 			
 			const tplRows = await viewerDb.query(VyasaViewerRuntime.build_templates_query());
 			const projections: Record<string, string> = {};
@@ -122,15 +125,15 @@
 			}
 			
 			const catalogTree = JSON.parse(manifest['catalog_tree'] || "[]");
-			packageData = { manifest, structure: { catalogTree }, projections };
+			packageData = { manifest: manifest as unknown as Manifest, structure: { catalogTree }, projections };
 			
 			const urnScheme = manifest['urn_scheme'] || 'urn:vyasa:{id}';
 			schemeParts = urnScheme.replace(/^urn:vyasa:/, '').split(':');
 			let globalPrefix = schemeParts[0] || 'urn:vyasa:';
 			if (!globalPrefix.startsWith('urn:vyasa:')) globalPrefix = 'urn:vyasa:' + globalPrefix;
 			
-			let hierarchyJson = manifest.urn_hierarchy || "[]";
-			let bitLayoutJson = manifest.urn_bit_layout || "null";
+			let hierarchyJson = manifest['urn_hierarchy'] || "[]";
+			let bitLayoutJson = manifest['urn_bit_layout'] || "null";
 			
 			try {
 				urnComponents = JSON.parse(hierarchyJson);
@@ -142,21 +145,25 @@
 			graphRuntime = new VyasaViewerRuntime(hierarchyJson, bitLayoutJson, globalPrefix);
 			
 			// Build flat URNs list for easy navigation
-			flatUrns = [];
-			function flattenTree(node: any, prefix: string) {
-				if (Array.isArray(node)) {
-					for (const val of node) {
-						flatUrns.push(prefix ? `${prefix}:${val}` : `${val}`);
+			flatUrns = flattenTree(catalogTree, "");
+			
+			if (urn === 'root' || !urn) {
+				if (flatUrns.length > 0) {
+					const firstLeaf = flatUrns[0];
+					const parts = firstLeaf.split(':');
+					let targetUrn = firstLeaf;
+					
+					// If the URN has multiple components (e.g., 1:1), go to its container (e.g. 1)
+					if (parts.length > 1) {
+						targetUrn = parts.slice(0, parts.length - 1).join(':');
 					}
-				} else if (typeof node === 'object' && node !== null) {
-					// sort keys numerically if possible
-					const keys = Object.keys(node).sort((a, b) => Number(a) - Number(b));
-					for (const k of keys) {
-						flattenTree(node[k], prefix ? `${prefix}:${k}` : `${k}`);
-					}
+					
+					setTimeout(() => {
+						goto(`${base}/${publisher}/${publication}/${targetUrn}`, { replaceState: true });
+					}, 0);
+					return;
 				}
 			}
-			flattenTree(catalogTree, "");
 			
 			// Initial render is handled by the $effect block
 			
@@ -182,35 +189,7 @@
 		if (!graphRuntime || !packageData) return;
 		
 		try {
-			if (targetUrn === 'root') {
-				targetUrn = flatUrns.length > 0 ? flatUrns[0] : '1';
-			}
-			
-			// If targetUrn matches a full leaf, fetch 1. If it's a prefix or range, figure out how many leaf urns match.
-			const matchingUrns = flatUrns.filter(u => {
-				if (u === targetUrn || u.startsWith(targetUrn + ':')) return true;
-				
-				const urnParts = u.split(':');
-				const targetParts = targetUrn.split(':');
-				
-				if (targetParts.length > urnParts.length) return false;
-				
-				for (let i = 0; i < targetParts.length; i++) {
-					const t = targetParts[i];
-					const partU = parseInt(urnParts[i]);
-					
-					if (t.includes('-')) {
-						const [start, end] = t.split('-').map(Number);
-						if (partU >= start && partU <= end) {
-							continue;
-						}
-						return false;
-					} else {
-						if (partU !== parseInt(t)) return false;
-					}
-				}
-				return true;
-			});
+			const matchingUrns = matchUrns(targetUrn, flatUrns);
 			const limit = matchingUrns.length > 0 ? matchingUrns.length : 1;
 			activeUrns = matchingUrns;
 			
@@ -234,11 +213,11 @@
 					sourceToName[s.source] = s.name;
 				}
 				rowsJson = rowsJson.map(r => {
-					r.stream = sourceToName[r.stream] || r.stream.replace(/^local\./, '');
+					r.stream = sourceToName[r.stream as string] || (r.stream as string).replace(/^local\./, '');
 					return r;
 				});
 			} else {
-				rowsJson = rowsJson.map(r => ({ ...r, stream: r.stream.replace(/^local\./, '') }));
+				rowsJson = rowsJson.map(r => ({ ...r, stream: (r.stream as string).replace(/^local\./, '') }));
 			}
 			
 			const tplRows = await viewerDb.query(VyasaViewerRuntime.build_templates_query());
@@ -269,91 +248,157 @@
 			}
 			
 			srcdocContent = layoutTpl.replace('{{ body }}', itemsHtml);
-			console.log("RENDER URN:", targetUrn, "=> HTML Length:", itemsHtml.length);
 			
 		} catch (e: any) {
 			console.error("Render failed", e);
-			srcdocContent = `<div style="padding: 2rem; color: red;">Failed to weave view: ${e.message || e}</div>`;
+			srcdocContent = `<div class="render-error">Failed to weave view: ${e.message || e}</div>`;
 		}
 	}
 
-	function navigateUrn() {
-		// filter out empty parts
-		const target = currentUrnParts.filter(p => p.trim() !== '').join(':');
+	let onNavigate = (target: string) => {
 		if (target) {
-			goto(`/${publisher}/${publication}/${target}`);
+			goto(`${base}/${publisher}/${publication}/${target}`);
 		}
+	};
+	
+	function navigateUrn() {
+		const target = currentUrnParts.filter(p => p.trim() !== '').join(':');
+		onNavigate(target);
 	}
 	
-	function navigateNext() {
-		if (activeUrns.length > 0) {
-			const lastUrn = activeUrns[activeUrns.length - 1];
-			const lastIdx = flatUrns.indexOf(lastUrn);
-			if (lastIdx >= 0 && lastIdx < flatUrns.length - 1) {
-				goto(`/${publisher}/${publication}/${flatUrns[lastIdx + 1]}`);
-				return;
+	const navigateNext = () => {
+		if (flatUrns.length > 0) {
+			const lastIdx = flatUrns.indexOf(activeUrns[activeUrns.length - 1]);
+			if (lastIdx !== -1 && lastIdx < flatUrns.length - 1) {
+				goto(`${base}/${publisher}/${publication}/${flatUrns[lastIdx + 1]}`);
+			} else if (lastIdx === -1) {
+				goto(`${base}/${publisher}/${publication}/${flatUrns[0]}`);
 			}
 		}
-		if (flatUrns.length > 0) goto(`/${publisher}/${publication}/${flatUrns[0]}`);
-	}
-	
-	function navigatePrev() {
-		if (activeUrns.length > 0) {
-			const firstUrn = activeUrns[0];
-			const firstIdx = flatUrns.indexOf(firstUrn);
+	};
+
+	const navigatePrev = () => {
+		if (flatUrns.length > 0) {
+			const firstIdx = flatUrns.indexOf(activeUrns[0]);
 			if (firstIdx > 0) {
-				goto(`/${publisher}/${publication}/${flatUrns[firstIdx - 1]}`);
-				return;
+				goto(`${base}/${publisher}/${publication}/${flatUrns[firstIdx - 1]}`);
 			}
 		}
-	}
+	};
 </script>
 
+<style>
+	.nav-bar-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		padding: var(--space-2);
+		background-color: var(--bg-surface);
+		border-bottom: 1px solid var(--border-base);
+	}
+	.nav-bar-inner {
+		display: flex;
+		align-items: center;
+		gap: 0;
+		background-color: var(--bg-surface-alt);
+		border-radius: var(--control-radius);
+		padding: 2px;
+	}
+	.nav-bar-inputs {
+		display: flex;
+		align-items: center;
+		padding: 0 var(--space-3);
+		border-left: 1px solid var(--border-base);
+		border-right: 1px solid var(--border-base);
+	}
+	.urn-input-wrapper {
+		width: 56px;
+	}
+	.urn-separator {
+		color: var(--text-tertiary);
+		font-weight: bold;
+		margin: 0 4px;
+	}
+	.urn-readonly {
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		min-width: 60px;
+		text-align: center;
+	}
+
+	.sidebar-panel-content {
+		padding: var(--space-4);
+		color: var(--text-secondary);
+	}
+
+	.viewer-container {
+		width: 100%;
+		height: 100%;
+		background-color: var(--bg-surface);
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		overflow: hidden;
+	}
+	.error-box {
+		margin: var(--space-8);
+		padding: var(--space-4);
+		background-color: var(--color-red-100);
+		color: var(--color-red-900);
+		border: 1px solid var(--color-red-200);
+		border-radius: var(--control-radius);
+	}
+	.loading-box {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 100%;
+		color: var(--text-secondary);
+	}
+	.viewer-iframe {
+		width: 100%;
+		max-width: 900px;
+		height: 100%;
+		border: 0;
+		border-left: 1px solid var(--border-base);
+		border-right: 1px solid var(--border-base);
+		background-color: var(--color-white);
+		box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+	}
+
+
+</style>
+
 {#snippet headerContent()}
-	<div style="display: flex; align-items: center; justify-content: space-between; width: 100%; height: 100%; padding: 0 var(--space-4); background-color: var(--bg-surface-alt);">
-		<div style="display: flex; align-items: center; gap: var(--space-4);">
-			<Button variant="ghost" size="icon" icon={Menu} onclick={() => leftVisible = !leftVisible} />
-			<h1 style="font-size: var(--text-lg); font-weight: var(--font-semibold); margin: 0;">Vyasa Viewer</h1>
-		</div>
-		
-		<div style="display: flex; align-items: center; gap: var(--space-2);">
-			<!-- Theme and Density controls -->
-			{#if themeContext}
-				<Button variant="ghost" size="icon" icon={themeContext.current === 'dark' ? Sun : Moon} title="Toggle Theme" onclick={themeContext.toggleTheme} />
-				<Button variant="ghost" size="icon" icon={Maximize2} title="Toggle Density" onclick={themeContext.cycleDensity} />
-			{/if}
-			<Button 
-				variant={rightVisible ? 'secondary' : 'ghost'} 
-				size="icon" 
-				icon={PanelRight} 
-				title="Toggle Right Sidebar" 
-				onclick={() => rightVisible = !rightVisible} 
-			/>
-		</div>
-	</div>
+	<ViewerHeader bind:leftVisible bind:rightVisible />
 {/snippet}
 
 {#snippet appBarContent()}
-	<div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: var(--space-4) 0; width: 100%; height: 100%; background-color: var(--bg-surface);">
-		<div style="display: flex; flex-direction: column; align-items: center; gap: var(--space-4);">
-			<Button variant="ghost" size="icon" icon={Library} title="Library" onclick={() => goto(`/${publisher}`)} />
-			<Button variant="secondary" size="icon" icon={BookOpen} title="Reader" />
-		</div>
-		<div style="display: flex; flex-direction: column; align-items: center; gap: var(--space-4);">
-			<Button variant="ghost" size="icon" icon={Settings} title="Settings" />
-		</div>
-	</div>
+	<ViewerAppBar 
+		active="reader" 
+		{publisher} 
+		{publication} 
+		{diagRegistryUrl}
+		{diagCatalogUrl}
+		{diagCatalog}
+		{packageData}
+	/>
 {/snippet}
 
 {#snippet sidebarTopContent()}
 	<!-- Phase 1: Tight Navigation Bar -->
-	<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; padding: var(--space-2); background-color: var(--bg-surface); border-bottom: 1px solid var(--border-base);">
-		<div style="display: flex; align-items: center; gap: 0; background-color: var(--bg-surface-alt); border-radius: var(--control-radius); padding: 2px;">
+	<div class="nav-bar-container">
+		<div class="nav-bar-inner">
 			<Button variant="ghost" size="icon" icon={ChevronLeft} title="Previous" onclick={navigatePrev} />
-			<div style="display: flex; align-items: center; padding: 0 var(--space-3); border-left: 1px solid var(--border-base); border-right: 1px solid var(--border-base);">
+			<div class="nav-bar-inputs">
 				{#if urnComponents.length > 0}
 					{#each urnComponents as comp, i}
-						<div style="width: 56px;">
+						<div class="urn-input-wrapper">
+							<!-- svelte-ignore a11y_autofocus -->
 							<Input 
 								bind:value={currentUrnParts[i]} 
 								onkeydown={(e) => e.key === 'Enter' && navigateUrn()} 
@@ -363,11 +408,11 @@
 							/>
 						</div>
 						{#if i < urnComponents.length - 1}
-							<span style="color: var(--text-tertiary); font-weight: bold; margin: 0 4px;">:</span>
+							<span class="urn-separator">:</span>
 						{/if}
 					{/each}
 				{:else}
-					<div style="font-family: var(--font-mono); font-size: var(--text-sm); min-width: 60px; text-align: center;">
+					<div class="urn-readonly">
 						{urn}
 					</div>
 				{/if}
@@ -379,7 +424,7 @@
 
 {#snippet sidebarRightContent()}
 	<Panel title="Details">
-		<div style="padding: var(--space-4); color: var(--text-secondary);">
+		<div class="sidebar-panel-content">
 			Select a block to see details for URN: <strong>{urn}</strong>.
 		</div>
 	</Panel>
@@ -397,25 +442,21 @@
 	sidebarTop={sidebarTopContent}
 	sidebarRight={sidebarRightContent}
 >
-	<div style="width: 100%; height: 100%; background-color: var(--bg-surface); position: relative; display: flex; flex-direction: column; align-items: center; overflow: hidden;">
+	<div class="viewer-container">
 		{#if errorMessage}
-			<div style="margin: var(--space-8); padding: var(--space-4); background-color: var(--color-red-100); color: var(--color-red-900); border: 1px solid var(--color-red-200); border-radius: var(--control-radius);">
+			<div class="error-box">
 				{errorMessage}
 			</div>
 		{:else if !srcdocContent}
-			<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary);">
+			<div class="loading-box">
 				Loading {publication}...
 			</div>
 		{:else}
-			<!-- TODO: Consider using direct contentDocument mutation or a shadow DOM instead of srcdoc 
-			     to prevent flashing on slower devices when the content updates. -->
-			<!-- TODO: Consider using direct contentDocument mutation or a shadow DOM instead of srcdoc 
-			     to prevent flashing on slower devices when the content updates. -->
 			<iframe 
 				bind:this={iframeElement}
 				srcdoc={srcdocContent} 
 				title="Vyasa Content"
-				style="width: 100%; max-width: 900px; height: 100%; border: 0; border-left: 1px solid var(--border-base); border-right: 1px solid var(--border-base); background-color: var(--color-white); box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);"
+				class="viewer-iframe"
 			></iframe>
 		{/if}
 	</div>
