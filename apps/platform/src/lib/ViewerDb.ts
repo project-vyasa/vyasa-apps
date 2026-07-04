@@ -7,26 +7,36 @@ export class ViewerDb {
 
     async loadFromUrl(url: string) {
         // Fetch the sqlite file
-        const res = await fetch(url);
+        let res;
+        try {
+            res = await fetch(url);
+        } catch (e: any) {
+            throw new Error(`Failed to fetch publication DB from ${url}: ${e.message}`);
+        }
+        
+        if (!res.ok) {
+            throw new Error(`Failed to fetch publication DB from ${url} (Status: ${res.status})`);
+        }
+        
         const buffer = await res.arrayBuffer();
         
         // We reuse the WASM initialization from the existing service
-        if (!sqliteService['sqlite3']) {
+        // @ts-ignore
+        if (!sqliteService.sqlite3) {
             await sqliteService.init();
         }
-        this.sqlite3 = sqliteService['sqlite3'];
+        // @ts-ignore
+        this.sqlite3 = sqliteService.sqlite3;
         
         // Close previous if exists
-        if (this.db) {
-            await this.sqlite3.close(this.db);
-            this.db = null;
-        }
+        await this.close();
         
         // Generate a unique dbName to prevent schema caching issues when switching DBs
         this.dbName = `viewer-db-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
         
         // Populate MemoryVFS directly
-        const memoryVfs = sqliteService['memoryVfs'];
+        // @ts-ignore
+        const memoryVfs = sqliteService.memoryVfs;
         if (memoryVfs) {
             memoryVfs.mapNameToFile.set(this.dbName, {
                 name: this.dbName,
@@ -42,11 +52,23 @@ export class ViewerDb {
             this.sqlite3.OPEN_READONLY,
             "memory"
         );
-        
-        console.log("Loaded SQLite DB from URL into memory VFS.");
     }
     
-    async query(sql: string, params: any[] = []) {
+    async close() {
+        if (this.db) {
+            await this.sqlite3.close(this.db);
+            this.db = null;
+            
+            // Clean up the memory VFS file to prevent memory leak
+            // @ts-ignore
+            const memoryVfs = sqliteService.memoryVfs;
+            if (memoryVfs && memoryVfs.mapNameToFile.has(this.dbName)) {
+                memoryVfs.mapNameToFile.delete(this.dbName);
+            }
+        }
+    }
+    
+    async query(sql: string, params: unknown[] = []) {
         if (!this.db) throw new Error("DB not loaded");
         try {
             const str = this.sqlite3.str_new(this.db, sql);
@@ -72,7 +94,8 @@ export class ViewerDb {
 
             try {
                 let stepResult;
-                const ROW = sqliteService['SQLiteModule'].SQLITE_ROW;
+                // @ts-ignore
+                const ROW = sqliteService.SQLiteModule.SQLITE_ROW;
                 while ((stepResult = await this.sqlite3.step(prepared)) === ROW) {
                     const row = this.sqlite3.row(prepared);
                     results.push(row);
@@ -82,7 +105,6 @@ export class ViewerDb {
             }
             return results;
         } catch (e) {
-            console.error('Query failed:', e);
             throw e;
         }
     }
