@@ -2,6 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import type { LibraryPublisherData } from '$lib/types';
+	import { viewerSettings } from '$lib/settings.svelte';
+	import { DEFAULT_REGISTRY_URL } from '$lib/registry';
 
 	interface Props {
 		publishers: LibraryPublisherData[];
@@ -10,6 +12,9 @@
 
 	let { publishers, loading = false }: Props = $props();
 
+	let globalUrl = $derived(viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL);
+	let customPublishers = $derived(publishers.filter(p => p.sourceUrl !== globalUrl));
+	let globalPublishers = $derived(publishers.filter(p => p.sourceUrl === globalUrl));
 </script>
 
 <div class="library-container">
@@ -22,45 +27,64 @@
 			<p>No catalogs configured or available.</p>
 		</div>
 	{:else}
-		{#each publishers as pubData}
-			<div class="publisher-section">
-				<div class="catalog-header">
-					<h2 class="catalog-title">{pubData.catalog?.catalog?.publisher || pubData.publisher.title || pubData.publisher.identifier}</h2>
-					{#if pubData.catalog?.catalog?.description}
-						<p class="catalog-desc">{pubData.catalog.catalog.description}</p>
-					{/if}
-					<div class="catalog-meta">
-						<span class="catalog-id">ID: {pubData.publisher.identifier}</span>
-						<span>Source: {pubData.sourceUrl.includes('localhost') ? 'Local Catalog' : 'Global Registry'}</span>
-					</div>
-				</div>
-				
-				{#if pubData.error}
-					<div class="error-container">
-						<p>Failed to load catalog: {pubData.error}</p>
-					</div>
-				{:else if pubData.catalog}
-					<div class="grid-container">
-						{#each pubData.catalog.items || [] as item}
-							<button 
-								class="library-card"
-								onclick={() => goto(`${base}/${pubData.publisher.identifier}/${item.id}`)}
-							>
-								<h3 class="library-card-title">{item.name || item.id}</h3>
-								<div class="library-card-meta">
-									<span class="library-card-id">ID: {item.id}</span>
-								</div>
-							</button>
-						{/each}
-					</div>
-					{#if (pubData.catalog.items || []).length === 0}
-						<p class="empty-catalog">No publications found in this catalog.</p>
-					{/if}
+		{#if customPublishers.length > 0}
+			<div class="registry-group">
+				{#if globalPublishers.length > 0}
+					<h2 class="registry-group-title">Custom Catalogs</h2>
 				{/if}
+				{#each customPublishers as pubData}
+					{@render publisherSection(pubData)}
+				{/each}
 			</div>
-		{/each}
+		{/if}
+
+		{#if globalPublishers.length > 0}
+			<div class="registry-group">
+				<h2 class="registry-group-title">Global Registry</h2>
+				{#each globalPublishers as pubData}
+					{@render publisherSection(pubData)}
+				{/each}
+			</div>
+		{/if}
 	{/if}
 </div>
+
+{#snippet publisherSection(pubData: LibraryPublisherData)}
+	<div class="publisher-section">
+		<div class="catalog-header">
+			<h3 class="catalog-title">{pubData.catalog?.catalog?.publisher || pubData.publisher.title || pubData.publisher.identifier}</h3>
+			{#if pubData.catalog?.catalog?.description}
+				<p class="catalog-desc">{pubData.catalog.catalog.description}</p>
+			{/if}
+			<div class="catalog-meta">
+				<span class="catalog-id">Publisher ID: {pubData.publisher.identifier}</span>
+			</div>
+		</div>
+		
+		{#if pubData.error}
+			<div class="error-container">
+				<p>Failed to load catalog: {pubData.error}</p>
+			</div>
+		{:else if pubData.catalog}
+			<div class="grid-container">
+				{#each pubData.catalog.items || [] as item}
+					<button 
+						class="library-card"
+						onclick={() => goto(`${base}/${pubData.publisher.identifier}/${item.id}`)}
+					>
+						<h4 class="library-card-title">{item.title || item.id}</h4>
+						<div class="library-card-meta">
+							<span class="library-card-id">ID: {item.id}</span>
+						</div>
+					</button>
+				{/each}
+			</div>
+			{#if (pubData.catalog.items || []).length === 0}
+				<p class="empty-catalog">No publications found in this catalog.</p>
+			{/if}
+		{/if}
+	</div>
+{/snippet}
 
 <style>
 	.library-container {
@@ -91,6 +115,22 @@
 		background-color: var(--bg-surface-alt);
 		border-radius: var(--control-radius);
 		color: var(--text-negative);
+	}
+
+	/* Registry Group */
+	.registry-group {
+		display: flex;
+		flex-direction: column;
+		gap: 3rem;
+	}
+	.registry-group-title {
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: var(--text-secondary);
+		margin: 0;
+		margin-bottom: -1rem; /* bring it closer to the first publisher */
+		padding-bottom: var(--space-2);
+		border-bottom: 2px solid var(--border-base);
 	}
 	
 	/* Publisher Section */
