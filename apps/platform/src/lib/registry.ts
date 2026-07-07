@@ -62,27 +62,76 @@ export async function fetchCatalog(catalogUrl: string): Promise<Catalog> {
 	}
 	
 	const data = await res.json();
-	if (Array.isArray(data)) {
-		return { items: data } as Catalog;
-	} else if (data.items) {
-		return data as Catalog;
-	} else {
-		return { items: data } as unknown as Catalog;
+	
+	if (data.publications) {
+		const c: Catalog = {
+			schemaVersion: data.schemaVersion,
+			identifier: data.identifier,
+			title: data.title,
+			items: data.publications
+		};
+		return c;
 	}
+
+	// Fallback for internal representation
+	const fb: Catalog = { items: Array.isArray(data) ? data : [] } as unknown as Catalog;
+	return fb;
 }
 
-export function getPublicationPayloadUrl(catalogUrl: string, pubItem: CatalogItem): string {
+export function getPublicationVyviewUrl(catalogUrl: string, pubItem: CatalogItem): string {
+	const url = pubItem.vyviewUrl;
+	if (!url) {
+		throw new Error(`Publication ${pubItem.id} is missing vyviewUrl`);
+	}
 	const catalogBase = catalogUrl.substring(0, catalogUrl.lastIndexOf('/') + 1);
-	return pubItem.payloadUrl.startsWith('http') || pubItem.payloadUrl.startsWith('/') 
-		? pubItem.payloadUrl 
-		: catalogBase + pubItem.payloadUrl;
+	return url.startsWith('http') || url.startsWith('/') 
+		? url 
+		: catalogBase + url;
 }
 
 export async function getAllPublishers(): Promise<{ publisher: RegistryEntry, sourceUrl: string }[]> {
 	const allPublishers: { publisher: RegistryEntry, sourceUrl: string }[] = [];
 	const seenIds = new Set<string>();
 
-	// 1. Fetch from Global Registry if enabled
+	// 1. Fetch from Custom Catalogs first so they appear at the top
+	for (const url of viewerSettings.customCatalogUrls) {
+		try {
+			const res = await fetch(url);
+			if (res.ok) {
+				const data = await res.json();
+				// A catalog might not have a full publisher record, so we construct a minimal one
+				const pubId = data.identifier || data.catalog?.publisher || data.id || 'unknown';
+				const pubName = data.title || data.catalog?.publisher || data.name || pubId;
+				
+				if (!seenIds.has(pubId)) {
+					allPublishers.push({ 
+						publisher: { identifier: pubId, title: pubName, catalog_url: url }, 
+						sourceUrl: url 
+					});
+					seenIds.add(pubId);
+				}
+			} else {
+				// Push synthetic entry to surface HTTP error
+				const pubId = `custom-error-${url}`;
+				allPublishers.push({
+					publisher: { identifier: pubId, title: `Custom Catalog (${url})`, catalog_url: url },
+					sourceUrl: url
+				});
+				seenIds.add(pubId);
+			}
+		} catch (e) {
+			console.warn(`Failed to fetch custom catalog ${url}:`, e);
+			// Push synthetic entry to surface network error
+			const pubId = `custom-error-${url}`;
+			allPublishers.push({
+				publisher: { identifier: pubId, title: `Custom Catalog (${url})`, catalog_url: url },
+				sourceUrl: url
+			});
+			seenIds.add(pubId);
+		}
+	}
+
+	// 2. Fetch from Global Registry if enabled
 	if (viewerSettings.enableGlobalRegistry) {
 		const registryUrl = viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL;
 		try {
@@ -100,29 +149,6 @@ export async function getAllPublishers(): Promise<{ publisher: RegistryEntry, so
 			}
 		} catch (e) {
 			console.warn(`Failed to fetch global registry:`, e);
-		}
-	}
-
-	// 2. Fetch from Custom Catalogs
-	for (const url of viewerSettings.customCatalogUrls) {
-		try {
-			const res = await fetch(url);
-			if (res.ok) {
-				const data = await res.json();
-				// A catalog might not have a full publisher record, so we construct a minimal one
-				const pubId = data.catalog?.publisher || data.id || 'unknown';
-				const pubName = data.catalog?.publisher || data.name || pubId;
-				
-				if (!seenIds.has(pubId)) {
-					allPublishers.push({ 
-						publisher: { identifier: pubId, title: pubName, catalog_url: url }, 
-						sourceUrl: url 
-					});
-					seenIds.add(pubId);
-				}
-			}
-		} catch (e) {
-			console.warn(`Failed to fetch custom catalog ${url}:`, e);
 		}
 	}
 

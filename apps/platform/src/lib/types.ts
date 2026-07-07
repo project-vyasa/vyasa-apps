@@ -17,11 +17,14 @@ export interface LibraryPublisherData {
 
 export interface CatalogItem {
 	id: string;
-	name: string;
-	payloadUrl: string;
+	title: string;
+	vyviewUrl: string;
 }
 
 export interface Catalog {
+	schemaVersion: string;
+	identifier: string;
+	title: string;
 	catalog?: {
 		publisher: string;
 		description?: string;
@@ -31,7 +34,7 @@ export interface Catalog {
 
 export interface Manifest {
 	package_type: string;
-	urn_scheme: string;
+
 	catalog_tree: string;
 	streams_config?: string;
 	urn_hierarchy?: string;

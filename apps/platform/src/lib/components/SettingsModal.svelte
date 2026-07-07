@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { Modal, SettingsPanel } from '@project-vyasa/vyasa-ui';
+	import { SettingsModal } from '@project-vyasa/vyasa-ui';
 	import { viewerSettings } from '../settings.svelte';
-	import { Database, Link } from 'lucide-svelte';
+	import { Database, Link, Palette } from 'lucide-svelte';
+	import { getContext } from 'svelte';
 
 	interface Props {
 		open: boolean;
@@ -9,21 +10,67 @@
 
 	let { open = $bindable(false) }: Props = $props();
 
-	// Convert settings class to plain object for SettingsPanel binding
+	const themeContext = getContext<{ 
+		current: 'light' | 'dark',
+		theme: 'light' | 'dark' | 'system',
+		density: 'compact' | 'standard' | 'comfortable'
+	}>('theme');
+
 	let settingsData = $state({
 		enableGlobalRegistry: viewerSettings.enableGlobalRegistry,
 		customCatalogs: viewerSettings.customCatalogs,
-		globalRegistryUrl: viewerSettings.globalRegistryUrl
+		globalRegistryUrl: viewerSettings.globalRegistryUrl,
+		theme: themeContext?.theme || 'system',
+		density: themeContext?.density || 'standard'
 	});
 
-	// Sync back to viewerSettings on change
+	// Sync back to viewerSettings and themeContext on change
 	$effect(() => {
 		viewerSettings.enableGlobalRegistry = settingsData.enableGlobalRegistry;
 		viewerSettings.customCatalogs = settingsData.customCatalogs;
 		viewerSettings.globalRegistryUrl = settingsData.globalRegistryUrl;
+		
+		if (themeContext) {
+			themeContext.theme = settingsData.theme as 'light' | 'dark' | 'system';
+			themeContext.density = settingsData.density as 'compact' | 'standard' | 'comfortable';
+		}
 	});
 
 	const schema: any[] = [
+		{
+			id: 'appearance',
+			title: 'Appearance',
+			icon: Palette,
+			groups: [
+				{
+					title: 'Theme & Density',
+					items: [
+						{ 
+							id: 'theme', 
+							type: 'select', 
+							label: 'Theme', 
+							description: 'Application color theme',
+							options: [
+								{label: 'Light', value: 'light'}, 
+								{label: 'Dark', value: 'dark'},
+								{label: 'System Default', value: 'system'}
+							] 
+						},
+						{ 
+							id: 'density', 
+							type: 'select', 
+							label: 'Density', 
+							description: 'Spacing and sizing of UI elements',
+							options: [
+								{label: 'Compact', value: 'compact'}, 
+								{label: 'Standard', value: 'standard'}, 
+								{label: 'Comfortable', value: 'comfortable'}
+							] 
+						}
+					]
+				}
+			]
+		},
 		{
 			id: 'catalogs',
 			title: 'Catalog Sources',
@@ -74,18 +121,4 @@
 	];
 </script>
 
-<Modal bind:open title="Viewer Settings" size="lg">
-	{#snippet body()}
-		<div class="settings-modal-content">
-			<SettingsPanel {schema} bind:data={settingsData} />
-		</div>
-	{/snippet}
-</Modal>
-
-<style>
-	.settings-modal-content {
-		height: 60vh;
-		min-height: 400px;
-		width: 100%;
-	}
-</style>
+<SettingsModal bind:open title="Viewer Settings" {schema} bind:data={settingsData} />
