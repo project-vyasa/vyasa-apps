@@ -49,7 +49,13 @@
 			size="icon" 
 			icon={Library} 
 			title="Library" 
-			onclick={() => goto(base || '/')} 
+			onclick={() => {
+				if (window.history.length > 2) {
+					history.back();
+				} else {
+					goto(base || '/');
+				}
+			}} 
 		/>
 		{#if publication}
 			<Button 

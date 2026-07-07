@@ -112,10 +112,10 @@
 	<div class="content-container">
 		<div class="header-section">
 			<div>
-				<h1 class="page-title">{publisher ? 'Filtered View' : 'Vyasa Directory'}</h1>
+				<h1 class="page-title">{publisher ? (libraryData[0]?.publisher.title || publisher) : 'Vyasa Directory'}</h1>
 				<p class="page-desc">
 					{#if publisher}
-						Showing library for publisher '{publisher}'. 
+						Showing publications for {libraryData[0]?.publisher.title || publisher}. 
 						{#if multiplePublishers}
 							<a href="{base}/" style="color: var(--text-primary);">View all publishers</a>
 						{/if}
