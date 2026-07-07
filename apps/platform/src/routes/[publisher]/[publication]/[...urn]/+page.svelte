@@ -1,16 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { AppShell, Button, Input, Panel } from '@project-vyasa/vyasa-ui';
-	import { Menu, Sun, Moon, Maximize2, Settings, ChevronLeft, ChevronRight, PanelRight, Library, BookOpen, Bug } from 'lucide-svelte';
+	import { AppShell, AppHeader, Button, Input, Panel } from '@project-vyasa/vyasa-ui';
+	import { Sun, Moon, Maximize2, Settings, ChevronLeft, ChevronRight, PanelRight, Library, BookOpen, Bug } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy, untrack, getContext } from 'svelte';
 	import { ViewerDb } from '$lib/ViewerDb';
 	import initWasm, { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
-	import { resolvePublisherCatalogUrl, fetchCatalog, getPublicationPayloadUrl } from '$lib/registry';
+	import { resolvePublisherCatalogUrl, fetchCatalog, getPublicationVyviewUrl } from '$lib/registry';
 	import { flattenTree, matchUrns } from '$lib/urn-utils';
 	import type { PackageData, Manifest, Catalog } from '$lib/types';
-	import ViewerHeader from '$lib/components/ViewerHeader.svelte';
 	import ViewerAppBar from '$lib/components/ViewerAppBar.svelte';
 
 	// Extract URL parameters
@@ -25,6 +24,7 @@
 	// --- AppShell State ---
 	let leftVisible = $state(true);
 	let rightVisible = $state(false);
+	let bottomVisible = $state(false);
 	let topVisible = $state(true);
 	let maximizedZone = $state<'none' | 'bottom' | 'content'>('none');
 	
@@ -51,7 +51,7 @@
 	let iframeElement = $state<HTMLIFrameElement>();
 	let viewerDb = new ViewerDb();
 	let graphRuntime = $state<VyasaViewerRuntime | null>(null);
-	let schemeParts = $state<string[]>([]);
+
 	let urnComponents = $state<string[]>([]);
 	let flatUrns = $state<string[]>([]);
 	
@@ -101,9 +101,9 @@
 			const pubItem = items.find((item) => item.id === publication);
 			if (!pubItem) throw new Error(`Publication ${publication} not found in catalog at ${catalogUrl}`);
 
-			const payloadFullUrl = getPublicationPayloadUrl(catalogUrl, pubItem);
+			const vyviewFullUrl = getPublicationVyviewUrl(catalogUrl, pubItem);
 			
-			await viewerDb.loadFromUrl(payloadFullUrl + "?t=" + Date.now());
+			await viewerDb.loadFromUrl(vyviewFullUrl + "?t=" + Date.now());
 			
 			const manifestRows = await viewerDb.query(VyasaViewerRuntime.build_manifest_query());
 			const manifest: Record<string, string> = {};
@@ -111,7 +111,7 @@
 				manifest[row[0] as string] = row[1] as string;
 			}
 			
-			if (manifest['package_type'] !== 'view') throw new Error(`Unsupported package type in ${payloadFullUrl}`);
+			if (manifest['package_type'] !== 'view') throw new Error(`Unsupported package type in ${vyviewFullUrl}`);
 			
 			const tplRows = await viewerDb.query(VyasaViewerRuntime.build_templates_query());
 			const projections: Record<string, string> = {};
@@ -127,10 +127,7 @@
 			const catalogTree = JSON.parse(manifest['catalog_tree'] || "[]");
 			packageData = { manifest: manifest as unknown as Manifest, structure: { catalogTree }, projections };
 			
-			const urnScheme = manifest['urn_scheme'] || 'urn:vyasa:{id}';
-			schemeParts = urnScheme.replace(/^urn:vyasa:/, '').split(':');
-			let globalPrefix = schemeParts[0] || 'urn:vyasa:';
-			if (!globalPrefix.startsWith('urn:vyasa:')) globalPrefix = 'urn:vyasa:' + globalPrefix;
+			let globalPrefix = manifest['global_prefix'] || 'urn:vyasa:';
 			
 			let hierarchyJson = manifest['urn_hierarchy'] || "[]";
 			let bitLayoutJson = manifest['urn_bit_layout'] || "null";
@@ -138,8 +135,8 @@
 			try {
 				urnComponents = JSON.parse(hierarchyJson);
 			} catch (e) {
-				urnComponents = schemeParts.filter(s => s.startsWith('{') && s.endsWith('}')).map(s => s.substring(1, s.length - 1));
-				hierarchyJson = JSON.stringify(urnComponents);
+				urnComponents = [];
+				hierarchyJson = "[]";
 			}
 			
 			graphRuntime = new VyasaViewerRuntime(hierarchyJson, bitLayoutJson, globalPrefix);
@@ -210,14 +207,23 @@
 				const streamsConfig = JSON.parse(packageData.manifest.streams_config);
 				const sourceToName: Record<string, string> = {};
 				for (const s of streamsConfig) {
-					sourceToName[s.source] = s.name;
+					if (typeof s === 'string') {
+						const parts = s.split(':');
+						if (parts.length > 1) {
+							sourceToName[parts[0]] = parts[1];
+						} else {
+							sourceToName[s] = s.split('.').pop() || s;
+						}
+					} else if (s && s.source) {
+						sourceToName[s.source] = s.name;
+					}
 				}
 				rowsJson = rowsJson.map(r => {
-					r.stream = sourceToName[r.stream as string] || (r.stream as string).replace(/^local\./, '');
+					r.stream = sourceToName[r.stream as string] || (r.stream as string).split('.').pop() || r.stream;
 					return r;
 				});
 			} else {
-				rowsJson = rowsJson.map(r => ({ ...r, stream: (r.stream as string).replace(/^local\./, '') }));
+				rowsJson = rowsJson.map(r => ({ ...r, stream: (r.stream as string).split('.').pop() || r.stream }));
 			}
 			
 			const tplRows = await viewerDb.query(VyasaViewerRuntime.build_templates_query());
@@ -374,12 +380,18 @@
 </style>
 
 {#snippet headerContent()}
-	<ViewerHeader bind:leftVisible bind:rightVisible />
+	<AppHeader 
+		appName="Vyasa Viewer" 
+		bind:leftVisible 
+		bind:rightVisible 
+		bind:bottomVisible 
+	/>
 {/snippet}
 
 {#snippet appBarContent()}
 	<ViewerAppBar 
 		active="reader" 
+		bind:expanded={leftVisible}
 		{publisher} 
 		{publication} 
 		{diagRegistryUrl}
@@ -435,7 +447,7 @@
 	rightVisible={!embed && rightVisible}
 	topVisible={topVisible}
 	topHeight={48}
-	bottomVisible={false}
+	{bottomVisible}
 	{maximizedZone}
 	header={!embed ? headerContent : undefined}
 	appBar={!embed ? appBarContent : undefined}

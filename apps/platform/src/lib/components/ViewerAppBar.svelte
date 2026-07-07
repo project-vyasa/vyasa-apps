@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { Button, AppBar } from '@project-vyasa/vyasa-ui';
-	import { Library, BookOpen, Bug, Settings } from 'lucide-svelte';
+	import { Button, ActivityBar } from '@project-vyasa/vyasa-ui';
+	import { Library, BookOpen, Bug, Settings, Monitor, Moon, Sun } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { getContext } from 'svelte';
 	import SettingsModal from './SettingsModal.svelte';
 	import DiagnosticsModal from './DiagnosticsModal.svelte';
 	import type { Catalog, PackageData } from '$lib/types';
 
 	interface Props {
 		active: 'library' | 'reader' | 'home';
+		expanded?: boolean;
 		publisher?: string;
 		publication?: string;
 		diagRegistryUrl?: string;
@@ -19,6 +21,7 @@
 
 	let { 
 		active, 
+		expanded = $bindable(false),
 		publisher = '', 
 		publication = '',
 		diagRegistryUrl,
@@ -29,16 +32,24 @@
 
 	let settingsOpen = $state(false);
 	let diagnosticsOpen = $state(false);
+	
+	const themeContext = getContext<{ 
+		current: 'light' | 'dark',
+		theme: 'light' | 'dark' | 'system',
+		density: 'compact' | 'standard' | 'comfortable',
+		toggleTheme: () => void,
+		cycleDensity: () => void
+	}>('theme');
 </script>
 
-<AppBar>
+<ActivityBar bind:expanded>
 	{#snippet top()}
 		<Button 
 			variant={active === 'library' ? 'secondary' : 'ghost'} 
 			size="icon" 
 			icon={Library} 
 			title="Library" 
-			onclick={() => goto(`${base}/${publisher}`)} 
+			onclick={() => goto(base || '/')} 
 		/>
 		{#if publication}
 			<Button 
@@ -57,10 +68,14 @@
 	{/snippet}
 
 	{#snippet bottom()}
+		{#if themeContext}
+			<Button variant="ghost" size="icon" icon={Monitor} onclick={() => themeContext.cycleDensity()} title="Toggle Density" />
+			<Button variant="ghost" size="icon" icon={themeContext.current === 'dark' ? Moon : Sun} onclick={() => themeContext.toggleTheme()} title="Toggle Theme" />
+		{/if}
 		<Button variant="ghost" size="icon" icon={Bug} title="Diagnostics" onclick={() => diagnosticsOpen = true} />
 		<Button variant="ghost" size="icon" icon={Settings} title="Settings" onclick={() => settingsOpen = true} />
 	{/snippet}
-</AppBar>
+</ActivityBar>
 
 <SettingsModal bind:open={settingsOpen} />
 <DiagnosticsModal 
