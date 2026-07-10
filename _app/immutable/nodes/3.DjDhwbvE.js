@@ -1,0 +1,1 @@
+import{ct as e,it as t,nt as n,rt as r,st as i,z as a}from"../chunks/CxGaYvAK.js";import"../chunks/xihTtKlq.js";import{t as o}from"../chunks/2Dfh_aIf.js";import{t as s}from"../chunks/CERY1JWH.js";function c(c,l){e(l,!0);let u=()=>t(s,`$page`,d),[d,f]=r(),p=n(()=>u().params.publisher||``);o(c,{get publisher(){return a(p)}}),i(),f()}export{c as component};
