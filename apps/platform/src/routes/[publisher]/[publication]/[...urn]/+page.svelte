@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { AppShell, AppHeader, Button, Input, Panel } from '@project-vyasa/vyasa-ui';
-	import { Sun, Moon, Maximize2, Settings, ChevronLeft, ChevronRight, PanelRight, Library, BookOpen, Bug } from 'lucide-svelte';
+	import { AppShell, AppHeader, Button, Input, Panel, ListView } from '@project-vyasa/vyasa-ui';
+	import { Sun, Moon, Maximize2, Minimize2, Settings, ChevronLeft, ChevronRight, PanelRight, Library, BookOpen, Bug } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy, untrack, getContext } from 'svelte';
 	import { ViewerDb } from '$lib/ViewerDb';
+	import { dev } from '$app/environment';
 	import initWasm, { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 	import { resolvePublisherCatalogUrl, fetchCatalog, getPublicationVyviewUrl } from '$lib/registry';
 	import { flattenTree, matchUrns } from '$lib/urn-utils';
@@ -24,6 +25,7 @@
 	// --- AppShell State ---
 	let leftVisible = $state(true);
 	let rightVisible = $state(false);
+	let isFullWidth = $state(false);
 	let bottomVisible = $state(false);
 	let topVisible = $state(true);
 	let maximizedZone = $state<'none' | 'bottom' | 'content'>('none');
@@ -56,6 +58,80 @@
 	let flatUrns = $state<string[]>([]);
 	
 	let currentUrnParts = $state<string[]>([]);
+
+	interface SidebarItem {
+		id: string;
+		title: string;
+		group?: string;
+	}
+
+	let selectedContainerId = $state<string | number | undefined>(undefined);
+
+	let sidebarItems = $derived.by<SidebarItem[]>(() => {
+		const tree = packageData?.structure?.catalogTree;
+		if (!tree) return [];
+		
+		const compLen = urnComponents.length;
+		const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+		// Case 1: Flat array of leaf nodes (e.g. intimate note, bible)
+		if (Array.isArray(tree)) {
+			const label = urnComponents[0] || 'Item';
+			return tree.map(val => ({
+				id: String(val),
+				title: `${capitalize(label)} ${val}`
+			}));
+		}
+
+		const items: SidebarItem[] = [];
+		
+		function traverse(node: any, pathParts: string[]) {
+			if (Array.isArray(node)) {
+				if (pathParts.length > 0) {
+					const id = pathParts.join(':');
+					const lastPart = pathParts[pathParts.length - 1];
+					const parentPart = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '';
+					
+					const itemLabel = urnComponents[pathParts.length - 1] || 'Item';
+					const groupLabel = pathParts.length > 1 ? (urnComponents[pathParts.length - 2] || 'Group') : '';
+					
+					items.push({
+						id,
+						title: `${capitalize(itemLabel)} ${lastPart}`,
+						group: parentPart ? `${capitalize(groupLabel)} ${parentPart}` : undefined
+					});
+				}
+				return;
+			}
+			
+			if (typeof node === 'object' && node !== null) {
+				const keys = Object.keys(node).sort((a, b) => Number(a) - Number(b));
+				for (const k of keys) {
+					traverse(node[k], [...pathParts, k]);
+				}
+			}
+		}
+		
+		traverse(tree, []);
+		return items;
+	});
+
+	// Sync current container selection from URN changes
+	$effect(() => {
+		if (!urn || urn === 'root') {
+			selectedContainerId = undefined;
+			return;
+		}
+		const urnParts = urn.split(':');
+		for (let len = urnParts.length; len > 0; len--) {
+			const candidate = urnParts.slice(0, len).join(':');
+			if (sidebarItems.some(item => item.id === candidate)) {
+				selectedContainerId = candidate;
+				return;
+			}
+		}
+		selectedContainerId = undefined;
+	});
 	
 	// Diagnostic info
 	let diagRegistryUrl = $state('');
@@ -103,7 +179,8 @@
 
 			const vyviewFullUrl = getPublicationVyviewUrl(catalogUrl, pubItem);
 			
-			await viewerDb.loadFromUrl(vyviewFullUrl + "?t=" + Date.now());
+			const buster = dev ? "?t=" + Date.now() : "";
+			await viewerDb.loadFromUrl(vyviewFullUrl + buster);
 			
 			const manifestRows = await viewerDb.query(VyasaViewerRuntime.build_manifest_query());
 			const manifest: Record<string, string> = {};
@@ -320,12 +397,7 @@
 		border-right: 1px solid var(--border-base);
 	}
 	.urn-input-wrapper {
-		width: 56px;
-	}
-	.urn-separator {
-		color: var(--text-tertiary);
-		font-weight: bold;
-		margin: 0 4px;
+		width: calc(3.5rem * var(--density, 1));
 	}
 	.urn-readonly {
 		font-family: var(--font-mono);
@@ -375,13 +447,20 @@
 		background-color: var(--color-white);
 		box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 	}
+	.viewer-iframe.full-width {
+		max-width: none;
+	}
 
-
+	:global(.panel-content .list-view) {
+		border: none !important;
+		border-radius: 0 !important;
+	}
 </style>
 
 {#snippet headerContent()}
 	<AppHeader 
 		appName="Vyasa Viewer" 
+		href={base || '/'}
 		bind:leftVisible 
 		bind:rightVisible 
 		bind:bottomVisible 
@@ -404,25 +483,25 @@
 {#snippet sidebarTopContent()}
 	<!-- Phase 1: Tight Navigation Bar -->
 	<div class="nav-bar-container">
+		<!-- Left spacer to keep navigation perfectly centered -->
+		<div style="flex: 1; display: flex; justify-content: flex-start;"></div>
+
+		<!-- Centered URN Navigation -->
 		<div class="nav-bar-inner">
 			<Button variant="ghost" size="icon" icon={ChevronLeft} title="Previous" onclick={navigatePrev} />
 			<div class="nav-bar-inputs">
 				{#if urnComponents.length > 0}
-					{#each urnComponents as comp, i}
-						<div class="urn-input-wrapper">
-							<!-- svelte-ignore a11y_autofocus -->
-							<Input 
-								bind:value={currentUrnParts[i]} 
-								onkeydown={(e) => e.key === 'Enter' && navigateUrn()} 
-								onblur={navigateUrn}
-								placeholder={comp} 
-								style="text-align: center; font-family: var(--font-mono);"
-							/>
-						</div>
-						{#if i < urnComponents.length - 1}
-							<span class="urn-separator">:</span>
-						{/if}
-					{/each}
+					{@const lastIdx = urnComponents.length - 1}
+					<div class="urn-input-wrapper">
+						<!-- svelte-ignore a11y_autofocus -->
+						<Input 
+							bind:value={currentUrnParts[lastIdx]} 
+							onkeydown={(e) => e.key === 'Enter' && navigateUrn()} 
+							onblur={navigateUrn}
+							placeholder={urnComponents[lastIdx]} 
+							style="text-align: center; font-family: var(--font-mono);"
+						/>
+					</div>
 				{:else}
 					<div class="urn-readonly">
 						{urn}
@@ -431,7 +510,31 @@
 			</div>
 			<Button variant="ghost" size="icon" icon={ChevronRight} title="Next" onclick={navigateNext} />
 		</div>
+
+		<!-- Right-aligned Maximize Button -->
+		<div style="flex: 1; display: flex; justify-content: flex-end; padding-right: var(--space-2);">
+			<Button variant="ghost" size="icon" icon={isFullWidth ? Minimize2 : Maximize2} title="Toggle Full Width" onclick={() => isFullWidth = !isFullWidth} />
+		</div>
 	</div>
+{/snippet}
+
+{#snippet sidebarLeftContent()}
+	<Panel title="Navigation" icon={BookOpen}>
+		{#if sidebarItems.length > 0}
+			<ListView
+				items={sidebarItems}
+				keyField="id"
+				bind:selectedId={selectedContainerId}
+				titleField="title"
+				groupBy={sidebarItems.some(item => item.group) ? 'group' : undefined}
+				onSelect={(item) => onNavigate(item.id)}
+			/>
+		{:else}
+			<div class="sidebar-panel-content">
+				No navigation items available.
+			</div>
+		{/if}
+	</Panel>
 {/snippet}
 
 {#snippet sidebarRightContent()}
@@ -451,6 +554,7 @@
 	{maximizedZone}
 	header={!embed ? headerContent : undefined}
 	appBar={!embed ? appBarContent : undefined}
+	sidebarLeft={sidebarLeftContent}
 	sidebarTop={sidebarTopContent}
 	sidebarRight={sidebarRightContent}
 >
@@ -469,6 +573,7 @@
 				srcdoc={srcdocContent} 
 				title="Vyasa Content"
 				class="viewer-iframe"
+				class:full-width={isFullWidth}
 			></iframe>
 		{/if}
 	</div>

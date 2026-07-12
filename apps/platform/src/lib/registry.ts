@@ -15,7 +15,7 @@ export async function resolvePublisherCatalogUrl(publisher: string): Promise<str
 			const res = await fetch(url);
 			if (res.ok) {
 				const catalog = await res.json();
-				if (catalog.catalog?.publisher === publisher || catalog.id === publisher) {
+				if (catalog.identifier === publisher) {
 					return url;
 				}
 			}
@@ -63,19 +63,16 @@ export async function fetchCatalog(catalogUrl: string): Promise<Catalog> {
 	
 	const data = await res.json();
 	
-	if (data.publications) {
-		const c: Catalog = {
-			schemaVersion: data.schemaVersion,
-			identifier: data.identifier,
-			title: data.title,
-			items: data.publications
-		};
-		return c;
+	if (!data.publications) {
+		throw new Error(`Catalog at ${catalogUrl} is missing 'publications' array`);
 	}
-
-	// Fallback for internal representation
-	const fb: Catalog = { items: Array.isArray(data) ? data : [] } as unknown as Catalog;
-	return fb;
+	
+	return {
+		schemaVersion: data.schemaVersion,
+		identifier: data.identifier,
+		title: data.title,
+		items: data.publications
+	};
 }
 
 export function getPublicationVyviewUrl(catalogUrl: string, pubItem: CatalogItem): string {
@@ -95,39 +92,30 @@ export async function getAllPublishers(): Promise<{ publisher: RegistryEntry, so
 
 	// 1. Fetch from Custom Catalogs first so they appear at the top
 	for (const url of viewerSettings.customCatalogUrls) {
+		let pubId = 'unknown';
 		try {
 			const res = await fetch(url);
 			if (res.ok) {
 				const data = await res.json();
-				// A catalog might not have a full publisher record, so we construct a minimal one
-				const pubId = data.identifier || data.catalog?.publisher || data.id || 'unknown';
-				const pubName = data.title || data.catalog?.publisher || data.name || pubId;
+				pubId = data.identifier || 'unknown';
+				const pubName = data.title || pubId;
 				
-				if (!seenIds.has(pubId)) {
-					allPublishers.push({ 
-						publisher: { identifier: pubId, title: pubName, catalog_url: url }, 
-						sourceUrl: url 
-					});
-					seenIds.add(pubId);
-				}
+				allPublishers.push({ 
+					publisher: { identifier: pubId, title: pubName, catalog_url: url }, 
+					sourceUrl: url 
+				});
 			} else {
-				// Push synthetic entry to surface HTTP error
-				const pubId = `custom-error-${url}`;
 				allPublishers.push({
 					publisher: { identifier: pubId, title: `Custom Catalog (${url})`, catalog_url: url },
 					sourceUrl: url
 				});
-				seenIds.add(pubId);
 			}
 		} catch (e) {
 			console.warn(`Failed to fetch custom catalog ${url}:`, e);
-			// Push synthetic entry to surface network error
-			const pubId = `custom-error-${url}`;
 			allPublishers.push({
 				publisher: { identifier: pubId, title: `Custom Catalog (${url})`, catalog_url: url },
 				sourceUrl: url
 			});
-			seenIds.add(pubId);
 		}
 	}
 
@@ -140,10 +128,7 @@ export async function getAllPublishers(): Promise<{ publisher: RegistryEntry, so
 				const registry: Registry = await res.json();
 				if (registry.publishers) {
 					for (const p of registry.publishers) {
-						if (!seenIds.has(p.identifier)) {
-							allPublishers.push({ publisher: p, sourceUrl: registryUrl });
-							seenIds.add(p.identifier);
-						}
+						allPublishers.push({ publisher: p, sourceUrl: registryUrl });
 					}
 				}
 			}

@@ -50,11 +50,7 @@
 			icon={Library} 
 			title="Library" 
 			onclick={() => {
-				if (window.history.length > 2) {
-					history.back();
-				} else {
-					goto(base || '/');
-				}
+				goto(base || '/');
 			}} 
 		/>
 		{#if publication}

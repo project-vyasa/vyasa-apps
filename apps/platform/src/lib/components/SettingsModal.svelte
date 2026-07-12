@@ -18,6 +18,7 @@
 
 	let settingsData = $state({
 		enableGlobalRegistry: viewerSettings.enableGlobalRegistry,
+		enableCustomCatalogs: viewerSettings.enableCustomCatalogs,
 		customCatalogs: viewerSettings.customCatalogs,
 		globalRegistryUrl: viewerSettings.globalRegistryUrl,
 		theme: themeContext?.theme || 'system',
@@ -27,6 +28,7 @@
 	// Sync back to viewerSettings and themeContext on change
 	$effect(() => {
 		viewerSettings.enableGlobalRegistry = settingsData.enableGlobalRegistry;
+		viewerSettings.enableCustomCatalogs = settingsData.enableCustomCatalogs;
 		viewerSettings.customCatalogs = settingsData.customCatalogs;
 		viewerSettings.globalRegistryUrl = settingsData.globalRegistryUrl;
 		
@@ -79,6 +81,12 @@
 				{
 					title: 'Custom Catalogs',
 					items: [
+						{
+							id: 'enableCustomCatalogs',
+							label: 'Enable Custom Catalogs',
+							description: 'Fetch publishers from custom catalog URLs (e.g. dev/private publications)',
+							type: 'boolean' as const
+						},
 						{
 							id: 'customCatalogs',
 							label: 'Custom Catalog URLs',

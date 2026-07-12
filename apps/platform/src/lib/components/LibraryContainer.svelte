@@ -84,7 +84,8 @@
 
 {#snippet headerContent()}
 	<AppHeader 
-		appName="Vyasa Viewer" 
+		appName="Vyasa Viewer"
+		href={base || '/'}
 		bind:leftVisible 
 		bind:rightVisible 
 		bind:bottomVisible 

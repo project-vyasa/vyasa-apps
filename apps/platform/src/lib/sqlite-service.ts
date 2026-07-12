@@ -64,8 +64,8 @@ export class SQLiteService {
 		// @ts-ignore
 		const { default: wasmUrl } = await import('wa-sqlite/dist/wa-sqlite-async.wasm?url');
 		
-		this.SQLiteModule = SQLite;
-		this.SQLite = SQLite;
+		this.SQLiteModule = SQLite as unknown as SQLiteModuleAPI;
+		this.SQLite = SQLite as unknown as SQLiteModuleAPI;
 
 		const module = await SQLiteAsyncESMFactory({
 			locateFile: () => {
@@ -74,12 +74,12 @@ export class SQLiteService {
 		});
 
 		this.wasmModule = module;
-		this.sqlite3 = SQLite.Factory(module);
+		this.sqlite3 = SQLite.Factory(module) as unknown as SQLite3API;
 
-		this.memoryVfs = new MemoryVFS();
-		this.sqlite3.vfs_register(this.memoryVfs, false);
+		this.memoryVfs = new MemoryVFS() as unknown as MemoryVFSInstance;
+		this.sqlite3!.vfs_register(this.memoryVfs, false);
 
-		this.db = await this.sqlite3.open_v2(this.dbName);
+		this.db = await this.sqlite3!.open_v2(this.dbName);
 	}
 
 	async exec(sql: string) {
