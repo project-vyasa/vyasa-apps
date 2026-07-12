@@ -1,7 +1,7 @@
-import { sqliteService } from './sqlite-service';
+import { sqliteService, type SQLite3API } from './sqlite-service';
 
 export class ViewerDb {
-    private sqlite3: any = null;
+    private sqlite3: SQLite3API | null = null;
     private db: number | null = null;
     private dbName: string = 'viewer-db-temp';
 
@@ -21,11 +21,9 @@ export class ViewerDb {
         const buffer = await res.arrayBuffer();
         
         // We reuse the WASM initialization from the existing service
-        // @ts-ignore
         if (!sqliteService.sqlite3) {
             await sqliteService.init();
         }
-        // @ts-ignore
         this.sqlite3 = sqliteService.sqlite3;
         
         // Close previous if exists
@@ -35,7 +33,6 @@ export class ViewerDb {
         this.dbName = `viewer-db-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
         
         // Populate MemoryVFS directly
-        // @ts-ignore
         const memoryVfs = sqliteService.memoryVfs;
         if (memoryVfs) {
             memoryVfs.mapNameToFile.set(this.dbName, {
@@ -47,6 +44,7 @@ export class ViewerDb {
         }
         
         // Open a memory DB (without OPEN_CREATE so it must use our file)
+        if (!this.sqlite3) throw new Error("SQLite not initialized");
         this.db = await this.sqlite3.open_v2(
             this.dbName, 
             this.sqlite3.OPEN_READONLY,
@@ -55,12 +53,11 @@ export class ViewerDb {
     }
     
     async close() {
-        if (this.db) {
+        if (this.db && this.sqlite3) {
             await this.sqlite3.close(this.db);
             this.db = null;
             
             // Clean up the memory VFS file to prevent memory leak
-            // @ts-ignore
             const memoryVfs = sqliteService.memoryVfs;
             if (memoryVfs && memoryVfs.mapNameToFile.has(this.dbName)) {
                 memoryVfs.mapNameToFile.delete(this.dbName);
@@ -69,7 +66,7 @@ export class ViewerDb {
     }
     
     async query(sql: string, params: unknown[] = []) {
-        if (!this.db) throw new Error("DB not loaded");
+        if (!this.db || !this.sqlite3) throw new Error("DB not loaded");
         try {
             const str = this.sqlite3.str_new(this.db, sql);
             let preparedResult;
@@ -94,8 +91,8 @@ export class ViewerDb {
 
             try {
                 let stepResult;
-                // @ts-ignore
-                const ROW = sqliteService.SQLiteModule.SQLITE_ROW;
+                const SQLiteModule = sqliteService.SQLiteModule;
+                const ROW = SQLiteModule ? SQLiteModule.SQLITE_ROW : 100;
                 while ((stepResult = await this.sqlite3.step(prepared)) === ROW) {
                     const row = this.sqlite3.row(prepared);
                     results.push(row);
