@@ -19,5 +19,11 @@ export default defineConfig({
 		fs: {
 			allow: ['../../..'] // Allow serving files from the monorepo root (e.g. linked packages)
 		}
+	},
+	optimizeDeps: {
+		exclude: [
+			'@project-vyasa/vyasa-viewer-wasm',
+			'@project-vyasa/vyasa-compiler-wasm'
+		]
 	}
 });
