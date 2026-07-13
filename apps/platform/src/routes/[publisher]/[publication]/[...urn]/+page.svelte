@@ -179,7 +179,7 @@
 
 			const vyviewFullUrl = getPublicationVyviewUrl(catalogUrl, pubItem);
 			
-			const buster = dev ? "?t=" + Date.now() : "";
+			const buster = pubItem.updated ? `?t=${pubItem.updated}` : (dev ? `?t=${Date.now()}` : "");
 			await viewerDb.loadFromUrl(vyviewFullUrl + buster);
 			
 			const manifestRows = await viewerDb.query(VyasaViewerRuntime.build_manifest_query());

@@ -19,6 +19,7 @@ export interface CatalogItem {
 	id: string;
 	title: string;
 	vyviewUrl: string;
+	updated?: number;
 }
 
 export interface Catalog {
