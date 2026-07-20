@@ -13,25 +13,25 @@ export interface SQLite3API {
 	OPEN_READONLY: number;
 	OPEN_READWRITE: number;
 	OPEN_CREATE: number;
-	
+
 	open_v2(dbName: string, flags?: number, vfsName?: string): Promise<number>;
 	close(db: number): Promise<void>;
 	exec(db: number, sql: string): Promise<void>;
-	
+
 	str_new(db: number, s: string): number;
 	str_value(strPtr: number): number;
 	str_finish(strPtr: number): void;
-	
+
 	prepare_v2(db: number, sqlPtr: number): Promise<any>;
 	reset(stmt: any): number;
 	step(stmt: any): Promise<number>;
 	row(stmt: any): any[];
 	finalize(stmt: any): Promise<void>;
-	
+
 	bind_null(stmt: any, index: number): number;
 	bind_double(stmt: any, index: number, val: number): number;
 	bind_text(stmt: any, index: number, val: string): number;
-	
+
 	vfs_register(vfs: any, makeDefault: boolean): number;
 }
 
@@ -50,7 +50,6 @@ export class SQLiteService {
 	wasmModule: any = null;
 	SQLite: SQLiteModuleAPI | null = null;
 
-
 	async init() {
 		if (this.db) return;
 
@@ -63,7 +62,7 @@ export class SQLiteService {
 		const SQLite = await import('wa-sqlite');
 		// @ts-ignore
 		const { default: wasmUrl } = await import('wa-sqlite/dist/wa-sqlite-async.wasm?url');
-		
+
 		this.SQLiteModule = SQLite as unknown as SQLiteModuleAPI;
 		this.SQLite = SQLite as unknown as SQLiteModuleAPI;
 
@@ -94,7 +93,7 @@ export class SQLiteService {
 			const preparedResult = await this.sqlite3!.prepare_v2(this.db!, this.sqlite3!.str_value(str));
 			if (!preparedResult) return [];
 
-			const prepared = (preparedResult.stmt !== undefined) ? preparedResult.stmt : preparedResult;
+			const prepared = preparedResult.stmt !== undefined ? preparedResult.stmt : preparedResult;
 			const results = [];
 			try {
 				let stepResult;

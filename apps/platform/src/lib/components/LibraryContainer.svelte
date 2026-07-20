@@ -16,7 +16,7 @@
 	let libraryData = $state<LibraryPublisherData[]>([]);
 	let loading = $state(true);
 	let multiplePublishers = $state(false);
-	
+
 	const diagRegistryUrl = $derived('https://project-vyasa.github.io/vyasa-docs/registry.json');
 	let diagCatalogUrl = $state('');
 
@@ -36,45 +36,51 @@
 				const catalogUrl = await resolvePublisherCatalogUrl(publisher);
 				diagCatalogUrl = catalogUrl;
 				const catalogData = await fetchCatalog(catalogUrl);
-				
-				libraryData = [{
-					publisher: {
-						identifier: publisher,
-						title: catalogData.catalog?.publisher || publisher,
-						catalog_url: catalogUrl
-					},
-					sourceUrl: catalogUrl,
-					catalog: catalogData
-				}];
+
+				libraryData = [
+					{
+						publisher: {
+							identifier: publisher,
+							title: catalogData.catalog?.publisher || publisher,
+							catalog_url: catalogUrl
+						},
+						sourceUrl: catalogUrl,
+						catalog: catalogData
+					}
+				];
 			} else {
 				// Global directory view logic
-				libraryData = await Promise.all(allPubs.map(async (p) => {
-					const data: LibraryPublisherData = {
-						publisher: p.publisher,
-						sourceUrl: p.sourceUrl,
-						catalog: null
-					};
-					try {
-						data.catalog = await fetchCatalog(p.publisher.catalog_url);
-					} catch (e: any) {
-						data.error = e.message || String(e);
-					}
-					return data;
-				}));
+				libraryData = await Promise.all(
+					allPubs.map(async (p) => {
+						const data: LibraryPublisherData = {
+							publisher: p.publisher,
+							sourceUrl: p.sourceUrl,
+							catalog: null
+						};
+						try {
+							data.catalog = await fetchCatalog(p.publisher.catalog_url);
+						} catch (e: any) {
+							data.error = e.message || String(e);
+						}
+						return data;
+					})
+				);
 			}
 		} catch (e: any) {
-			console.error("Failed to load catalog(s):", e);
+			console.error('Failed to load catalog(s):', e);
 			if (publisher) {
-				libraryData = [{
-					publisher: {
-						identifier: publisher,
-						title: publisher,
-						catalog_url: diagCatalogUrl || ''
-					},
-					sourceUrl: diagCatalogUrl || '',
-					catalog: null,
-					error: e.message || String(e)
-				}];
+				libraryData = [
+					{
+						publisher: {
+							identifier: publisher,
+							title: publisher,
+							catalog_url: diagCatalogUrl || ''
+						},
+						sourceUrl: diagCatalogUrl || '',
+						catalog: null,
+						error: e.message || String(e)
+					}
+				];
 			}
 		} finally {
 			loading = false;
@@ -83,19 +89,19 @@
 </script>
 
 {#snippet headerContent()}
-	<AppHeader 
+	<AppHeader
 		appName="Vyasa Viewer"
 		href={base || '/'}
-		bind:leftVisible 
-		bind:rightVisible 
-		bind:bottomVisible 
+		bind:leftVisible
+		bind:rightVisible
+		bind:bottomVisible
 	/>
 {/snippet}
 
 {#snippet appBarContent()}
-	<ViewerAppBar 
-		active={publisher ? "library" : "home"} 
-		{publisher} 
+	<ViewerAppBar
+		active={publisher ? 'library' : 'home'}
+		{publisher}
 		{diagRegistryUrl}
 		{diagCatalogUrl}
 		diagCatalog={libraryData[0]?.catalog}
@@ -103,20 +109,22 @@
 	/>
 {/snippet}
 
-<AppShell 
+<AppShell
 	{leftVisible}
 	{rightVisible}
 	{bottomVisible}
-	appBar={appBarContent} 
-	header={headerContent} 
+	appBar={appBarContent}
+	header={headerContent}
 >
 	<div class="content-container">
 		<div class="header-section">
 			<div>
-				<h1 class="page-title">{publisher ? (libraryData[0]?.publisher.title || publisher) : 'Vyasa Directory'}</h1>
+				<h1 class="page-title">
+					{publisher ? libraryData[0]?.publisher.title || publisher : 'Vyasa Directory'}
+				</h1>
 				<p class="page-desc">
 					{#if publisher}
-						Showing publications for {libraryData[0]?.publisher.title || publisher}. 
+						Showing publications for {libraryData[0]?.publisher.title || publisher}.
 						{#if multiplePublishers}
 							<a href="{base}/" style="color: var(--text-primary);">View all publishers</a>
 						{/if}

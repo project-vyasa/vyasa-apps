@@ -6,35 +6,36 @@
 		open: boolean;
 		diagRegistryUrl?: string;
 		diagCatalogUrl?: string;
+		diagPublicationUrl?: string;
 		diagCatalog?: Catalog | null;
 		packageData?: PackageData | null;
 	}
 
-	let { 
+	let {
 		open = $bindable(false),
 		diagRegistryUrl = 'https://project-vyasa.github.io/vyasa-docs/registry.json',
 		diagCatalogUrl = '',
+		diagPublicationUrl = '',
 		diagCatalog = null,
 		packageData = null
 	}: Props = $props();
-
 </script>
 
 {#if open}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="diag-overlay" onclick={() => open = false}>
+	<div class="diag-overlay" onclick={() => (open = false)}>
 		<div class="diag-modal" onclick={(e) => e.stopPropagation()}>
 			<div class="diag-header">
 				<h2 class="diag-title">Diagnostics</h2>
-				<Button variant="ghost" onclick={() => open = false}>Close</Button>
+				<Button variant="ghost" onclick={() => (open = false)}>Close</Button>
 			</div>
 			<div class="diag-content">
 				<div class="diag-section">
 					<h3 class="diag-section-title">Global Registry</h3>
 					<div class="diag-url">{diagRegistryUrl}</div>
 				</div>
-				
+
 				<div class="diag-section">
 					<h3 class="diag-section-title">Publisher Catalog</h3>
 					<div class="diag-url">{diagCatalogUrl || 'Not loaded'}</div>
@@ -42,9 +43,10 @@
 						<pre class="diag-code">{JSON.stringify(diagCatalog, null, 2)}</pre>
 					{/if}
 				</div>
-				
+
 				<div class="diag-section">
 					<h3 class="diag-section-title">Publication Manifest</h3>
+					<div class="diag-url">{diagPublicationUrl || 'Not loaded'}</div>
 					{#if packageData}
 						<pre class="diag-code">{JSON.stringify(packageData.manifest, null, 2)}</pre>
 					{:else}
@@ -59,8 +61,11 @@
 <style>
 	.diag-overlay {
 		position: fixed;
-		top: 0; left: 0; right: 0; bottom: 0;
-		background: rgba(0,0,0,0.5);
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
 		display: flex;
 		align-items: center;
 		justify-content: center;

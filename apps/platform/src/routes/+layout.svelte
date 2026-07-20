@@ -9,8 +9,7 @@
 	let { children }: Props = $props();
 </script>
 
-<svelte:head>
-</svelte:head>
+<svelte:head></svelte:head>
 
 <ToastProvider>
 	<ThemeProvider>

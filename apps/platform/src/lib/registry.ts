@@ -6,11 +6,13 @@ export const DEFAULT_REGISTRY_URL = 'https://project-vyasa.github.io/vyasa-docs/
 export async function resolvePublisherCatalogUrl(publisher: string): Promise<string> {
 	// First, check custom catalogs
 	const customUrls = viewerSettings.customCatalogUrls;
+	const fetchErrors: string[] = [];
+
 	for (const url of customUrls) {
 		try {
-			// We fetch the catalog to see if its publisher matches, or we just assume 
+			// We fetch the catalog to see if its publisher matches, or we just assume
 			// if it's the only one, or we just have to fetch them all.
-			// Actually, custom catalogs might not declare their publisher ID. 
+			// Actually, custom catalogs might not declare their publisher ID.
 			// Let's fetch it and see if catalog.publisher === publisher
 			const res = await fetch(url);
 			if (res.ok) {
@@ -18,12 +20,15 @@ export async function resolvePublisherCatalogUrl(publisher: string): Promise<str
 				if (catalog.identifier === publisher) {
 					return url;
 				}
+			} else {
+				fetchErrors.push(`${url} (HTTP ${res.status})`);
 			}
-		} catch (e) {
+		} catch (e: any) {
 			console.warn(`Failed to check custom catalog ${url}`);
+			fetchErrors.push(`${url} (${e.message})`);
 		}
 	}
-	
+
 	// If not found in custom catalogs, try global registry (if enabled)
 	if (viewerSettings.enableGlobalRegistry) {
 		const registryUrl = viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL;
@@ -33,20 +38,26 @@ export async function resolvePublisherCatalogUrl(publisher: string): Promise<str
 		} catch (e: any) {
 			throw new Error(`Failed to fetch global registry from ${registryUrl}: ${e.message}`);
 		}
-		
+
 		if (!registryRes.ok) {
-			throw new Error(`Global registry not found at ${registryUrl} (Status: ${registryRes.status})`);
+			throw new Error(
+				`Global registry not found at ${registryUrl} (Status: ${registryRes.status})`
+			);
 		}
-		
+
 		const registry: Registry = await registryRes.json();
 		const pubEntry = registry.publishers?.find((p) => p.identifier === publisher);
-		
+
 		if (pubEntry) {
 			return pubEntry.catalog_url;
 		}
 	}
-	
-	throw new Error(`Publisher ${publisher} not found in enabled catalogs.`);
+
+	const errorMsg =
+		fetchErrors.length > 0
+			? `Publisher ${publisher} not found. Note: Some custom catalogs failed to load: ${fetchErrors.join(', ')}`
+			: `Publisher ${publisher} not found in enabled catalogs.`;
+	throw new Error(errorMsg);
 }
 
 export async function fetchCatalog(catalogUrl: string): Promise<Catalog> {
@@ -56,17 +67,17 @@ export async function fetchCatalog(catalogUrl: string): Promise<Catalog> {
 	} catch (e: any) {
 		throw new Error(`Failed to fetch catalog from ${catalogUrl}: ${e.message}`);
 	}
-	
+
 	if (!res.ok) {
 		throw new Error(`Catalog not found at ${catalogUrl} (Status: ${res.status})`);
 	}
-	
+
 	const data = await res.json();
-	
+
 	if (!data.publications) {
 		throw new Error(`Catalog at ${catalogUrl} is missing 'publications' array`);
 	}
-	
+
 	return {
 		schemaVersion: data.schemaVersion,
 		identifier: data.identifier,
@@ -81,13 +92,13 @@ export function getPublicationVyviewUrl(catalogUrl: string, pubItem: CatalogItem
 		throw new Error(`Publication ${pubItem.id} is missing vyviewUrl`);
 	}
 	const catalogBase = catalogUrl.substring(0, catalogUrl.lastIndexOf('/') + 1);
-	return url.startsWith('http') || url.startsWith('/') 
-		? url 
-		: catalogBase + url;
+	return url.startsWith('http') || url.startsWith('/') ? url : catalogBase + url;
 }
 
-export async function getAllPublishers(): Promise<{ publisher: RegistryEntry, sourceUrl: string }[]> {
-	const allPublishers: { publisher: RegistryEntry, sourceUrl: string }[] = [];
+export async function getAllPublishers(): Promise<
+	{ publisher: RegistryEntry; sourceUrl: string }[]
+> {
+	const allPublishers: { publisher: RegistryEntry; sourceUrl: string }[] = [];
 	const seenIds = new Set<string>();
 
 	// 1. Fetch from Custom Catalogs first so they appear at the top
@@ -99,10 +110,10 @@ export async function getAllPublishers(): Promise<{ publisher: RegistryEntry, so
 				const data = await res.json();
 				pubId = data.identifier || 'unknown';
 				const pubName = data.title || pubId;
-				
-				allPublishers.push({ 
-					publisher: { identifier: pubId, title: pubName, catalog_url: url }, 
-					sourceUrl: url 
+
+				allPublishers.push({
+					publisher: { identifier: pubId, title: pubName, catalog_url: url },
+					sourceUrl: url
 				});
 			} else {
 				allPublishers.push({

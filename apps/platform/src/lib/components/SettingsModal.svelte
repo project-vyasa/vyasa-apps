@@ -10,10 +10,10 @@
 
 	let { open = $bindable(false) }: Props = $props();
 
-	const themeContext = getContext<{ 
-		current: 'light' | 'dark',
-		theme: 'light' | 'dark' | 'system',
-		density: 'compact' | 'standard' | 'comfortable'
+	const themeContext = getContext<{
+		current: 'light' | 'dark';
+		theme: 'light' | 'dark' | 'system';
+		density: 'compact' | 'standard' | 'comfortable';
 	}>('theme');
 
 	let settingsData = $state({
@@ -31,7 +31,7 @@
 		viewerSettings.enableCustomCatalogs = settingsData.enableCustomCatalogs;
 		viewerSettings.customCatalogs = settingsData.customCatalogs;
 		viewerSettings.globalRegistryUrl = settingsData.globalRegistryUrl;
-		
+
 		if (themeContext) {
 			themeContext.theme = settingsData.theme as 'light' | 'dark' | 'system';
 			themeContext.density = settingsData.density as 'compact' | 'standard' | 'comfortable';
@@ -47,27 +47,27 @@
 				{
 					title: 'Theme & Density',
 					items: [
-						{ 
-							id: 'theme', 
-							type: 'select', 
-							label: 'Theme', 
+						{
+							id: 'theme',
+							type: 'select',
+							label: 'Theme',
 							description: 'Application color theme',
 							options: [
-								{label: 'Light', value: 'light'}, 
-								{label: 'Dark', value: 'dark'},
-								{label: 'System Default', value: 'system'}
-							] 
+								{ label: 'Light', value: 'light' },
+								{ label: 'Dark', value: 'dark' },
+								{ label: 'System Default', value: 'system' }
+							]
 						},
-						{ 
-							id: 'density', 
-							type: 'select', 
-							label: 'Density', 
+						{
+							id: 'density',
+							type: 'select',
+							label: 'Density',
 							description: 'Spacing and sizing of UI elements',
 							options: [
-								{label: 'Compact', value: 'compact'}, 
-								{label: 'Standard', value: 'standard'}, 
-								{label: 'Comfortable', value: 'comfortable'}
-							] 
+								{ label: 'Compact', value: 'compact' },
+								{ label: 'Standard', value: 'standard' },
+								{ label: 'Comfortable', value: 'comfortable' }
+							]
 						}
 					]
 				}
@@ -84,7 +84,8 @@
 						{
 							id: 'enableCustomCatalogs',
 							label: 'Enable Custom Catalogs',
-							description: 'Fetch publishers from custom catalog URLs (e.g. dev/private publications)',
+							description:
+								'Fetch publishers from custom catalog URLs (e.g. dev/private publications)',
 							type: 'boolean' as const
 						},
 						{

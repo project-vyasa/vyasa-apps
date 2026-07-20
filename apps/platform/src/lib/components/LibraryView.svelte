@@ -13,8 +13,8 @@
 	let { publishers, loading = false }: Props = $props();
 
 	let globalUrl = $derived(viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL);
-	let customPublishers = $derived(publishers.filter(p => p.sourceUrl !== globalUrl));
-	let globalPublishers = $derived(publishers.filter(p => p.sourceUrl === globalUrl));
+	let customPublishers = $derived(publishers.filter((p) => p.sourceUrl !== globalUrl));
+	let globalPublishers = $derived(publishers.filter((p) => p.sourceUrl === globalUrl));
 </script>
 
 <div class="library-container">
@@ -52,7 +52,11 @@
 {#snippet publisherSection(pubData: LibraryPublisherData)}
 	<div class="publisher-section">
 		<div class="catalog-header">
-			<h3 class="catalog-title">{pubData.catalog?.catalog?.publisher || pubData.publisher.title || pubData.publisher.identifier}</h3>
+			<h3 class="catalog-title">
+				{pubData.catalog?.catalog?.publisher ||
+					pubData.publisher.title ||
+					pubData.publisher.identifier}
+			</h3>
 			{#if pubData.catalog?.catalog?.description}
 				<p class="catalog-desc">{pubData.catalog.catalog.description}</p>
 			{/if}
@@ -60,7 +64,7 @@
 				<span class="catalog-id">Publisher ID: {pubData.publisher.identifier}</span>
 			</div>
 		</div>
-		
+
 		{#if pubData.error}
 			<div class="error-container">
 				<p>Failed to load catalog: {pubData.error}</p>
@@ -68,7 +72,7 @@
 		{:else if pubData.catalog}
 			<div class="grid-container">
 				{#each pubData.catalog.items || [] as item}
-					<button 
+					<button
 						class="library-card"
 						onclick={() => goto(`${base}/${pubData.publisher.identifier}/${item.id}`)}
 					>
@@ -103,7 +107,8 @@
 	.loading-text {
 		color: var(--text-tertiary);
 	}
-	.empty-container, .empty-catalog {
+	.empty-container,
+	.empty-catalog {
 		padding: 2rem;
 		text-align: center;
 		color: var(--text-tertiary);
@@ -132,7 +137,7 @@
 		padding-bottom: var(--space-2);
 		border-bottom: 2px solid var(--border-base);
 	}
-	
+
 	/* Publisher Section */
 	.publisher-section {
 		display: flex;
@@ -165,7 +170,7 @@
 	.catalog-id {
 		font-family: var(--font-mono);
 	}
-	
+
 	/* Card Grid */
 	.grid-container {
 		display: grid;
@@ -181,12 +186,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-3);
-		transition: transform 0.2s, box-shadow 0.2s;
+		transition:
+			transform 0.2s,
+			box-shadow 0.2s;
 		text-align: left;
 		color: inherit;
 		text-decoration: none;
 	}
-	.library-card:hover, .library-card:focus {
+	.library-card:hover,
+	.library-card:focus {
 		transform: translateY(-2px);
 		box-shadow: var(--shadow-sm);
 	}

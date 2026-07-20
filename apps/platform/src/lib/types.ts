@@ -34,6 +34,8 @@ export interface Catalog {
 }
 
 export interface Manifest {
+	title?: string;
+	timestamp?: string | number;
 	package_type: string;
 
 	catalog_tree: string;

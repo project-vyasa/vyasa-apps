@@ -18,10 +18,17 @@ export class ViewerSettings {
 			const saved = localStorage.getItem('vyasa_viewer_settings');
 			if (saved) {
 				const parsed = JSON.parse(saved);
-				if (typeof parsed.enableGlobalRegistry === 'boolean') this._enableGlobalRegistry = parsed.enableGlobalRegistry;
+				if (typeof parsed.enableGlobalRegistry === 'boolean')
+					this._enableGlobalRegistry = parsed.enableGlobalRegistry;
 				if (parsed.globalRegistryUrl) this._globalRegistryUrl = parsed.globalRegistryUrl;
-				if (typeof parsed.enableCustomCatalogs === 'boolean') this._enableCustomCatalogs = parsed.enableCustomCatalogs;
+				if (typeof parsed.enableCustomCatalogs === 'boolean')
+					this._enableCustomCatalogs = parsed.enableCustomCatalogs;
 				if (parsed.customCatalogs) this._customCatalogs = parsed.customCatalogs;
+			}
+
+			// Inject local dev catalog if running in development mode and custom catalogs is empty
+			if (import.meta.env.DEV && !this._customCatalogs) {
+				this._customCatalogs = 'http://localhost:8080/catalog.json';
 			}
 		} catch (e) {
 			console.error('Failed to load settings:', e);
@@ -30,12 +37,15 @@ export class ViewerSettings {
 
 	private save() {
 		if (browser) {
-			localStorage.setItem('vyasa_viewer_settings', JSON.stringify({
-				enableGlobalRegistry: this._enableGlobalRegistry,
-				globalRegistryUrl: this._globalRegistryUrl,
-				enableCustomCatalogs: this._enableCustomCatalogs,
-				customCatalogs: this._customCatalogs
-			}));
+			localStorage.setItem(
+				'vyasa_viewer_settings',
+				JSON.stringify({
+					enableGlobalRegistry: this._enableGlobalRegistry,
+					globalRegistryUrl: this._globalRegistryUrl,
+					enableCustomCatalogs: this._enableCustomCatalogs,
+					customCatalogs: this._customCatalogs
+				})
+			);
 		}
 	}
 
@@ -70,13 +80,14 @@ export class ViewerSettings {
 		this._enableCustomCatalogs = val;
 		this.save();
 	}
-	
+
 	// Helper to get parsed custom catalog URLs
 	get customCatalogUrls(): string[] {
 		if (!this._enableCustomCatalogs || !this._customCatalogs) return [];
-		return this._customCatalogs.split(/[;,]/)
-			.map(s => s.trim())
-			.filter(s => s.length > 0);
+		return this._customCatalogs
+			.split(/[;,]/)
+			.map((s) => s.trim())
+			.filter((s) => s.length > 0);
 	}
 }
 

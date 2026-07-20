@@ -14,23 +14,35 @@ export default defineConfig({
 				server.middlewares.use((req, res, next) => {
 					const url = req.url || '';
 					let localPath: string | null = null;
-					
+
 					if (url.startsWith('/local-docs/')) {
-						localPath = path.join(workspaceRoot, 'vyasa-docs/astro-starlight/public', url.slice('/local-docs/'.length).split('?')[0]);
+						localPath = path.join(
+							workspaceRoot,
+							'vyasa-docs/astro-starlight/public',
+							url.slice('/local-docs/'.length).split('?')[0]
+						);
 					} else if (url.startsWith('/local-samples/')) {
-						localPath = path.join(workspaceRoot, 'vyasa-samples/dist', url.slice('/local-samples/'.length).split('?')[0]);
+						localPath = path.join(
+							workspaceRoot,
+							'vyasa-samples/dist',
+							url.slice('/local-samples/'.length).split('?')[0]
+						);
 					} else if (url.startsWith('/local-muktabodha/')) {
-						localPath = path.join(workspaceRoot, 'muktabodha.org/dist', url.slice('/local-muktabodha/'.length).split('?')[0]);
+						localPath = path.join(
+							workspaceRoot,
+							'muktabodha.org/dist',
+							url.slice('/local-muktabodha/'.length).split('?')[0]
+						);
 					}
-					
+
 					if (localPath && fs.existsSync(localPath) && fs.statSync(localPath).isFile()) {
 						console.log(`[serve-local-workspaces] Serving local file: ${localPath}`);
-						const mimeType = localPath.endsWith('.json') 
-							? 'application/json' 
-							: localPath.endsWith('.vyview') 
-								? 'application/octet-stream' 
+						const mimeType = localPath.endsWith('.json')
+							? 'application/json'
+							: localPath.endsWith('.vyview')
+								? 'application/octet-stream'
 								: 'text/plain';
-								
+
 						res.writeHead(200, {
 							'Content-Type': mimeType,
 							'Access-Control-Allow-Origin': '*',
@@ -46,7 +58,8 @@ export default defineConfig({
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-				runes: ({ filename }) => filename.split(/[/\\]/).includes('node_modules') ? undefined : true
+				runes: ({ filename }) =>
+					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter({ fallback: '404.html' }),
 			paths: {
@@ -60,9 +73,6 @@ export default defineConfig({
 		}
 	},
 	optimizeDeps: {
-		exclude: [
-			'@project-vyasa/vyasa-viewer-wasm',
-			'@project-vyasa/vyasa-compiler-wasm'
-		]
+		exclude: ['@project-vyasa/vyasa-viewer-wasm', '@project-vyasa/vyasa-compiler-wasm']
 	}
 });
