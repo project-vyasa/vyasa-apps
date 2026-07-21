@@ -41,7 +41,7 @@
 					{
 						publisher: {
 							identifier: publisher,
-							title: catalogData.catalog?.publisher || publisher,
+							title: catalogData.title || publisher,
 							catalog_url: catalogUrl
 						},
 						sourceUrl: catalogUrl,

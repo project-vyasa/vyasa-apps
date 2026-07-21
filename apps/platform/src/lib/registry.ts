@@ -99,9 +99,11 @@ export async function getAllPublishers(): Promise<
 	{ publisher: RegistryEntry; sourceUrl: string }[]
 > {
 	const allPublishers: { publisher: RegistryEntry; sourceUrl: string }[] = [];
-	const seenIds = new Set<string>();
 
-	// 1. Fetch from Custom Catalogs first so they appear at the top
+	// 1. Custom catalogs first — always shown in full (user explicitly configured these).
+	// Note: the same publisher-id may appear more than once (e.g., dev vs prod builds).
+	// That is intentional — publisher-id alone is not globally unique; the tuple
+	// (publisher-id, publication-id) is. Deduplication is NOT applied here.
 	for (const url of viewerSettings.customCatalogUrls) {
 		let pubId = 'unknown';
 		try {
@@ -110,7 +112,6 @@ export async function getAllPublishers(): Promise<
 				const data = await res.json();
 				pubId = data.identifier || 'unknown';
 				const pubName = data.title || pubId;
-
 				allPublishers.push({
 					publisher: { identifier: pubId, title: pubName, catalog_url: url },
 					sourceUrl: url
@@ -130,7 +131,7 @@ export async function getAllPublishers(): Promise<
 		}
 	}
 
-	// 2. Fetch from Global Registry if enabled
+	// 2. Global Registry — also shown in full, no deduplication against custom catalogs.
 	if (viewerSettings.enableGlobalRegistry) {
 		const registryUrl = viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL;
 		try {
