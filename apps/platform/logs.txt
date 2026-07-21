@@ -7,3 +7,4 @@ Port 5175 is in use, trying another one...
 
   ➜  Local:   http://localhost:5176/
   ➜  Network: use --host to expose
+error: script "dev" exited with code 143

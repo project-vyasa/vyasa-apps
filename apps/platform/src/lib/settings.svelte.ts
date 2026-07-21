@@ -6,6 +6,7 @@ export class ViewerSettings {
 	private _globalRegistryUrl = $state('https://project-vyasa.github.io/vyasa-docs/registry.json');
 	private _enableCustomCatalogs = $state(true);
 	private _customCatalogs = $state('');
+	private _debugMode = $state(false);
 
 	constructor() {
 		if (browser) {
@@ -24,6 +25,7 @@ export class ViewerSettings {
 				if (typeof parsed.enableCustomCatalogs === 'boolean')
 					this._enableCustomCatalogs = parsed.enableCustomCatalogs;
 				if (parsed.customCatalogs) this._customCatalogs = parsed.customCatalogs;
+				if (typeof parsed.debugMode === 'boolean') this._debugMode = parsed.debugMode;
 			}
 
 			// Inject local dev catalog if running in development mode and custom catalogs is empty
@@ -43,7 +45,8 @@ export class ViewerSettings {
 					enableGlobalRegistry: this._enableGlobalRegistry,
 					globalRegistryUrl: this._globalRegistryUrl,
 					enableCustomCatalogs: this._enableCustomCatalogs,
-					customCatalogs: this._customCatalogs
+					customCatalogs: this._customCatalogs,
+					debugMode: this._debugMode
 				})
 			);
 		}
@@ -88,6 +91,14 @@ export class ViewerSettings {
 			.split(/[;,]/)
 			.map((s) => s.trim())
 			.filter((s) => s.length > 0);
+	}
+
+	get debugMode() {
+		return this._debugMode;
+	}
+	set debugMode(val: boolean) {
+		this._debugMode = val;
+		this.save();
 	}
 }
 

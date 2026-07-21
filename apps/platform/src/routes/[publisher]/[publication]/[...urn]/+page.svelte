@@ -11,6 +11,7 @@
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
 	import ViewerAppBar from '$lib/components/ViewerAppBar.svelte';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
+	import { viewerSettings } from '$lib/settings.svelte';
 	import type { PackageData, Catalog } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 
@@ -191,26 +192,30 @@
 			style="font-size: 0.9em; color: var(--text-muted); text-align: center; display: flex; align-items: center; justify-content: center;"
 		>
 			{#if packageData}
-				<strong>{packageData.manifest.title || publication}</strong>
-				<!-- TODO: Guard behind a debug flag -->
-				<span
-					style="opacity: 0.6; margin-left: 0.75rem; font-size: 0.85em; display: inline-flex; gap: 0.5rem;"
-				>
+				{@const pubTitle = diagCatalog?.items?.find((i) => i.id === publication)?.title || packageData.manifest.title || publication}
+				<strong>{pubTitle}</strong>
+				{#if viewerSettings.debugMode}
 					<span
-						>URL: <a
-							href={diagCatalogUrl}
-							target="_blank"
-							rel="noopener noreferrer"
-							style="color: inherit; text-decoration: underline;">{diagCatalogUrl}</a
-						></span
+						style="opacity: 0.6; margin-left: 0.75rem; font-size: 0.85em; display: inline-flex; gap: 0.5rem;"
 					>
-					<span>|</span>
-					<span
-						>Built: {new Date(
-							Number(packageData.manifest.timestamp || 0) * 1000
-						).toLocaleString()}</span
-					>
-				</span>
+						<span style="font-family: var(--font-mono);">{publication}</span>
+						<span>|</span>
+						<span
+							>URL: <a
+								href={diagPublicationUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								style="color: inherit; text-decoration: underline;">{diagPublicationUrl}</a
+							></span
+						>
+						<span>|</span>
+						<span
+							>Built: {new Date(
+								Number(packageData.manifest.timestamp || 0) * 1000
+							).toLocaleString()}</span
+						>
+					</span>
+				{/if}
 			{/if}
 		</div>
 	</AppHeader>

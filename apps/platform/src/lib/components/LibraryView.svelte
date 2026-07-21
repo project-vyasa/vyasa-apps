@@ -60,10 +60,17 @@
 			{#if pubData.catalog?.catalog?.description}
 				<p class="catalog-desc">{pubData.catalog.catalog.description}</p>
 			{/if}
+		</div>
+		{#if viewerSettings.debugMode}
 			<div class="catalog-meta">
 				<span class="catalog-id">Publisher ID: {pubData.publisher.identifier}</span>
+				{#if pubData.publisher.catalog_url}
+					<span class="catalog-url">
+						URL: <a href={pubData.publisher.catalog_url} target="_blank" rel="noopener noreferrer">{pubData.publisher.catalog_url}</a>
+					</span>
+				{/if}
 			</div>
-		</div>
+		{/if}
 
 		{#if pubData.error}
 			<div class="error-container">
@@ -77,9 +84,11 @@
 						onclick={() => goto(`${base}/${pubData.publisher.identifier}/${item.id}`)}
 					>
 						<h4 class="library-card-title">{item.title || item.id}</h4>
-						<div class="library-card-meta">
-							<span class="library-card-id">ID: {item.id}</span>
-						</div>
+						{#if viewerSettings.debugMode}
+							<div class="library-card-meta">
+								<span class="library-card-id">ID: {item.id}</span>
+							</div>
+						{/if}
 					</button>
 				{/each}
 			</div>

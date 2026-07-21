@@ -21,6 +21,7 @@
 		enableCustomCatalogs: viewerSettings.enableCustomCatalogs,
 		customCatalogs: viewerSettings.customCatalogs,
 		globalRegistryUrl: viewerSettings.globalRegistryUrl,
+		debugMode: viewerSettings.debugMode,
 		theme: themeContext?.theme || 'system',
 		density: themeContext?.density || 'standard'
 	});
@@ -31,6 +32,7 @@
 		viewerSettings.enableCustomCatalogs = settingsData.enableCustomCatalogs;
 		viewerSettings.customCatalogs = settingsData.customCatalogs;
 		viewerSettings.globalRegistryUrl = settingsData.globalRegistryUrl;
+		viewerSettings.debugMode = settingsData.debugMode;
 
 		if (themeContext) {
 			themeContext.theme = settingsData.theme as 'light' | 'dark' | 'system';
@@ -122,6 +124,12 @@
 							label: 'Override Global Registry URL',
 							description: 'Advanced: Change the default global registry endpoint',
 							type: 'text' as const
+						},
+						{
+							id: 'debugMode',
+							label: 'Enable Debug Mode',
+							description: 'Show diagnostic information and URLs in the UI',
+							type: 'boolean' as const
 						}
 					]
 				}
