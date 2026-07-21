@@ -91,6 +91,40 @@ export async function loadPublication(
 	// 8. Build WASM graph runtime
 	const graphRuntime = new VyasaViewerRuntime(hierarchyJson, bitLayoutJson, globalPrefix);
 
+	// 8b. Load and parse block attributes (e.g. titles for URNs)
+	// We ORDER BY stream_id ASC and use the first stream's title (typically iast) to prevent later streams (like mula/Devanagari) from overwriting it.
+	const attrRows = await viewerDb.query(
+		'SELECT sequence_id, attributes FROM block_attributes ORDER BY stream_id ASC'
+	);
+	const titles: Record<string, string> = {};
+	for (const row of attrRows) {
+		const seqId = BigInt(row[0] as string | number);
+		const attrJson = row[1] as string;
+		try {
+			const attrs = JSON.parse(attrJson);
+			if (attrs.title) {
+				const fullUrn = graphRuntime.get_urn(seqId);
+				let relativeUrn = fullUrn;
+				if (relativeUrn.startsWith(globalPrefix)) {
+					relativeUrn = relativeUrn.slice(globalPrefix.length);
+					if (relativeUrn.startsWith(':')) {
+						relativeUrn = relativeUrn.slice(1);
+					}
+				}
+				// Strip trailing zero-padding used for container URNs (e.g. "1:0" -> "1")
+				while (relativeUrn.endsWith(':0')) {
+					relativeUrn = relativeUrn.slice(0, -2);
+				}
+				if (!titles[relativeUrn]) {
+					titles[relativeUrn] = attrs.title;
+				}
+			}
+		} catch (e) {
+			console.warn(`Failed to parse block attributes for seqId ${seqId}:`, e);
+		}
+	}
+	console.log('Vyasa Load: Extracted block titles:', titles);
+
 	// 9. Determine initial navigation target (for 'root' URN redirect)
 	// Flatten the catalog tree to find the first leaf
 	let initialTargetUrn: string | null = null;
@@ -105,7 +139,8 @@ export async function loadPublication(
 	const packageData: PackageData = {
 		manifest: manifest as unknown as Manifest,
 		structure: { catalogTree: catalogTreeTemp },
-		projections
+		projections,
+		titles
 	};
 
 	return {

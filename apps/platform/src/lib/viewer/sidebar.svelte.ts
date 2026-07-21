@@ -61,9 +61,13 @@ export class SidebarState {
 					const itemLabel = urnComponents[pathParts.length - 1] || 'Item';
 					const groupLabel =
 						pathParts.length > 1 ? urnComponents[pathParts.length - 2] || 'Group' : '';
+					const semanticTitle = pd?.titles?.[id];
+					const fallbackTitle = `${capitalize(itemLabel)} ${lastPart}`;
+					
 					result.push({
 						id,
-						title: `${capitalize(itemLabel)} ${lastPart}`,
+						title: semanticTitle || fallbackTitle,
+						subtitle: semanticTitle ? fallbackTitle : undefined,
 						group: parentPart ? `${capitalize(groupLabel)} ${parentPart}` : undefined
 					});
 				}

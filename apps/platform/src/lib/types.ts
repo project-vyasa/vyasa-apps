@@ -50,4 +50,5 @@ export interface PackageData {
 		catalogTree: any;
 	};
 	projections: Record<string, string>;
+	titles?: Record<string, string>;
 }
