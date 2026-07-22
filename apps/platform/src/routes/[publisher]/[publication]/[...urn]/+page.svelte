@@ -1,17 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { base } from '$app/paths';
-	import { AppShell, AppHeader, Panel, ListView } from '@project-vyasa/vyasa-ui';
+	import { Panel, ListView } from '@project-vyasa/vyasa-ui';
 	import { BookOpen } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
-	import { onDestroy, getContext, untrack } from 'svelte';
+	import { onDestroy, getContext, untrack, type Snippet } from 'svelte';
 	import { ViewerDb } from '$lib/ViewerDb';
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { renderUrn } from '$lib/viewer/urn-renderer';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
-	import ViewerAppBar from '$lib/components/ViewerAppBar.svelte';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
-	import DiagnosticsView from '$lib/components/DiagnosticsView.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import type { PackageData, Catalog } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
@@ -20,18 +18,16 @@
 	const publisher = $derived($page.params.publisher || '');
 	const publication = $derived($page.params.publication || '');
 	const urn = $derived($page.params.urn || 'root');
-	const embed = $derived($page.url.searchParams.get('embed') === 'true');
 
-	// Theme context available for future use (e.g. toggling from header)
-	getContext('theme');
+	// Register sidebars with root shell layout
+	const shell = getContext<{
+		setSidebarLeft: (s: Snippet | undefined) => void;
+		setSidebarRight: (s: Snippet | undefined) => void;
+		setSidebarTop: (s: Snippet | undefined) => void;
+		setPanelBottom: (s: Snippet | undefined) => void;
+	}>('shellState');
 
-	// --- AppShell Layout State ---
-	let leftVisible = $state(true);
-	let rightVisible = $state(false);
-	let topVisible = $state(true);
-	let showDiagnostics = $state(false);
-	let bottomVisible = $state(false);
-	let maximizedZone = $state<'none' | 'bottom' | 'content'>('none');
+	// --- Layout state ---
 	let isFullWidth = $state(false);
 
 	// --- Viewer State ---
@@ -46,9 +42,7 @@
 	let currentUrnParts = $state<string[]>([]);
 	let iframeElement = $state<HTMLIFrameElement>();
 
-	// --- Diagnostics ---
-	let diagRegistryUrl = $state('');
-	let diagCatalogUrl = $state('');
+	// --- Diagnostics metadata for debug display ---
 	let diagPublicationUrl = $state('');
 	let diagCatalog = $state<Catalog | null>(null);
 
@@ -59,6 +53,20 @@
 		() => urnComponents,
 		() => urn
 	);
+
+	// Register sidebars with Shell
+	$effect(() => {
+		if (shell) {
+			shell.setSidebarLeft(sidebarLeftContent);
+			shell.setSidebarTop(sidebarTopContent);
+			shell.setSidebarRight(sidebarRightContent);
+			return () => {
+				shell.setSidebarLeft(undefined);
+				shell.setSidebarTop(undefined);
+				shell.setSidebarRight(undefined);
+			};
+		}
+	});
 
 	// --- Effects ---
 
@@ -100,8 +108,6 @@
 		try {
 			const result = await loadPublication(publisher, publication, viewerDb);
 
-			diagRegistryUrl = result.diagRegistryUrl;
-			diagCatalogUrl = result.diagCatalogUrl;
 			diagPublicationUrl = result.diagPublicationUrl;
 			diagCatalog = result.diagCatalog;
 			urnComponents = result.urnComponents;
@@ -182,58 +188,6 @@
 	}
 </script>
 
-{#snippet headerContent()}
-	<AppHeader
-		appName="Vyasa Viewer"
-		href={base || '/'}
-		bind:leftVisible
-		bind:rightVisible
-		bind:bottomVisible
-	>
-		<div
-			style="font-size: 0.9em; color: var(--text-muted); text-align: center; display: flex; align-items: center; justify-content: center;"
-		>
-			{#if packageData}
-				{@const pubTitle = diagCatalog?.items?.find((i) => i.id === publication)?.title || packageData.manifest.title || publication}
-				<strong>{pubTitle}</strong>
-				{#if viewerSettings.debugMode}
-					<span
-						style="opacity: 0.6; margin-left: 0.75rem; font-size: 0.85em; display: inline-flex; gap: 0.5rem;"
-					>
-						<span style="font-family: var(--font-mono);">{publication}</span>
-						<span>|</span>
-						<span
-							>URL: <a
-								href={diagPublicationUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								style="color: inherit; text-decoration: underline;">{diagPublicationUrl}</a
-							></span
-						>
-						<span>|</span>
-						<span
-							>Built: {new Date(
-								Number(packageData.manifest.timestamp || 0) * 1000
-							).toLocaleString()}</span
-						>
-					</span>
-				{/if}
-			{/if}
-		</div>
-	</AppHeader>
-{/snippet}
-
-{#snippet appBarContent()}
-	<ViewerAppBar
-		active="reader"
-		bind:expanded={leftVisible}
-		{publisher}
-		{publication}
-		diagnosticsOpen={showDiagnostics}
-		onToggleDiagnostics={() => (showDiagnostics = !showDiagnostics)}
-	/>
-{/snippet}
-
 {#snippet sidebarTopContent()}
 	<ViewerNavBar
 		{urn}
@@ -273,45 +227,21 @@
 	</Panel>
 {/snippet}
 
-<AppShell
-	leftVisible={!embed && leftVisible}
-	rightVisible={!embed && rightVisible}
-	{topVisible}
-	topHeight={48}
-	{bottomVisible}
-	{maximizedZone}
-	header={!embed ? headerContent : undefined}
-	appBar={!embed ? appBarContent : undefined}
-	sidebarLeft={sidebarLeftContent}
-	sidebarTop={sidebarTopContent}
-	sidebarRight={sidebarRightContent}
->
-	<div class="viewer-container">
-		{#if showDiagnostics}
-			<DiagnosticsView
-				open={showDiagnostics}
-				onClose={() => (showDiagnostics = false)}
-				{diagRegistryUrl}
-				{diagCatalogUrl}
-				{diagPublicationUrl}
-				{diagCatalog}
-				{packageData}
-			/>
-		{:else if errorMessage}
-			<div class="error-box">{errorMessage}</div>
-		{:else if !srcdocContent}
-			<div class="loading-box">Loading {publication}...</div>
-		{:else}
-			<iframe
-				bind:this={iframeElement}
-				srcdoc={srcdocContent}
-				title="Vyasa Content"
-				class="viewer-iframe"
-				class:full-width={isFullWidth}
-			></iframe>
-		{/if}
-	</div>
-</AppShell>
+<div class="viewer-container">
+	{#if errorMessage}
+		<div class="error-box">{errorMessage}</div>
+	{:else if !srcdocContent}
+		<div class="loading-box">Loading {publication}...</div>
+	{:else}
+		<iframe
+			bind:this={iframeElement}
+			srcdoc={srcdocContent}
+			title="Vyasa Content"
+			class="viewer-iframe"
+			class:full-width={isFullWidth}
+		></iframe>
+	{/if}
+</div>
 
 <style>
 	.sidebar-panel-content {

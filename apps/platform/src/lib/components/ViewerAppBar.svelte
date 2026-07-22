@@ -1,31 +1,36 @@
 <script lang="ts">
 	import { Button, ActivityBar } from '@project-vyasa/vyasa-ui';
-	import { Library, BookOpen, Bug, Settings, Monitor, Moon, Sun } from 'lucide-svelte';
+	import { Library, BookOpen, Compass, Bug, Settings, Monitor, Moon, Sun } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
+	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import SettingsModal from './SettingsModal.svelte';
-	import type { Catalog, PackageData } from '$lib/types';
-
-	interface Props {
-		active: 'library' | 'reader' | 'home';
-		expanded?: boolean;
-		publisher?: string;
-		publication?: string;
-		diagnosticsOpen?: boolean;
-		onToggleDiagnostics?: () => void;
-	}
-
-	let {
-		active,
-		expanded = $bindable(false),
-		publisher = '',
-		publication = '',
-		diagnosticsOpen = false,
-		onToggleDiagnostics
-	}: Props = $props();
+	import { activePublication } from '$lib/viewer/active-publication.svelte';
 
 	let settingsOpen = $state(false);
+
+	// Synchronize active publication state from route parameters
+	$effect(() => {
+		const pub = page.params.publisher;
+		const publicationId = page.params.publication;
+		if (pub && publicationId) {
+			activePublication.setPublication(pub, publicationId);
+		}
+		if (page.params.urn) {
+			activePublication.setLastUrn(page.params.urn);
+		}
+	});
+
+	const publisher = $derived(page.params.publisher || activePublication.publisher);
+	const publication = $derived(page.params.publication || activePublication.publication);
+
+	const active = $derived.by(() => {
+		if (page.url.pathname.includes('/diagnostics')) return 'diagnostics';
+		if (page.url.pathname.includes('/explore')) return 'explore';
+		if (page.params.publication) return 'reader';
+		return 'library';
+	});
 
 	const themeContext = getContext<{
 		current: 'light' | 'dark';
@@ -36,7 +41,7 @@
 	}>('theme');
 </script>
 
-<ActivityBar bind:expanded>
+<ActivityBar>
 	{#snippet top()}
 		<Button
 			variant={active === 'library' ? 'secondary' : 'ghost'}
@@ -49,16 +54,31 @@
 		/>
 		{#if publication}
 			<Button
+				variant={active === 'explore' ? 'secondary' : 'ghost'}
+				size="icon"
+				icon={Compass}
+				title="Explore"
+				onclick={() => {
+					if (active !== 'explore') goto(`${base}${activePublication.exploreUrl}`);
+				}}
+			/>
+			<Button
 				variant={active === 'reader' ? 'secondary' : 'ghost'}
 				size="icon"
 				icon={BookOpen}
 				title="Reader"
 				onclick={() => {
-					// Only navigate if we aren't already on the reader for this publication
-					if (active !== 'reader') goto(`${base}/${publisher}/${publication}`);
+					if (active !== 'reader') goto(`${base}${activePublication.readerUrl}`);
 				}}
 			/>
 		{:else}
+			<Button
+				variant="ghost"
+				size="icon"
+				icon={Compass}
+				title="Explore (Select a publication first)"
+				disabled
+			/>
 			<Button
 				variant="ghost"
 				size="icon"
@@ -87,12 +107,12 @@
 			/>
 		{/if}
 		<Button
-			variant={diagnosticsOpen ? 'secondary' : 'ghost'}
+			variant={active === 'diagnostics' ? 'secondary' : 'ghost'}
 			size="icon"
 			icon={Bug}
 			title="Diagnostics"
 			onclick={() => {
-				if (onToggleDiagnostics) onToggleDiagnostics();
+				if (active !== 'diagnostics') goto(`${base}${activePublication.diagnosticsUrl}`);
 			}}
 		/>
 		<Button
