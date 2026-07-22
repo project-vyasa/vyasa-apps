@@ -5,7 +5,6 @@
 	import { base } from '$app/paths';
 	import { getContext } from 'svelte';
 	import SettingsModal from './SettingsModal.svelte';
-	import DiagnosticsModal from './DiagnosticsModal.svelte';
 	import type { Catalog, PackageData } from '$lib/types';
 
 	interface Props {
@@ -13,11 +12,8 @@
 		expanded?: boolean;
 		publisher?: string;
 		publication?: string;
-		diagRegistryUrl?: string;
-		diagCatalogUrl?: string;
-		diagPublicationUrl?: string;
-		diagCatalog?: Catalog | null;
-		packageData?: PackageData | null;
+		diagnosticsOpen?: boolean;
+		onToggleDiagnostics?: () => void;
 	}
 
 	let {
@@ -25,15 +21,11 @@
 		expanded = $bindable(false),
 		publisher = '',
 		publication = '',
-		diagRegistryUrl,
-		diagCatalogUrl,
-		diagPublicationUrl,
-		diagCatalog,
-		packageData
+		diagnosticsOpen = false,
+		onToggleDiagnostics
 	}: Props = $props();
 
 	let settingsOpen = $state(false);
-	let diagnosticsOpen = $state(false);
 
 	const themeContext = getContext<{
 		current: 'light' | 'dark';
@@ -95,11 +87,13 @@
 			/>
 		{/if}
 		<Button
-			variant="ghost"
+			variant={diagnosticsOpen ? 'secondary' : 'ghost'}
 			size="icon"
 			icon={Bug}
 			title="Diagnostics"
-			onclick={() => (diagnosticsOpen = true)}
+			onclick={() => {
+				if (onToggleDiagnostics) onToggleDiagnostics();
+			}}
 		/>
 		<Button
 			variant="ghost"
@@ -112,11 +106,3 @@
 </ActivityBar>
 
 <SettingsModal bind:open={settingsOpen} />
-<DiagnosticsModal
-	bind:open={diagnosticsOpen}
-	{diagRegistryUrl}
-	{diagCatalogUrl}
-	{diagPublicationUrl}
-	{diagCatalog}
-	{packageData}
-/>

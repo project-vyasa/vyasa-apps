@@ -11,6 +11,7 @@
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
 	import ViewerAppBar from '$lib/components/ViewerAppBar.svelte';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
+	import DiagnosticsView from '$lib/components/DiagnosticsView.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import type { PackageData, Catalog } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
@@ -28,6 +29,7 @@
 	let leftVisible = $state(true);
 	let rightVisible = $state(false);
 	let topVisible = $state(true);
+	let showDiagnostics = $state(false);
 	let bottomVisible = $state(false);
 	let maximizedZone = $state<'none' | 'bottom' | 'content'>('none');
 	let isFullWidth = $state(false);
@@ -227,11 +229,8 @@
 		bind:expanded={leftVisible}
 		{publisher}
 		{publication}
-		{diagRegistryUrl}
-		{diagCatalogUrl}
-		{diagPublicationUrl}
-		{diagCatalog}
-		{packageData}
+		diagnosticsOpen={showDiagnostics}
+		onToggleDiagnostics={() => (showDiagnostics = !showDiagnostics)}
 	/>
 {/snippet}
 
@@ -288,7 +287,17 @@
 	sidebarRight={sidebarRightContent}
 >
 	<div class="viewer-container">
-		{#if errorMessage}
+		{#if showDiagnostics}
+			<DiagnosticsView
+				open={showDiagnostics}
+				onClose={() => (showDiagnostics = false)}
+				{diagRegistryUrl}
+				{diagCatalogUrl}
+				{diagPublicationUrl}
+				{diagCatalog}
+				{packageData}
+			/>
+		{:else if errorMessage}
 			<div class="error-box">{errorMessage}</div>
 		{:else if !srcdocContent}
 			<div class="loading-box">Loading {publication}...</div>
