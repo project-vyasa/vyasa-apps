@@ -63,12 +63,18 @@ export class SidebarState {
 						pathParts.length > 1 ? urnComponents[pathParts.length - 2] || 'Group' : '';
 					const semanticTitle = pd?.titles?.[id];
 					const fallbackTitle = `${capitalize(itemLabel)} ${lastPart}`;
-					
+					const parentSemanticTitle = parentPart ? pd?.titles?.[parentPart] : undefined;
+					const groupTitle = parentSemanticTitle
+						? `${parentSemanticTitle} (${capitalize(groupLabel)} ${parentPart})`
+						: parentPart
+							? `${capitalize(groupLabel)} ${parentPart}`
+							: undefined;
+
 					result.push({
 						id,
 						title: semanticTitle || fallbackTitle,
 						subtitle: semanticTitle ? fallbackTitle : undefined,
-						group: parentPart ? `${capitalize(groupLabel)} ${parentPart}` : undefined
+						group: groupTitle
 					});
 				}
 				return;

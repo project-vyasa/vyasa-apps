@@ -3,9 +3,13 @@ import { browser } from '$app/environment';
 export class ViewerSettings {
 	// Defaults
 	private _enableGlobalRegistry = $state(true);
-	private _globalRegistryUrl = $state('https://project-vyasa.github.io/vyasa-docs/registry.json');
+
+	private _enableCustomRegistries = $state(true);
+	private _customRegistries = $state('');
+
 	private _enableCustomCatalogs = $state(true);
 	private _customCatalogs = $state('');
+
 	private _debugMode = $state(false);
 
 	constructor() {
@@ -21,16 +25,16 @@ export class ViewerSettings {
 				const parsed = JSON.parse(saved);
 				if (typeof parsed.enableGlobalRegistry === 'boolean')
 					this._enableGlobalRegistry = parsed.enableGlobalRegistry;
-				if (parsed.globalRegistryUrl) this._globalRegistryUrl = parsed.globalRegistryUrl;
+
+				if (typeof parsed.enableCustomRegistries === 'boolean')
+					this._enableCustomRegistries = parsed.enableCustomRegistries;
+				if (parsed.customRegistries) this._customRegistries = parsed.customRegistries;
+
 				if (typeof parsed.enableCustomCatalogs === 'boolean')
 					this._enableCustomCatalogs = parsed.enableCustomCatalogs;
 				if (parsed.customCatalogs) this._customCatalogs = parsed.customCatalogs;
-				if (typeof parsed.debugMode === 'boolean') this._debugMode = parsed.debugMode;
-			}
 
-			// Inject local dev catalog if running in development mode and custom catalogs is empty
-			if (import.meta.env.DEV && !this._customCatalogs) {
-				this._customCatalogs = 'http://localhost:8080/catalog.json';
+				if (typeof parsed.debugMode === 'boolean') this._debugMode = parsed.debugMode;
 			}
 		} catch (e) {
 			console.error('Failed to load settings:', e);
@@ -43,7 +47,8 @@ export class ViewerSettings {
 				'vyasa_viewer_settings',
 				JSON.stringify({
 					enableGlobalRegistry: this._enableGlobalRegistry,
-					globalRegistryUrl: this._globalRegistryUrl,
+					enableCustomRegistries: this._enableCustomRegistries,
+					customRegistries: this._customRegistries,
 					enableCustomCatalogs: this._enableCustomCatalogs,
 					customCatalogs: this._customCatalogs,
 					debugMode: this._debugMode
@@ -60,12 +65,28 @@ export class ViewerSettings {
 		this.save();
 	}
 
-	get globalRegistryUrl() {
-		return this._globalRegistryUrl;
+	get enableCustomRegistries() {
+		return this._enableCustomRegistries;
 	}
-	set globalRegistryUrl(val: string) {
-		this._globalRegistryUrl = val;
+	set enableCustomRegistries(val: boolean) {
+		this._enableCustomRegistries = val;
 		this.save();
+	}
+
+	get customRegistries() {
+		return this._customRegistries;
+	}
+	set customRegistries(val: string) {
+		this._customRegistries = val;
+		this.save();
+	}
+
+	get customRegistryUrls(): string[] {
+		if (!this._enableCustomRegistries || !this._customRegistries) return [];
+		return this._customRegistries
+			.split(/[;,]/)
+			.map((s) => s.trim())
+			.filter((s) => s.length > 0);
 	}
 
 	get customCatalogs() {
@@ -84,7 +105,6 @@ export class ViewerSettings {
 		this.save();
 	}
 
-	// Helper to get parsed custom catalog URLs
 	get customCatalogUrls(): string[] {
 		if (!this._enableCustomCatalogs || !this._customCatalogs) return [];
 		return this._customCatalogs

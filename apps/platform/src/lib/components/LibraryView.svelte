@@ -12,7 +12,7 @@
 
 	let { publishers, loading = false }: Props = $props();
 
-	let globalUrl = $derived(viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL);
+	let globalUrl = DEFAULT_REGISTRY_URL;
 	let customPublishers = $derived(publishers.filter((p) => p.sourceUrl !== globalUrl));
 	let globalPublishers = $derived(publishers.filter((p) => p.sourceUrl === globalUrl));
 </script>

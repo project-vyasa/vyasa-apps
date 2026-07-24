@@ -2,6 +2,9 @@ export class ActivePublicationState {
 	private _publisher = $state('');
 	private _publication = $state('');
 	private _lastUrn = $state('root');
+	private _title = $state('');
+	private _publicationUrl = $state('');
+	private _timestamp = $state('');
 
 	setPublication(publisher: string, publication: string) {
 		if (publisher && publication) {
@@ -9,8 +12,17 @@ export class ActivePublicationState {
 				this._publisher = publisher;
 				this._publication = publication;
 				this._lastUrn = 'root';
+				this._title = '';
+				this._publicationUrl = '';
+				this._timestamp = '';
 			}
 		}
+	}
+
+	setMetadata(title: string, publicationUrl: string, timestamp?: string | number) {
+		if (title) this._title = title;
+		if (publicationUrl) this._publicationUrl = publicationUrl;
+		if (timestamp !== undefined) this._timestamp = String(timestamp);
 	}
 
 	setLastUrn(urn: string) {
@@ -29,6 +41,18 @@ export class ActivePublicationState {
 
 	get lastUrn() {
 		return this._lastUrn;
+	}
+
+	get title() {
+		return this._title;
+	}
+
+	get publicationUrl() {
+		return this._publicationUrl;
+	}
+
+	get timestamp() {
+		return this._timestamp;
 	}
 
 	get readerUrl() {

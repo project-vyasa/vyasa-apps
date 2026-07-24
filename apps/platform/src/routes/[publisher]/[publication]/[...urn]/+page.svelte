@@ -10,6 +10,7 @@
 	import { renderUrn } from '$lib/viewer/urn-renderer';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
+	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import type { PackageData, Catalog } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
@@ -112,6 +113,9 @@
 			diagCatalog = result.diagCatalog;
 			urnComponents = result.urnComponents;
 			graphRuntime = result.graphRuntime;
+
+			const pubTitle = result.diagCatalog?.items?.find((i) => i.id === publication)?.title || result.packageData.manifest.title || publication;
+			activePublication.setMetadata(pubTitle, result.diagPublicationUrl, result.packageData.manifest.timestamp);
 
 			// Set packageData LAST to avoid triggering the render $effect
 			// before initialization is complete (WASM Asyncify stack safety).

@@ -18,9 +18,10 @@
 
 	let settingsData = $state({
 		enableGlobalRegistry: viewerSettings.enableGlobalRegistry,
+		enableCustomRegistries: viewerSettings.enableCustomRegistries,
+		customRegistries: viewerSettings.customRegistries,
 		enableCustomCatalogs: viewerSettings.enableCustomCatalogs,
 		customCatalogs: viewerSettings.customCatalogs,
-		globalRegistryUrl: viewerSettings.globalRegistryUrl,
 		debugMode: viewerSettings.debugMode,
 		theme: themeContext?.theme || 'system',
 		density: themeContext?.density || 'standard'
@@ -29,9 +30,10 @@
 	// Sync back to viewerSettings and themeContext on change
 	$effect(() => {
 		viewerSettings.enableGlobalRegistry = settingsData.enableGlobalRegistry;
+		viewerSettings.enableCustomRegistries = settingsData.enableCustomRegistries;
+		viewerSettings.customRegistries = settingsData.customRegistries;
 		viewerSettings.enableCustomCatalogs = settingsData.enableCustomCatalogs;
 		viewerSettings.customCatalogs = settingsData.customCatalogs;
-		viewerSettings.globalRegistryUrl = settingsData.globalRegistryUrl;
 		viewerSettings.debugMode = settingsData.debugMode;
 
 		if (themeContext) {
@@ -81,19 +83,37 @@
 			icon: Database,
 			groups: [
 				{
+					title: 'Local & Custom Registries',
+					items: [
+						{
+							id: 'enableCustomRegistries',
+							label: 'Enable Custom Registries',
+							description:
+								'Fetch publishers from custom local or private registry endpoints',
+							type: 'boolean' as const
+						},
+						{
+							id: 'customRegistries',
+							label: 'Custom Registry URLs',
+							description: 'Semicolon or comma separated list of registry URLs (e.g. http://localhost:8080/registry.json)',
+							type: 'text' as const
+						}
+					]
+				},
+				{
 					title: 'Custom Catalogs',
 					items: [
 						{
 							id: 'enableCustomCatalogs',
 							label: 'Enable Custom Catalogs',
 							description:
-								'Fetch publishers from custom catalog URLs (e.g. dev/private publications)',
+								'Fetch publishers from custom catalog URLs directly',
 							type: 'boolean' as const
 						},
 						{
 							id: 'customCatalogs',
 							label: 'Custom Catalog URLs',
-							description: 'Comma separated list of URLs (e.g. http://localhost:5173/catalog.json)',
+							description: 'Semicolon separated list of catalog URLs (e.g. http://localhost:8080/vysamples/catalog.json)',
 							type: 'text' as const
 						}
 					]
@@ -104,7 +124,7 @@
 						{
 							id: 'enableGlobalRegistry',
 							label: 'Enable Global Registry',
-							description: 'Fetch publishers from the default global registry',
+							description: 'Fetch publishers from the default global registry (https://project-vyasa.github.io/vyasa-docs/registry.json)',
 							type: 'boolean' as const
 						}
 					]
@@ -117,14 +137,8 @@
 			icon: Link,
 			groups: [
 				{
-					title: 'Danger Zone',
+					title: 'Diagnostics',
 					items: [
-						{
-							id: 'globalRegistryUrl',
-							label: 'Override Global Registry URL',
-							description: 'Advanced: Change the default global registry endpoint',
-							type: 'text' as const
-						},
 						{
 							id: 'debugMode',
 							label: 'Enable Debug Mode',

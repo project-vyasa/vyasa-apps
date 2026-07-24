@@ -4,16 +4,12 @@ import { viewerSettings } from './settings.svelte';
 export const DEFAULT_REGISTRY_URL = 'https://project-vyasa.github.io/vyasa-docs/registry.json';
 
 export async function resolvePublisherCatalogUrl(publisher: string): Promise<string> {
-	// First, check custom catalogs
-	const customUrls = viewerSettings.customCatalogUrls;
 	const fetchErrors: string[] = [];
 
+	// 1. Custom catalogs first
+	const customUrls = viewerSettings.customCatalogUrls;
 	for (const url of customUrls) {
 		try {
-			// We fetch the catalog to see if its publisher matches, or we just assume
-			// if it's the only one, or we just have to fetch them all.
-			// Actually, custom catalogs might not declare their publisher ID.
-			// Let's fetch it and see if catalog.publisher === publisher
 			const res = await fetch(url);
 			if (res.ok) {
 				const catalog = await res.json();
@@ -29,19 +25,37 @@ export async function resolvePublisherCatalogUrl(publisher: string): Promise<str
 		}
 	}
 
-	// If not found in custom catalogs, try global registry (if enabled)
+	// 2. Custom / Local Registries second
+	for (const regUrl of viewerSettings.customRegistryUrls) {
+		try {
+			const res = await fetch(regUrl);
+			if (res.ok) {
+				const registry: Registry = await res.json();
+				const pubEntry = registry.publishers?.find((p) => p.identifier === publisher);
+				if (pubEntry) {
+					return pubEntry.catalog_url;
+				}
+			} else {
+				fetchErrors.push(`${regUrl} (HTTP ${res.status})`);
+			}
+		} catch (e: any) {
+			console.warn(`Failed to check custom registry ${regUrl}`);
+			fetchErrors.push(`${regUrl} (${e.message})`);
+		}
+	}
+
+	// 3. Global Registry last (if enabled)
 	if (viewerSettings.enableGlobalRegistry) {
-		const registryUrl = viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL;
 		let registryRes;
 		try {
-			registryRes = await fetch(registryUrl);
+			registryRes = await fetch(DEFAULT_REGISTRY_URL);
 		} catch (e: any) {
-			throw new Error(`Failed to fetch global registry from ${registryUrl}: ${e.message}`);
+			throw new Error(`Failed to fetch global registry from ${DEFAULT_REGISTRY_URL}: ${e.message}`);
 		}
 
 		if (!registryRes.ok) {
 			throw new Error(
-				`Global registry not found at ${registryUrl} (Status: ${registryRes.status})`
+				`Global registry not found at ${DEFAULT_REGISTRY_URL} (Status: ${registryRes.status})`
 			);
 		}
 
@@ -55,8 +69,8 @@ export async function resolvePublisherCatalogUrl(publisher: string): Promise<str
 
 	const errorMsg =
 		fetchErrors.length > 0
-			? `Publisher ${publisher} not found. Note: Some custom catalogs failed to load: ${fetchErrors.join(', ')}`
-			: `Publisher ${publisher} not found in enabled catalogs.`;
+			? `Publisher ${publisher} not found. Note: Some custom sources failed to load: ${fetchErrors.join(', ')}`
+			: `Publisher ${publisher} not found in enabled catalogs or registries.`;
 	throw new Error(errorMsg);
 }
 
@@ -100,10 +114,7 @@ export async function getAllPublishers(): Promise<
 > {
 	const allPublishers: { publisher: RegistryEntry; sourceUrl: string }[] = [];
 
-	// 1. Custom catalogs first — always shown in full (user explicitly configured these).
-	// Note: the same publisher-id may appear more than once (e.g., dev vs prod builds).
-	// That is intentional — publisher-id alone is not globally unique; the tuple
-	// (publisher-id, publication-id) is. Deduplication is NOT applied here.
+	// 1. Custom catalogs first
 	for (const url of viewerSettings.customCatalogUrls) {
 		let pubId = 'unknown';
 		try {
@@ -131,16 +142,32 @@ export async function getAllPublishers(): Promise<
 		}
 	}
 
-	// 2. Global Registry — also shown in full, no deduplication against custom catalogs.
-	if (viewerSettings.enableGlobalRegistry) {
-		const registryUrl = viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL;
+	// 2. Custom / Local Registries second
+	for (const regUrl of viewerSettings.customRegistryUrls) {
 		try {
-			const res = await fetch(registryUrl);
+			const res = await fetch(regUrl);
 			if (res.ok) {
 				const registry: Registry = await res.json();
 				if (registry.publishers) {
 					for (const p of registry.publishers) {
-						allPublishers.push({ publisher: p, sourceUrl: registryUrl });
+						allPublishers.push({ publisher: p, sourceUrl: regUrl });
+					}
+				}
+			}
+		} catch (e) {
+			console.warn(`Failed to fetch custom registry ${regUrl}:`, e);
+		}
+	}
+
+	// 3. Global Registry last
+	if (viewerSettings.enableGlobalRegistry) {
+		try {
+			const res = await fetch(DEFAULT_REGISTRY_URL);
+			if (res.ok) {
+				const registry: Registry = await res.json();
+				if (registry.publishers) {
+					for (const p of registry.publishers) {
+						allPublishers.push({ publisher: p, sourceUrl: DEFAULT_REGISTRY_URL });
 					}
 				}
 			}

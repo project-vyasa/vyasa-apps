@@ -14,15 +14,22 @@
 		catalog?: Catalog | null;
 	}
 
+	interface CustomRegistryDiagnostic {
+		url: string;
+		status: 'loading' | 'success' | 'error';
+		error?: string;
+		registryData?: Registry | null;
+		publisherCatalogs: CatalogDiagnostic[];
+	}
+
 	let globalRegistryUrl = $derived(
-		viewerSettings.enableGlobalRegistry
-			? viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL
-			: ''
+		viewerSettings.enableGlobalRegistry ? DEFAULT_REGISTRY_URL : ''
 	);
 	let globalRegistryData = $state<Registry | null>(null);
 	let globalRegistryError = $state<string | null>(null);
 	let globalPublisherCatalogs = $state<CatalogDiagnostic[]>([]);
 
+	let customRegistries = $state<CustomRegistryDiagnostic[]>([]);
 	let customCatalogs = $state<CatalogDiagnostic[]>([]);
 
 	let activePubUrl = $state('');
@@ -60,7 +67,55 @@
 			}
 		}
 
-		// 2. Fetch ALL Custom / Private Catalogs configured in settings
+		// 2. Fetch Custom / Local Registries JSON and their Publisher Catalogs
+		if (viewerSettings.enableCustomRegistries) {
+			const regUrls = viewerSettings.customRegistryUrls;
+			customRegistries = await Promise.all(
+				regUrls.map(async (url) => {
+					try {
+						const res = await fetch(url);
+						if (res.ok) {
+							const data: Registry = await res.json();
+							let pubCats: CatalogDiagnostic[] = [];
+							if (data.publishers) {
+								pubCats = await Promise.all(
+									data.publishers.map(async (p) => {
+										try {
+											const cat = await fetchCatalog(p.catalog_url);
+											return { url: p.catalog_url, status: 'success', catalog: cat };
+										} catch (err: any) {
+											return { url: p.catalog_url, status: 'error', error: err.message };
+										}
+									})
+								);
+							}
+							return {
+								url,
+								status: 'success',
+								registryData: data,
+								publisherCatalogs: pubCats
+							};
+						} else {
+							return {
+								url,
+								status: 'error',
+								error: `HTTP ${res.status}: ${res.statusText}`,
+								publisherCatalogs: []
+							};
+						}
+					} catch (err: any) {
+						return {
+							url,
+							status: 'error',
+							error: err.message || String(err),
+							publisherCatalogs: []
+						};
+					}
+				})
+			);
+		}
+
+		// 3. Fetch ALL Custom / Private Catalogs configured in settings
 		const customUrls = viewerSettings.customCatalogUrls;
 		customCatalogs = await Promise.all(
 			customUrls.map(async (url) => {
@@ -73,7 +128,7 @@
 			})
 		);
 
-		// 3. Fetch Active Publication Manifest (if active)
+		// 4. Fetch Active Publication Manifest (if active)
 		const pub = activePublication.publisher;
 		const publicationId = activePublication.publication;
 		if (pub && publicationId) {
@@ -95,7 +150,7 @@
 <div class="diagnostics-page">
 	<div class="diagnostics-header">
 		<h1 class="diagnostics-title">System Diagnostics</h1>
-		<p class="diagnostics-desc">Registry, Custom Catalogs & Active Manifest Diagnostic Inspection</p>
+		<p class="diagnostics-desc">Global & Custom Registries, Catalogs & Active Manifest Diagnostic Inspection</p>
 	</div>
 
 	<div class="diagnostics-content">
@@ -130,9 +185,43 @@
 			{/if}
 		</div>
 
-		<!-- 2. Custom / Private Catalogs -->
+		<!-- 2. Local & Custom Registries -->
 		<div class="diag-section">
-			<h2 class="diag-section-title">Custom / Private Catalogs ({customCatalogs.length})</h2>
+			<h2 class="diag-section-title">Local & Custom Registries ({customRegistries.length})</h2>
+			{#if !viewerSettings.enableCustomRegistries}
+				<div class="diag-url status-disabled">Custom Registries disabled in Settings</div>
+			{:else if customRegistries.length === 0}
+				<div class="diag-url">No custom registry URLs configured in Settings</div>
+			{:else}
+				{#each customRegistries as item}
+					<div class="diag-item-box">
+						<div class="diag-url">{item.url}</div>
+						{#if item.status === 'error'}
+							<div class="diag-error">Failed to fetch registry: {item.error}</div>
+						{:else if item.registryData}
+							<pre class="diag-code">{JSON.stringify(item.registryData, null, 2)}</pre>
+							{#if item.publisherCatalogs.length > 0}
+								<h3 class="diag-sub-title">Publisher Catalogs in Custom Registry ({item.url})</h3>
+								{#each item.publisherCatalogs as pubCat}
+									<div class="diag-item-box">
+										<div class="diag-url">{pubCat.url}</div>
+										{#if pubCat.status === 'error'}
+											<div class="diag-error">{pubCat.error}</div>
+										{:else if pubCat.catalog}
+											<pre class="diag-code">{JSON.stringify(pubCat.catalog, null, 2)}</pre>
+										{/if}
+									</div>
+								{/each}
+							{/if}
+						{/if}
+					</div>
+				{/each}
+			{/if}
+		</div>
+
+		<!-- 3. Custom / Private Catalogs -->
+		<div class="diag-section">
+			<h2 class="diag-section-title">Custom / Standalone Catalogs ({customCatalogs.length})</h2>
 			{#if customCatalogs.length === 0}
 				<div class="diag-url">No custom catalog URLs configured in Settings</div>
 			{:else}
@@ -151,7 +240,7 @@
 			{/if}
 		</div>
 
-		<!-- 3. Active Publication Manifest -->
+		<!-- 4. Active Publication Manifest -->
 		{#if activePublication.publication}
 			<div class="diag-section">
 				<h2 class="diag-section-title">Active Publication ({activePublication.publication})</h2>

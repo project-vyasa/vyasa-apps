@@ -36,7 +36,7 @@ export async function loadPublication(
 	await initWasm();
 
 	// 2. Resolve catalog URL (custom catalogs first, then global registry)
-	const diagRegistryUrl = viewerSettings.globalRegistryUrl || DEFAULT_REGISTRY_URL;
+	const diagRegistryUrl = DEFAULT_REGISTRY_URL;
 	const catalogUrl = await resolvePublisherCatalogUrl(publisher);
 	const diagCatalogUrl = catalogUrl;
 
