@@ -72,7 +72,14 @@ export default defineConfig({
 			allow: ['../../..'] // Allow serving files from the monorepo root (e.g. linked packages)
 		}
 	},
+	resolve: {
+		dedupe: ['svelte']
+	},
 	optimizeDeps: {
-		exclude: ['@project-vyasa/vyasa-viewer-wasm', '@project-vyasa/vyasa-compiler-wasm']
+		exclude: [
+			'@project-vyasa/vyasa-ui',
+			'@project-vyasa/vyasa-viewer-wasm',
+			'@project-vyasa/vyasa-compiler-wasm'
+		]
 	}
 });

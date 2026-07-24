@@ -90,22 +90,6 @@
 	{/snippet}
 
 	{#snippet bottom()}
-		{#if themeContext}
-			<Button
-				variant="ghost"
-				size="icon"
-				icon={Monitor}
-				onclick={() => themeContext.cycleDensity()}
-				title="Toggle Density"
-			/>
-			<Button
-				variant="ghost"
-				size="icon"
-				icon={themeContext.current === 'dark' ? Moon : Sun}
-				onclick={() => themeContext.toggleTheme()}
-				title="Toggle Theme"
-			/>
-		{/if}
 		<Button
 			variant={active === 'diagnostics' ? 'secondary' : 'ghost'}
 			size="icon"
