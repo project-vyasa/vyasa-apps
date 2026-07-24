@@ -51,6 +51,7 @@ The `vyasa-apps` layer connects the `vyasa` (WASM) and `vyasa-ui` (Design System
 - **Design System (`@vyasa-ui/svelte`)**:
   - Check imports for the design system. `vyasa-apps` should *not* build raw atomic UI primitives (Buttons, Inputs) — these must be imported from `@vyasa-ui/svelte`.
   - Flag any inline CSS that duplicates styling available in the design system tokens.
+  - **Context Boundaries**: Check for Context API boundary issues. Ensure that foundational layout components explicitly accept context via props to bypass Svelte 5 module resolution bugs across workspace boundaries. See the [Monorepo Context Architecture](file:///Users/anand/Projects/project-vyasa/vyasa-docs/astro-starlight/src/content/docs/notes/monorepo-context-architecture.md) note for details.
 
 ### 5. Architectural Scoping & Complexity
 
