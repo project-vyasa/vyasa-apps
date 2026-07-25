@@ -4,6 +4,8 @@
 	import type { LibraryPublisherData } from '$lib/types';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { DEFAULT_REGISTRY_URL } from '$lib/registry';
+	import { Panel, ListView, Badge, Alert } from '@project-vyasa/vyasa-ui';
+	import { Library } from 'lucide-svelte';
 
 	interface Props {
 		publishers: LibraryPublisherData[];
@@ -19,12 +21,12 @@
 
 <div class="library-container">
 	{#if loading}
-		<div class="loading-container">
-			<p class="loading-text">Loading library...</p>
+		<div class="status-wrapper">
+			<Alert variant="info" title="Loading Library">Please wait while catalogs are being loaded...</Alert>
 		</div>
 	{:else if publishers.length === 0}
-		<div class="empty-container">
-			<p>No catalogs configured or available.</p>
+		<div class="status-wrapper">
+			<Alert variant="warning" title="No Catalogs">No catalogs are currently configured or available.</Alert>
 		</div>
 	{:else}
 		{#if customPublishers.length > 0}
@@ -50,55 +52,59 @@
 </div>
 
 {#snippet publisherSection(pubData: LibraryPublisherData)}
-	<div class="publisher-section">
-		<div class="catalog-header">
-			<h3 class="catalog-title">
-				{pubData.catalog?.catalog?.publisher ||
-					pubData.publisher.title ||
-					pubData.publisher.identifier}
-			</h3>
-			{#if pubData.catalog?.catalog?.description}
-				<p class="catalog-desc">{pubData.catalog.catalog.description}</p>
-			{/if}
-		</div>
-		{#if viewerSettings.debugMode}
-			<div class="catalog-meta">
-				<span class="catalog-id">Publisher ID: {pubData.publisher.identifier}</span>
-				{#if pubData.publisher.catalog_url}
-					<span class="catalog-url">
-						URL: <a href={pubData.publisher.catalog_url} target="_blank" rel="noopener noreferrer">{pubData.publisher.catalog_url}</a>
-					</span>
+	<div class="publisher-card">
+		<Panel
+			title={pubData.catalog?.catalog?.publisher || pubData.publisher.title || pubData.publisher.identifier}
+			icon={Library}
+		>
+			{#snippet actions()}
+				{#if viewerSettings.debugMode}
+					<div class="flex items-center gap-2">
+						<Badge variant="neutral">ID: {pubData.publisher.identifier}</Badge>
+						{#if pubData.publisher.catalog_url}
+							<a href={pubData.publisher.catalog_url} target="_blank" rel="noopener noreferrer" class="catalog-link">
+								<Badge variant="primary">URL</Badge>
+							</a>
+						{/if}
+					</div>
+				{/if}
+			{/snippet}
+
+			<div class="panel-body">
+				{#if pubData.catalog?.catalog?.description}
+					<p class="catalog-desc">{pubData.catalog.catalog.description}</p>
+				{/if}
+
+				{#if pubData.error}
+					<div class="error-wrapper">
+						<Alert variant="danger" title="Catalog Error">{pubData.error}</Alert>
+					</div>
+				{:else if pubData.catalog}
+					{#if (pubData.catalog.items || []).length > 0}
+						<div class="list-wrapper">
+							<ListView
+								items={pubData.catalog.items || []}
+								titleField="title"
+								subtitleField="id"
+								showFilterInput={(pubData.catalog.items || []).length > 5}
+								onSelect={(item: any) => {
+									const query = pubData.sourceUrl !== globalUrl && pubData.publisher.catalog_url ? `?catalog=${encodeURIComponent(pubData.publisher.catalog_url)}` : '';
+									goto(`${base}/${pubData.publisher.identifier}/${item.id}${query}`);
+								}}
+							>
+								{#snippet meta(item: any)}
+									{#if viewerSettings.debugMode}
+										<Badge variant="neutral">ID: {item.id}</Badge>
+									{/if}
+								{/snippet}
+							</ListView>
+						</div>
+					{:else}
+						<div class="empty-catalog">No publications found in this catalog.</div>
+					{/if}
 				{/if}
 			</div>
-		{/if}
-
-		{#if pubData.error}
-			<div class="error-container">
-				<p>Failed to load catalog: {pubData.error}</p>
-			</div>
-		{:else if pubData.catalog}
-			<div class="grid-container">
-				{#each pubData.catalog.items || [] as item}
-					<button
-						class="library-card"
-						onclick={() => {
-							const query = pubData.sourceUrl !== globalUrl && pubData.publisher.catalog_url ? `?catalog=${encodeURIComponent(pubData.publisher.catalog_url)}` : '';
-							goto(`${base}/${pubData.publisher.identifier}/${item.id}${query}`);
-						}}
-					>
-						<h4 class="library-card-title">{item.title || item.id}</h4>
-						{#if viewerSettings.debugMode}
-							<div class="library-card-meta">
-								<span class="library-card-id">ID: {item.id}</span>
-							</div>
-						{/if}
-					</button>
-				{/each}
-			</div>
-			{#if (pubData.catalog.items || []).length === 0}
-				<p class="empty-catalog">No publications found in this catalog.</p>
-			{/if}
-		{/if}
+		</Panel>
 	</div>
 {/snippet}
 
@@ -109,121 +115,67 @@
 		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
-		gap: 3rem; /* Fallback from var(--space-16) which is undefined in design-system */
-	}
-	.loading-container {
-		display: flex;
-		justify-content: center;
-		padding: 4rem;
-	}
-	.loading-text {
-		color: var(--text-tertiary);
-	}
-	.empty-container,
-	.empty-catalog {
-		padding: 2rem;
-		text-align: center;
-		color: var(--text-tertiary);
-		background-color: var(--bg-surface-alt);
-		border-radius: var(--control-radius);
-	}
-	.error-container {
-		padding: 1rem;
-		background-color: var(--bg-surface-alt);
-		border-radius: var(--control-radius);
-		color: var(--text-negative);
+		gap: 3rem;
 	}
 
-	/* Registry Group */
+	.status-wrapper {
+		padding: var(--space-8) 0;
+	}
+
 	.registry-group {
 		display: flex;
 		flex-direction: column;
-		gap: 3rem;
+		gap: var(--space-6);
 	}
+
 	.registry-group-title {
 		font-size: 1.5rem;
-		font-weight: bold;
-		color: var(--text-secondary);
+		font-weight: 700;
+		color: var(--text-primary);
 		margin: 0;
-		margin-bottom: -1rem; /* bring it closer to the first publisher */
 		padding-bottom: var(--space-2);
 		border-bottom: 2px solid var(--border-base);
 	}
 
-	/* Publisher Section */
-	.publisher-section {
+	.publisher-card {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-6);
-	}
-	.catalog-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		padding-bottom: var(--space-4);
-		border-bottom: 1px solid var(--border-base);
-	}
-	.catalog-title {
-		font-size: 2rem;
-		font-weight: bold;
-		margin: 0;
-	}
-	.catalog-desc {
-		color: var(--text-secondary);
-		font-size: 1.125rem;
-		margin: 0;
-	}
-	.catalog-meta {
-		display: flex;
-		gap: var(--space-4);
-		font-size: 0.875rem;
-		color: var(--text-tertiary);
-	}
-	.catalog-id {
-		font-family: var(--font-mono);
 	}
 
-	/* Card Grid */
-	.grid-container {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: var(--space-6);
-	}
-	.library-card {
-		background-color: var(--bg-surface-alt);
-		border: 1px solid var(--border-base);
-		border-radius: var(--control-radius);
-		padding: var(--space-6);
-		cursor: pointer;
+	.panel-body {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-3);
-		transition:
-			transform 0.2s,
-			box-shadow 0.2s;
-		text-align: left;
-		color: inherit;
-		text-decoration: none;
+		gap: var(--space-4);
+		padding: var(--space-4);
 	}
-	.library-card:hover,
-	.library-card:focus {
-		transform: translateY(-2px);
-		box-shadow: var(--shadow-sm);
-	}
-	.library-card-title {
-		font-size: 1.25rem;
-		font-weight: 600;
+
+	.catalog-desc {
+		color: var(--text-secondary);
+		font-size: 0.95rem;
 		margin: 0;
 	}
-	.library-card-meta {
+
+	.list-wrapper {
+		max-height: 450px;
+		min-height: 80px;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1);
-		margin-top: auto;
-		color: var(--text-tertiary);
-		font-size: 0.875rem;
 	}
-	.library-card-id {
-		font-family: var(--font-mono);
+
+	.empty-catalog {
+		padding: var(--space-6);
+		text-align: center;
+		color: var(--text-tertiary);
+		background-color: var(--bg-surface-alt);
+		border-radius: var(--control-radius);
+		font-size: 0.9rem;
+	}
+
+	.catalog-link {
+		text-decoration: none;
+	}
+
+	.error-wrapper {
+		padding: var(--space-2) 0;
 	}
 </style>

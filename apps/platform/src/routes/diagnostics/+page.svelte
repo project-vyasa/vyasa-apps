@@ -6,6 +6,8 @@
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import type { Registry, Catalog, PackageData } from '$lib/types';
+	import { Panel, Badge, Alert, CodeEditor, Tree, type TreeNode } from '@project-vyasa/vyasa-ui';
+	import { Globe, Server, Database, FileCode } from 'lucide-svelte';
 
 	interface CatalogDiagnostic {
 		url: string;
@@ -35,6 +37,9 @@
 	let activePubUrl = $state('');
 	let activePackageData = $state<PackageData | null>(null);
 	let activePubError = $state<string | null>(null);
+
+	let selectedId = $state<string | undefined>(undefined);
+	let expandedIds = $state<Set<string>>(new Set(['global-reg', 'custom-regs-group', 'custom-cats-group']));
 
 	const viewerDb = new ViewerDb();
 
@@ -145,203 +150,294 @@
 	onDestroy(() => {
 		viewerDb.close();
 	});
+
+	let treeData = $derived.by<TreeNode[]>(() => {
+		const nodes: TreeNode[] = [];
+
+		// 1. Global Registry
+		if (viewerSettings.enableGlobalRegistry) {
+			const children: TreeNode[] = globalPublisherCatalogs.map((item) => ({
+				id: `global-cat-${item.url}`,
+				label: item.catalog?.identifier || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
+				icon: Database,
+				targetType: 'catalog',
+				url: item.url,
+				status: item.status,
+				error: item.error,
+				data: item.catalog
+			}));
+
+			nodes.push({
+				id: 'global-reg',
+				label: 'Global Registry',
+				icon: Globe,
+				targetType: 'registry',
+				url: globalRegistryUrl,
+				status: globalRegistryError ? 'error' : globalRegistryData ? 'success' : 'loading',
+				error: globalRegistryError,
+				data: globalRegistryData,
+				children: children.length > 0 ? children : undefined
+			});
+		}
+
+		// 2. Custom Registries
+		if (viewerSettings.enableCustomRegistries && customRegistries.length > 0) {
+			const regChildren: TreeNode[] = customRegistries.map((reg) => {
+				const pubChildren: TreeNode[] = reg.publisherCatalogs.map((item) => ({
+					id: `custom-cat-${reg.url}-${item.url}`,
+					label: item.catalog?.identifier || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
+					icon: Database,
+					targetType: 'catalog',
+					url: item.url,
+					status: item.status,
+					error: item.error,
+					data: item.catalog
+				}));
+
+				return {
+					id: `custom-reg-${reg.url}`,
+					label: reg.registryData?.title || reg.url,
+					icon: Server,
+					targetType: 'registry',
+					url: reg.url,
+					status: reg.status,
+					error: reg.error,
+					data: reg.registryData,
+					children: pubChildren.length > 0 ? pubChildren : undefined
+				};
+			});
+
+			nodes.push({
+				id: 'custom-regs-group',
+				label: `Custom Registries (${customRegistries.length})`,
+				icon: Server,
+				children: regChildren
+			});
+		}
+
+		// 3. Standalone Catalogs
+		if (customCatalogs.length > 0) {
+			const catChildren: TreeNode[] = customCatalogs.map((item) => ({
+				id: `standalone-cat-${item.url}`,
+				label: item.catalog?.identifier || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
+				icon: Database,
+				targetType: 'catalog',
+				url: item.url,
+				status: item.status,
+				error: item.error,
+				data: item.catalog
+			}));
+
+			nodes.push({
+				id: 'custom-cats-group',
+				label: `Standalone Catalogs (${customCatalogs.length})`,
+				icon: Database,
+				children: catChildren
+			});
+		}
+
+		// 4. Active Publication
+		if (activePublication.publication) {
+			nodes.push({
+				id: 'active-pub',
+				label: `Active Publication (${activePublication.publication})`,
+				icon: FileCode,
+				targetType: 'manifest',
+				url: activePubUrl || `${activePublication.publisher}/${activePublication.publication}`,
+				status: activePubError ? 'error' : activePackageData ? 'success' : 'loading',
+				error: activePubError,
+				data: activePackageData?.manifest
+			});
+		}
+
+		return nodes;
+	});
+
+	// Default selection to first available target
+	$effect(() => {
+		if (!selectedId && treeData.length > 0) {
+			selectedId = treeData[0].id;
+		}
+	});
+
+	function findNode(nodes: TreeNode[], id?: string): TreeNode | undefined {
+		if (!id) return undefined;
+		for (const node of nodes) {
+			if (node.id === id) return node;
+			if (node.children) {
+				const found = findNode(node.children, id);
+				if (found) return found;
+			}
+		}
+		return undefined;
+	}
+
+	let selectedNode = $derived(findNode(treeData, selectedId));
 </script>
 
-<div class="diagnostics-page">
+<div class="diagnostics-container">
 	<div class="diagnostics-header">
 		<h1 class="diagnostics-title">System Diagnostics</h1>
-		<p class="diagnostics-desc">Global & Custom Registries, Catalogs & Active Manifest Diagnostic Inspection</p>
+		<p class="diagnostics-desc">Global & Custom Registries, Catalogs & Active Manifest Inspection</p>
 	</div>
 
-	<div class="diagnostics-content">
-		<!-- 1. Global Registry -->
-		<div class="diag-section">
-			<h2 class="diag-section-title">Global Registry</h2>
-			{#if !viewerSettings.enableGlobalRegistry}
-				<div class="diag-url status-disabled">Global Registry is disabled in Settings</div>
-			{:else}
-				<div class="diag-url">{globalRegistryUrl}</div>
-				{#if globalRegistryError}
-					<div class="diag-error">Error fetching registry: {globalRegistryError}</div>
-				{:else if globalRegistryData}
-					<pre class="diag-code">{JSON.stringify(globalRegistryData, null, 2)}</pre>
-				{:else}
-					<div class="diag-url">Loading global registry...</div>
-				{/if}
-
-				{#if globalPublisherCatalogs.length > 0}
-					<h3 class="diag-sub-title">Global Publisher Catalogs</h3>
-					{#each globalPublisherCatalogs as item}
-						<div class="diag-item-box">
-							<div class="diag-url">{item.url}</div>
-							{#if item.status === 'error'}
-								<div class="diag-error">{item.error}</div>
-							{:else if item.catalog}
-								<pre class="diag-code">{JSON.stringify(item.catalog, null, 2)}</pre>
-							{/if}
-						</div>
-					{/each}
-				{/if}
-			{/if}
+	<div class="diagnostics-layout">
+		<!-- Sidebar Tree -->
+		<div class="sidebar-pane">
+			<Panel title="Inspection Targets" icon={Server}>
+				<div class="sidebar-tree-wrapper">
+					<Tree data={treeData} bind:selectedId bind:expandedIds onSelect={(node) => (selectedId = node.id)} />
+				</div>
+			</Panel>
 		</div>
 
-		<!-- 2. Local & Custom Registries -->
-		<div class="diag-section">
-			<h2 class="diag-section-title">Local & Custom Registries ({customRegistries.length})</h2>
-			{#if !viewerSettings.enableCustomRegistries}
-				<div class="diag-url status-disabled">Custom Registries disabled in Settings</div>
-			{:else if customRegistries.length === 0}
-				<div class="diag-url">No custom registry URLs configured in Settings</div>
-			{:else}
-				{#each customRegistries as item}
-					<div class="diag-item-box">
-						<div class="diag-url">{item.url}</div>
-						{#if item.status === 'error'}
-							<div class="diag-error">Failed to fetch registry: {item.error}</div>
-						{:else if item.registryData}
-							<pre class="diag-code">{JSON.stringify(item.registryData, null, 2)}</pre>
-							{#if item.publisherCatalogs.length > 0}
-								<h3 class="diag-sub-title">Publisher Catalogs in Custom Registry ({item.url})</h3>
-								{#each item.publisherCatalogs as pubCat}
-									<div class="diag-item-box">
-										<div class="diag-url">{pubCat.url}</div>
-										{#if pubCat.status === 'error'}
-											<div class="diag-error">{pubCat.error}</div>
-										{:else if pubCat.catalog}
-											<pre class="diag-code">{JSON.stringify(pubCat.catalog, null, 2)}</pre>
-										{/if}
-									</div>
-								{/each}
-							{/if}
+		<!-- Content Editor Pane -->
+		<div class="content-pane">
+			{#if selectedNode}
+				<Panel title={selectedNode.label} icon={selectedNode.icon || Globe}>
+					{#snippet actions()}
+						{#if selectedNode.status}
+							<Badge variant={selectedNode.status === 'success' ? 'success' : selectedNode.status === 'error' ? 'danger' : 'warning'}>
+								{selectedNode.status.toUpperCase()}
+							</Badge>
 						{/if}
-					</div>
-				{/each}
-			{/if}
-		</div>
+					{/snippet}
 
-		<!-- 3. Custom / Private Catalogs -->
-		<div class="diag-section">
-			<h2 class="diag-section-title">Custom / Standalone Catalogs ({customCatalogs.length})</h2>
-			{#if customCatalogs.length === 0}
-				<div class="diag-url">No custom catalog URLs configured in Settings</div>
-			{:else}
-				{#each customCatalogs as item}
-					<div class="diag-item-box">
-						<div class="diag-url">{item.url}</div>
-						{#if item.status === 'error'}
-							<div class="diag-error">Failed to load catalog: {item.error}</div>
-						{:else if item.catalog}
-							<pre class="diag-code">{JSON.stringify(item.catalog, null, 2)}</pre>
+					<div class="panel-body">
+						{#if selectedNode.url}
+							<div class="url-bar">
+								<span class="url-label">URL:</span>
+								<code class="url-value">{selectedNode.url}</code>
+							</div>
+						{/if}
+
+						{#if selectedNode.error}
+							<Alert variant="danger" title="Inspection Error">{selectedNode.error}</Alert>
+						{:else if selectedNode.data}
+							<div class="editor-container">
+								<CodeEditor
+									value={JSON.stringify(selectedNode.data, null, 2)}
+									language="typescript"
+									readonly={true}
+									lineWrapping={true}
+									theme="dark"
+									class="h-full border-0"
+								/>
+							</div>
+						{:else if selectedNode.status === 'loading'}
+							<Alert variant="info" title="Loading">Fetching target data...</Alert>
 						{:else}
-							<div class="diag-url">Loading catalog...</div>
+							<Alert variant="info" title="Group Folder">Select a specific registry or catalog from the sidebar tree to inspect its JSON data.</Alert>
 						{/if}
 					</div>
-				{/each}
+				</Panel>
+			{:else}
+				<Panel title="No Target Selected">
+					<div class="panel-body">
+						<Alert variant="info" title="Select Target">Select a registry, catalog, or publication manifest from the sidebar tree on the left to inspect its contents.</Alert>
+					</div>
+				</Panel>
 			{/if}
 		</div>
-
-		<!-- 4. Active Publication Manifest -->
-		{#if activePublication.publication}
-			<div class="diag-section">
-				<h2 class="diag-section-title">Active Publication ({activePublication.publication})</h2>
-				<div class="diag-url">{activePubUrl || 'Loading URL...'}</div>
-				{#if activePubError}
-					<div class="diag-error">{activePubError}</div>
-				{:else if activePackageData}
-					<pre class="diag-code">{JSON.stringify(activePackageData.manifest, null, 2)}</pre>
-				{:else}
-					<div class="diag-url">Loading manifest...</div>
-				{/if}
-			</div>
-		{/if}
 	</div>
 </div>
 
 <style>
-	.diagnostics-page {
+	.diagnostics-container {
 		width: 100%;
-		max-width: 1200px;
+		max-width: 1600px;
 		margin: 0 auto;
-		padding: var(--space-8);
+		padding: var(--space-6);
 		background-color: var(--bg-surface);
-		min-height: 100%;
+		min-height: calc(100vh - 4rem);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-6);
 	}
+
 	.diagnostics-header {
-		margin-bottom: var(--space-8);
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
 	}
+
 	.diagnostics-title {
-		font-size: 2.25rem;
-		font-weight: bold;
-		margin: 0;
-	}
-	.diagnostics-desc {
-		color: var(--text-secondary);
-		font-size: 1.125rem;
-		margin-top: var(--space-2);
-	}
-	.diagnostics-content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-8);
-	}
-	.diag-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-3);
-	}
-	.diag-section-title {
-		font-size: 1.35rem;
-		font-weight: 600;
+		font-size: 1.8rem;
+		font-weight: 700;
 		margin: 0;
 		color: var(--text-primary);
-		border-bottom: 2px solid var(--border-base);
-		padding-bottom: var(--space-2);
 	}
-	.diag-sub-title {
-		font-size: 1.1rem;
-		font-weight: 600;
-		margin-top: var(--space-4);
-		margin-bottom: 0;
+
+	.diagnostics-desc {
 		color: var(--text-secondary);
+		font-size: 1rem;
+		margin: 0;
 	}
-	.diag-item-box {
+
+	.diagnostics-layout {
+		display: flex;
+		gap: var(--space-6);
+		align-items: stretch;
+		flex: 1;
+		min-height: 600px;
+	}
+
+	.sidebar-pane {
+		width: 320px;
+		min-width: 280px;
+		max-width: 400px;
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
-		margin-top: var(--space-2);
 	}
-	.diag-url {
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
-		color: var(--text-secondary);
-		background: var(--bg-surface-alt);
-		padding: var(--space-4);
-		border-radius: var(--control-radius);
-		word-break: break-all;
-	}
-	.status-disabled {
-		opacity: 0.7;
-		font-style: italic;
-	}
-	.diag-error {
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
-		color: var(--status-error, #dc2626);
-		background: var(--bg-surface-alt);
-		padding: var(--space-4);
-		border-radius: var(--control-radius);
-		border: 1px solid var(--status-error, #dc2626);
-	}
-	.diag-code {
-		background: var(--bg-surface-alt);
-		padding: var(--space-4);
-		border-radius: var(--control-radius);
-		font-family: var(--font-mono);
-		font-size: 0.875rem;
-		white-space: pre-wrap;
-		margin: 0;
-		max-height: 400px;
+
+	.sidebar-tree-wrapper {
+		padding: var(--space-2) 0;
 		overflow-y: auto;
+		max-height: calc(100vh - 220px);
+	}
+
+	.content-pane {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.panel-body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-4);
+		padding: var(--space-4);
+		flex: 1;
+	}
+
+	.editor-container {
+		flex: 1;
+		min-height: 480px;
+		height: calc(100vh - 260px);
+		width: 100%;
+		position: relative;
+	}
+
+	.url-bar {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		padding: var(--space-3) var(--space-4);
+		background-color: var(--bg-surface-alt);
+		border-radius: var(--control-radius);
 		border: 1px solid var(--border-base);
+		font-size: 0.875rem;
+	}
+
+	.url-label {
+		font-weight: 600;
+		color: var(--text-secondary);
+	}
+
+	.url-value {
+		font-family: var(--font-mono);
+		color: var(--text-primary);
+		word-break: break-all;
 	}
 </style>

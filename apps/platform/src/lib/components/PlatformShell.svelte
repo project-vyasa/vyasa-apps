@@ -4,6 +4,9 @@
 	import ViewerActivityBar from '$lib/components/ViewerActivityBar.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
+	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
+	import { page } from '$app/state';
 
 	const themeContext = getContext<any>('theme');
 	$effect(() => {
@@ -36,7 +39,31 @@
 		toggleTop: () => (topVisible = !topVisible),
 		toggleBottom: () => (bottomVisible = !bottomVisible)
 	});
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+			const key = e.key.toLowerCase();
+			if (key === 'b' || e.code === 'KeyB') {
+				e.preventDefault();
+				viewerSettings.debugMode = !viewerSettings.debugMode;
+			} else if (key === 'u' || e.code === 'KeyU') {
+				e.preventDefault();
+				if (page.url.pathname.includes('/diagnostics')) {
+					// Toggle back to active publication or library
+					if (activePublication.publication) {
+						goto(`${base}${activePublication.readerUrl}`);
+					} else {
+						goto(`${base}/`);
+					}
+				} else {
+					goto(`${base}${activePublication.diagnosticsUrl}`);
+				}
+			}
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <AppShell
 	{sidebarLeft}

@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { Button, ActivityBar } from '@project-vyasa/vyasa-ui';
-	import { Library, BookOpen, Compass, Bug, Settings, Monitor, Moon, Sun } from 'lucide-svelte';
+	import { Library, BookOpen, Compass, Bug, Settings, Monitor, Moon, Sun, Terminal } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { getContext } from 'svelte';
 	import SettingsModal from './SettingsModal.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
+	import { viewerSettings } from '$lib/settings.svelte';
 
 	let settingsOpen = $state(false);
 
@@ -92,12 +93,25 @@
 
 	{#snippet bottom()}
 		<Button
+			variant={viewerSettings.debugMode ? 'primary' : 'ghost'}
+			size="icon"
+			icon={Terminal}
+			title={viewerSettings.debugMode ? 'Debug Mode: Active (Click or Ctrl+B to toggle)' : 'Debug Mode: Disabled (Click or Ctrl+B to toggle)'}
+			onclick={() => (viewerSettings.debugMode = !viewerSettings.debugMode)}
+		/>
+		<Button
 			variant={active === 'diagnostics' ? 'secondary' : 'ghost'}
 			size="icon"
 			icon={Bug}
-			title="Diagnostics"
+			title="Diagnostics (Click or Ctrl+U to toggle)"
 			onclick={() => {
-				if (active !== 'diagnostics') goto(`${base}${activePublication.diagnosticsUrl}`);
+				if (active !== 'diagnostics') {
+					goto(`${base}${activePublication.diagnosticsUrl}`);
+				} else if (activePublication.publication) {
+					goto(`${base}${activePublication.readerUrl}`);
+				} else {
+					goto(`${base}/`);
+				}
 			}}
 		/>
 		<Button

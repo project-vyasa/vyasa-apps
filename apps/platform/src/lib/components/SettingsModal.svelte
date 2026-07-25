@@ -16,31 +16,24 @@
 		density: 'compact' | 'standard' | 'comfortable';
 	}>('theme');
 
-	let settingsData = $state({
-		enableGlobalRegistry: viewerSettings.enableGlobalRegistry,
-		enableCustomRegistries: viewerSettings.enableCustomRegistries,
-		customRegistries: viewerSettings.customRegistries,
-		enableCustomCatalogs: viewerSettings.enableCustomCatalogs,
-		customCatalogs: viewerSettings.customCatalogs,
-		debugMode: viewerSettings.debugMode,
-		theme: themeContext?.theme || 'system',
-		density: themeContext?.density || 'standard'
-	});
-
-	// Sync back to viewerSettings and themeContext on change
-	$effect(() => {
-		viewerSettings.enableGlobalRegistry = settingsData.enableGlobalRegistry;
-		viewerSettings.enableCustomRegistries = settingsData.enableCustomRegistries;
-		viewerSettings.customRegistries = settingsData.customRegistries;
-		viewerSettings.enableCustomCatalogs = settingsData.enableCustomCatalogs;
-		viewerSettings.customCatalogs = settingsData.customCatalogs;
-		viewerSettings.debugMode = settingsData.debugMode;
-
-		if (themeContext) {
-			themeContext.theme = settingsData.theme as 'light' | 'dark' | 'system';
-			themeContext.density = settingsData.density as 'compact' | 'standard' | 'comfortable';
-		}
-	});
+	let settingsData = {
+		get enableGlobalRegistry() { return viewerSettings.enableGlobalRegistry; },
+		set enableGlobalRegistry(val) { viewerSettings.enableGlobalRegistry = val; },
+		get enableCustomRegistries() { return viewerSettings.enableCustomRegistries; },
+		set enableCustomRegistries(val) { viewerSettings.enableCustomRegistries = val; },
+		get customRegistries() { return viewerSettings.customRegistries; },
+		set customRegistries(val) { viewerSettings.customRegistries = val; },
+		get enableCustomCatalogs() { return viewerSettings.enableCustomCatalogs; },
+		set enableCustomCatalogs(val) { viewerSettings.enableCustomCatalogs = val; },
+		get customCatalogs() { return viewerSettings.customCatalogs; },
+		set customCatalogs(val) { viewerSettings.customCatalogs = val; },
+		get debugMode() { return viewerSettings.debugMode; },
+		set debugMode(val) { viewerSettings.debugMode = val; },
+		get theme() { return themeContext?.theme || 'system'; },
+		set theme(val) { if (themeContext) themeContext.theme = val as any; },
+		get density() { return themeContext?.density || 'standard'; },
+		set density(val) { if (themeContext) themeContext.density = val as any; }
+	};
 
 	const schema: any[] = [
 		{
@@ -152,4 +145,4 @@
 	];
 </script>
 
-<SettingsModal bind:open title="Viewer Settings" {schema} bind:data={settingsData} />
+<SettingsModal bind:open title="Viewer Settings" {schema} data={settingsData} />

@@ -5,6 +5,10 @@ export interface RegistryEntry {
 }
 
 export interface Registry {
+	schemaVersion?: string;
+	identifier?: string;
+	title?: string;
+	description?: string;
 	publishers: RegistryEntry[];
 }
 
