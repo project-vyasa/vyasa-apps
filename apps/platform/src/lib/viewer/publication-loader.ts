@@ -30,14 +30,15 @@ export interface PublicationLoadResult {
 export async function loadPublication(
 	publisher: string,
 	publication: string,
-	viewerDb: ViewerDb
+	viewerDb: ViewerDb,
+	explicitCatalogUrl?: string | null
 ): Promise<PublicationLoadResult> {
 	// 1. Initialize WASM
 	await initWasm();
 
-	// 2. Resolve catalog URL (custom catalogs first, then global registry)
+	// 2. Resolve catalog URL (use explicit if provided, else custom catalogs first, then global registry)
 	const diagRegistryUrl = DEFAULT_REGISTRY_URL;
-	const catalogUrl = await resolvePublisherCatalogUrl(publisher);
+	const catalogUrl = explicitCatalogUrl || await resolvePublisherCatalogUrl(publisher);
 	const diagCatalogUrl = catalogUrl;
 
 	// 3. Fetch catalog and find the publication

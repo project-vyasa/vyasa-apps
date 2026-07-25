@@ -6,45 +6,7 @@ export const DEFAULT_REGISTRY_URL = 'https://project-vyasa.github.io/vyasa-docs/
 export async function resolvePublisherCatalogUrl(publisher: string): Promise<string> {
 	const fetchErrors: string[] = [];
 
-	// 1. Custom catalogs first
-	const customUrls = viewerSettings.customCatalogUrls;
-	for (const url of customUrls) {
-		try {
-			const res = await fetch(url);
-			if (res.ok) {
-				const catalog = await res.json();
-				if (catalog.identifier === publisher) {
-					return url;
-				}
-			} else {
-				fetchErrors.push(`${url} (HTTP ${res.status})`);
-			}
-		} catch (e: any) {
-			console.warn(`Failed to check custom catalog ${url}`);
-			fetchErrors.push(`${url} (${e.message})`);
-		}
-	}
-
-	// 2. Custom / Local Registries second
-	for (const regUrl of viewerSettings.customRegistryUrls) {
-		try {
-			const res = await fetch(regUrl);
-			if (res.ok) {
-				const registry: Registry = await res.json();
-				const pubEntry = registry.publishers?.find((p) => p.identifier === publisher);
-				if (pubEntry) {
-					return pubEntry.catalog_url;
-				}
-			} else {
-				fetchErrors.push(`${regUrl} (HTTP ${res.status})`);
-			}
-		} catch (e: any) {
-			console.warn(`Failed to check custom registry ${regUrl}`);
-			fetchErrors.push(`${regUrl} (${e.message})`);
-		}
-	}
-
-	// 3. Global Registry last (if enabled)
+	// 1. Global Registry first (if enabled) - default canonical source
 	if (viewerSettings.enableGlobalRegistry) {
 		let registryRes;
 		try {
@@ -64,6 +26,44 @@ export async function resolvePublisherCatalogUrl(publisher: string): Promise<str
 
 		if (pubEntry) {
 			return pubEntry.catalog_url;
+		}
+	}
+
+	// 2. Custom catalogs second
+	const customUrls = viewerSettings.customCatalogUrls;
+	for (const url of customUrls) {
+		try {
+			const res = await fetch(url);
+			if (res.ok) {
+				const catalog = await res.json();
+				if (catalog.identifier === publisher) {
+					return url;
+				}
+			} else {
+				fetchErrors.push(`${url} (HTTP ${res.status})`);
+			}
+		} catch (e: any) {
+			console.warn(`Failed to check custom catalog ${url}`);
+			fetchErrors.push(`${url} (${e.message})`);
+		}
+	}
+
+	// 3. Custom / Local Registries third
+	for (const regUrl of viewerSettings.customRegistryUrls) {
+		try {
+			const res = await fetch(regUrl);
+			if (res.ok) {
+				const registry: Registry = await res.json();
+				const pubEntry = registry.publishers?.find((p) => p.identifier === publisher);
+				if (pubEntry) {
+					return pubEntry.catalog_url;
+				}
+			} else {
+				fetchErrors.push(`${regUrl} (HTTP ${res.status})`);
+			}
+		} catch (e: any) {
+			console.warn(`Failed to check custom registry ${regUrl}`);
+			fetchErrors.push(`${regUrl} (${e.message})`);
 		}
 	}
 

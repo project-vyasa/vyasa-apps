@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { base } from '$app/paths';
 	import { Panel, ListView } from '@project-vyasa/vyasa-ui';
 	import { BookOpen } from 'lucide-svelte';
@@ -16,9 +16,9 @@
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 
 	// --- URL Parameters ---
-	const publisher = $derived($page.params.publisher || '');
-	const publication = $derived($page.params.publication || '');
-	const urn = $derived($page.params.urn || 'root');
+	const publisher = $derived(page.params.publisher || '');
+	const publication = $derived(page.params.publication || '');
+	const urn = $derived(page.params.urn || 'root');
 
 	// Register sidebars with root shell layout
 	const shell = getContext<{
@@ -107,7 +107,8 @@
 	async function handleLoadPublication() {
 		errorMessage = null;
 		try {
-			const result = await loadPublication(publisher, publication, viewerDb);
+			const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl || null;
+			const result = await loadPublication(publisher, publication, viewerDb, catalogParam);
 
 			diagPublicationUrl = result.diagPublicationUrl;
 			diagCatalog = result.diagCatalog;
@@ -115,7 +116,7 @@
 			graphRuntime = result.graphRuntime;
 
 			const pubTitle = result.diagCatalog?.items?.find((i) => i.id === publication)?.title || result.packageData.manifest.title || publication;
-			activePublication.setMetadata(pubTitle, result.diagPublicationUrl, result.packageData.manifest.timestamp);
+			activePublication.setMetadata(pubTitle, result.diagPublicationUrl, result.packageData.manifest.timestamp, catalogParam);
 
 			// Set packageData LAST to avoid triggering the render $effect
 			// before initialization is complete (WASM Asyncify stack safety).
@@ -124,7 +125,8 @@
 			// Navigate to first content if arriving at 'root'
 			if ((urn === 'root' || !urn) && result.initialTargetUrn) {
 				setTimeout(() => {
-					goto(`${base}/${publisher}/${publication}/${result.initialTargetUrn}`, {
+					const query = catalogParam ? `?catalog=${encodeURIComponent(catalogParam)}` : '';
+					goto(`${base}/${publisher}/${publication}/${result.initialTargetUrn}${query}`, {
 						replaceState: true
 					});
 				}, 0);

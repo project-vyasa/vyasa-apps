@@ -133,7 +133,7 @@
 		const publicationId = activePublication.publication;
 		if (pub && publicationId) {
 			try {
-				const result = await loadPublication(pub, publicationId, viewerDb);
+				const result = await loadPublication(pub, publicationId, viewerDb, activePublication.catalogUrl);
 				activePubUrl = result.diagPublicationUrl;
 				activePackageData = result.packageData;
 			} catch (err: any) {

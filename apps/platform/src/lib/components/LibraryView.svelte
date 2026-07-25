@@ -81,7 +81,10 @@
 				{#each pubData.catalog.items || [] as item}
 					<button
 						class="library-card"
-						onclick={() => goto(`${base}/${pubData.publisher.identifier}/${item.id}`)}
+						onclick={() => {
+							const query = pubData.sourceUrl !== globalUrl && pubData.publisher.catalog_url ? `?catalog=${encodeURIComponent(pubData.publisher.catalog_url)}` : '';
+							goto(`${base}/${pubData.publisher.identifier}/${item.id}${query}`);
+						}}
 					>
 						<h4 class="library-card-title">{item.title || item.id}</h4>
 						{#if viewerSettings.debugMode}

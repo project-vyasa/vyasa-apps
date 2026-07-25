@@ -18,9 +18,10 @@
 	onMount(async () => {
 		if (publisher && publication) {
 			try {
-				const result = await loadPublication(publisher, publication, viewerDb);
+				const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl || null;
+				const result = await loadPublication(publisher, publication, viewerDb, catalogParam);
 				packageData = result.packageData;
-				activePublication.setPublication(publisher, publication);
+				activePublication.setPublication(publisher, publication, catalogParam);
 			} catch (e) {
 				console.error('Failed to load explore publication:', e);
 			} finally {

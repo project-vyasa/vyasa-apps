@@ -14,8 +14,9 @@
 	$effect(() => {
 		const pub = page.params.publisher;
 		const publicationId = page.params.publication;
+		const catalogParam = page.url.searchParams.get('catalog');
 		if (pub && publicationId) {
-			activePublication.setPublication(pub, publicationId);
+			activePublication.setPublication(pub, publicationId, catalogParam);
 		}
 		if (page.params.urn) {
 			activePublication.setLastUrn(page.params.urn);

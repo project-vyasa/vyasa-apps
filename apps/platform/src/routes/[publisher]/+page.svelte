@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import LibraryContainer from '$lib/components/LibraryContainer.svelte';
 
-	const publisher = $derived($page.params.publisher || '');
+	const publisher = $derived(page.params.publisher || '');
 </script>
 
 <LibraryContainer {publisher} />

@@ -8,6 +8,7 @@ const workspaceRoot = path.resolve(__dirname, '../../..');
 
 export default defineConfig({
 	plugins: [
+		/*
 		{
 			name: 'serve-local-workspaces',
 			configureServer(server) {
@@ -55,6 +56,7 @@ export default defineConfig({
 				});
 			}
 		},
+		*/
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
