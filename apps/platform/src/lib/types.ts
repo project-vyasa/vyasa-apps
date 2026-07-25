@@ -51,4 +51,5 @@ export interface PackageData {
 	};
 	projections: Record<string, string>;
 	titles?: Record<string, string>;
+	streams?: Array<{id: string, label: string, count: number}>;
 }

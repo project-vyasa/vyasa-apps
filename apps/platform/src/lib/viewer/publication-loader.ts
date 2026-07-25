@@ -136,11 +136,26 @@ export async function loadPublication(
 		initialTargetUrn = parts.length > 1 ? parts.slice(0, parts.length - 1).join(':') : firstLeaf;
 	}
 
+	// 8c. Load actual streams and their block counts
+	const streamRows = await viewerDb.query(
+		'SELECT s.id, s.name, count(h.sequence_id) as block_count FROM streams s LEFT JOIN html_blocks h ON s.id = h.stream_id GROUP BY s.id, s.name'
+	);
+	const streams: Array<{id: string, label: string, count: number}> = [];
+	for (const row of streamRows) {
+		const id = row[1] as string;
+		streams.push({
+			id,
+			label: id.charAt(0).toUpperCase() + id.slice(1),
+			count: Number(row[2])
+		});
+	}
+
 	const packageData: PackageData = {
 		manifest: manifest as unknown as Manifest,
 		structure: { catalogTree: catalogTreeTemp },
 		projections,
-		titles
+		titles,
+		streams
 	};
 
 	return {

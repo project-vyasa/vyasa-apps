@@ -54,15 +54,6 @@
 		/>
 		{#if publication}
 			<Button
-				variant={active === 'explore' ? 'secondary' : 'ghost'}
-				size="icon"
-				icon={Compass}
-				title="Explore"
-				onclick={() => {
-					if (active !== 'explore') goto(`${base}${activePublication.exploreUrl}`);
-				}}
-			/>
-			<Button
 				variant={active === 'reader' ? 'secondary' : 'ghost'}
 				size="icon"
 				icon={BookOpen}
@@ -71,19 +62,28 @@
 					if (active !== 'reader') goto(`${base}${activePublication.readerUrl}`);
 				}}
 			/>
-		{:else}
 			<Button
-				variant="ghost"
+				variant={active === 'explore' ? 'secondary' : 'ghost'}
 				size="icon"
 				icon={Compass}
-				title="Explore (Select a publication first)"
-				disabled
+				title="Explore"
+				onclick={() => {
+					if (active !== 'explore') goto(`${base}${activePublication.exploreUrl}`);
+				}}
 			/>
+		{:else}
 			<Button
 				variant="ghost"
 				size="icon"
 				icon={BookOpen}
 				title="Reader (Select a publication first)"
+				disabled
+			/>
+			<Button
+				variant="ghost"
+				size="icon"
+				icon={Compass}
+				title="Explore (Select a publication first)"
 				disabled
 			/>
 		{/if}

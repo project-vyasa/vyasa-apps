@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { AppShell, AppHeader } from '@project-vyasa/vyasa-ui';
 	import { setContext, getContext, type Snippet } from 'svelte';
-	import ViewerAppBar from '$lib/components/ViewerAppBar.svelte';
+	import ViewerActivityBar from '$lib/components/ViewerActivityBar.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 
@@ -83,7 +83,7 @@
 	{/snippet}
 
 	{#snippet appBar()}
-		<ViewerAppBar />
+		<ViewerActivityBar />
 	{/snippet}
 
 	{@render children?.()}
