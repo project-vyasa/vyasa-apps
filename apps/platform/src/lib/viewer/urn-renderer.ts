@@ -109,9 +109,45 @@ export async function renderUrn(
 
 	// 8. Apply layout template
 	const layoutTpl = packageData.projections[`${currentActiveView}_layout`] || '{{ body }}';
+	const prefix = (packageData.manifest as any)?.prefix || (packageData.manifest as any)?.global_prefix || '';
 	let itemsHtml = '';
 	for (const node of viewNodes) {
-		itemsHtml += `<div id="${node.urn}" style="display: contents">${node.content}</div>`;
+		let shortUrn = node.urn;
+		if (prefix && shortUrn.startsWith(prefix + ':')) {
+			shortUrn = shortUrn.slice(prefix.length + 1);
+		} else {
+			const parts = shortUrn.split(':');
+			if (parts.length > 2) {
+				shortUrn = parts.slice(-2).join(':');
+			}
+		}
+
+		let rightBadgesHtml = '';
+		if (packageData.annotations) {
+			const matchingAnns = packageData.annotations.filter(ann => ann.urn === node.urn || ann.urn.endsWith(':' + node.urn) || node.urn.endsWith(':' + ann.urn));
+			for (const ann of matchingAnns) {
+				if (ann.label === 'Action' && ann.attributes) {
+					const speakerRaw = ann.attributes.speaker || ann.attributes.action || '';
+					if (speakerRaw) {
+						const speakerLoc = packageData.vocabulary?.find(v => (v.category === 'entities' || v.category === 'entity') && v.key.toLowerCase() === speakerRaw.toLowerCase())?.value || speakerRaw;
+						const actionVal = ann.attributes.action || 'uvaca';
+						const actionLoc = packageData.vocabulary?.find(v => (v.category === 'actions' || v.category === 'action') && v.key.toLowerCase() === actionVal.toLowerCase())?.value || actionVal;
+						const speakerLabelLoc = packageData.vocabulary?.find(v => (v.category === 'actions' || v.category === 'action') && v.key.toLowerCase() === 'speaker')?.value || 'Speaker';
+						rightBadgesHtml += `<span class="speaker-badge" title="${speakerLabelLoc}: ${speakerLoc}">🗣️ ${speakerLoc} ${actionLoc}</span>`;
+					}
+				} else if (ann.label === 'Note' && ann.attributes) {
+					const noteText = ann.attributes.content || ann.attributes.text || ann.attributes.value || 'Editorial Note';
+					const noteLabelLoc = packageData.vocabulary?.find(v => (v.category === 'actions' || v.category === 'action') && v.key.toLowerCase() === 'note')?.value || 'Note';
+					rightBadgesHtml += `<span class="note-badge" title="${noteLabelLoc}: ${noteText}">📝</span>`;
+				}
+			}
+		}
+
+		itemsHtml += `<div id="${node.urn}" class="urn-row">
+	<div class="urn-gutter left-gutter"><a href="#${node.urn}" class="urn-badge">${shortUrn}</a></div>
+	<div class="urn-content">${node.content}</div>
+	<div class="urn-gutter right-gutter">${rightBadgesHtml}</div>
+</div>`;
 	}
 
 	return {

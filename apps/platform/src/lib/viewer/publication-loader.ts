@@ -8,7 +8,7 @@ import {
 } from '$lib/registry';
 import { viewerSettings } from '$lib/settings.svelte';
 import { ViewerDb } from '$lib/ViewerDb';
-import type { PackageData, Manifest, Catalog } from '$lib/types';
+import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
 
 export interface PublicationLoadResult {
 	packageData: PackageData;
@@ -151,12 +151,55 @@ export async function loadPublication(
 		});
 	}
 
+	// 8d. Load vocabulary table if present
+	let vocabulary: VocabularyEntry[] = [];
+	try {
+		const vocabQuery = (VyasaViewerRuntime as any).build_vocabulary_query ? (VyasaViewerRuntime as any).build_vocabulary_query() : 'SELECT category, key, stream_name, value FROM vocabulary';
+		const vocabRows = await viewerDb.query(vocabQuery);
+		for (const row of vocabRows) {
+			vocabulary.push({
+				category: row[0] as string,
+				key: row[1] as string,
+				stream_name: row[2] as string,
+				value: row[3] as string
+			});
+		}
+		console.log(`Vyasa Load: Extracted ${vocabulary.length} vocabulary entries`);
+	} catch (e) {
+		console.warn('Vyasa Load: Vocabulary table not found or failed to query:', e);
+	}
+
+	// 8e. Load annotations (speaker attributions, notes) via WASM query per Rule 5
+	let annotations: AnnotationEntry[] = [];
+	try {
+		const annotQuery = (VyasaViewerRuntime as any).build_annotations_query ? (VyasaViewerRuntime as any).build_annotations_query() : "SELECT e.target_id as urn_int, d.value as label, n.attributes as attributes FROM graph_edges e JOIN graph_nodes n ON e.source_id = n.id JOIN graph_dict d ON n.label_id = d.id WHERE d.value = 'Action' OR d.value = 'Note' OR d.value = 'Event' OR d.value = 'Attribute'";
+		const annotRows = await viewerDb.query(annotQuery);
+		for (const row of annotRows) {
+			const urnInt = BigInt(row[0] as number | string);
+			const urn = graphRuntime.get_urn(urnInt);
+			const label = row[1] as string;
+			const attrRaw = row[2];
+			let attributes: Record<string, any> = {};
+			try {
+				attributes = typeof attrRaw === 'string' ? JSON.parse(attrRaw) : (attrRaw || {});
+			} catch (err) {
+				// Fallback if JSON parse fails
+			}
+			annotations.push({ urn, label, attributes });
+		}
+		console.log(`Vyasa Load: Extracted ${annotations.length} annotations`);
+	} catch (e) {
+		console.warn('Vyasa Load: Annotations extraction failed or table missing:', e);
+	}
+
 	const packageData: PackageData = {
 		manifest: manifest as unknown as Manifest,
 		structure: { catalogTree: catalogTreeTemp },
 		projections,
 		titles,
-		streams
+		streams,
+		vocabulary,
+		annotations
 	};
 
 	return {
