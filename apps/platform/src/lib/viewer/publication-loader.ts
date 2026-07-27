@@ -7,6 +7,7 @@ import {
 	DEFAULT_REGISTRY_URL
 } from '$lib/registry';
 import { viewerSettings } from '$lib/settings.svelte';
+import { activePublication } from '$lib/viewer/active-publication.svelte';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
 
@@ -36,9 +37,9 @@ export async function loadPublication(
 	// 1. Initialize WASM
 	await initWasm();
 
-	// 2. Resolve catalog URL (use explicit if provided, else custom catalogs first, then global registry)
+	// 2. Resolve catalog URL (use explicit if provided, else in-memory active catalog, else custom catalogs first, then global registry)
 	const diagRegistryUrl = DEFAULT_REGISTRY_URL;
-	const catalogUrl = explicitCatalogUrl || await resolvePublisherCatalogUrl(publisher);
+	const catalogUrl = explicitCatalogUrl || activePublication.catalogUrl || await resolvePublisherCatalogUrl(publisher);
 	const diagCatalogUrl = catalogUrl;
 
 	// 3. Fetch catalog and find the publication
@@ -124,7 +125,6 @@ export async function loadPublication(
 			console.warn(`Failed to parse block attributes for seqId ${seqId}:`, e);
 		}
 	}
-	console.log('Vyasa Load: Extracted block titles:', titles);
 
 	// 9. Determine initial navigation target (for 'root' URN redirect)
 	// Flatten the catalog tree to find the first leaf
@@ -164,7 +164,6 @@ export async function loadPublication(
 				value: row[3] as string
 			});
 		}
-		console.log(`Vyasa Load: Extracted ${vocabulary.length} vocabulary entries`);
 	} catch (e) {
 		console.warn('Vyasa Load: Vocabulary table not found or failed to query:', e);
 	}
@@ -187,7 +186,6 @@ export async function loadPublication(
 			}
 			annotations.push({ urn, label, attributes });
 		}
-		console.log(`Vyasa Load: Extracted ${annotations.length} annotations`);
 	} catch (e) {
 		console.warn('Vyasa Load: Annotations extraction failed or table missing:', e);
 	}

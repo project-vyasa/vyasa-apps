@@ -41,11 +41,13 @@ export interface Manifest {
 	title?: string;
 	timestamp?: string | number;
 	package_type: string;
+	layout?: string;
 
 	catalog_tree: string;
 	streams_config?: string;
 	urn_hierarchy?: string;
 	urn_bit_layout?: string;
+	[key: string]: any;
 }
 
 export interface VocabularyEntry {

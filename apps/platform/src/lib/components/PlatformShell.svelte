@@ -9,9 +9,6 @@
 	import { page } from '$app/state';
 
 	const themeContext = getContext<any>('theme');
-	$effect(() => {
-		console.log('[PlatformShell] getContext("theme") inside PlatformShell:', themeContext);
-	});
 
 	interface Props {
 		children?: Snippet;

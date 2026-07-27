@@ -34,18 +34,25 @@
 	// --- Viewer State ---
 	let srcdocContent = $state('');
 	let errorMessage = $state<string | null>(null);
-	let activeView = $state('reference');
+	let activeView = $state<string | undefined>(undefined);
 	let availableViews = $state<string[]>([]);
+	let availableStreams = $state<string[]>([]);
+	let customGridLayoutJson = $state<string | undefined>(undefined);
 	let activeUrns = $state<string[]>([]);
 	let packageData = $state<PackageData | null>(null);
 	let graphRuntime = $state<VyasaViewerRuntime | null>(null);
 	let urnComponents = $state<string[]>([]);
 	let currentUrnParts = $state<string[]>([]);
 	let iframeElement = $state<HTMLIFrameElement>();
+	let showReferenceGutter = $state(true);
+	let showAnnotationGutter = $state(true);
 
 	// --- Diagnostics metadata for debug display ---
 	let diagPublicationUrl = $state('');
 	let diagCatalog = $state<Catalog | null>(null);
+	let lastLoadedPublisher = '';
+	let lastLoadedPublication = '';
+	let lastLoadedCatalog = '';
 
 	// --- DB & Sidebar State ---
 	const viewerDb = new ViewerDb();
@@ -69,23 +76,30 @@
 		}
 	});
 
-	// --- Effects ---
-
-	// Load publication when publisher/publication params change
+	// Synchronize URN parts with sidebar state when URN or catalog changes
 	$effect(() => {
-		if (publisher && publication) {
-			handleLoadPublication();
-		}
+		const u = urn;
+		const l = urnComponents.length;
+		untrack(() => {
+			if (l > 0) {
+				const parts = u ? u.split(':') : [];
+				currentUrnParts = Array.from({ length: l }, (_, i) => parts[i] || '');
+			} else {
+				currentUrnParts = [];
+			}
+		});
 	});
 
-	// Keep currentUrnParts in sync with URL urn parameter
+	// Trigger data loading when route parameters change
 	$effect(() => {
-		const parts = urn === 'root' ? [] : urn.split(':');
-		const filledParts = [...parts];
-		while (filledParts.length < urnComponents.length) {
-			filledParts.push('');
-		}
-		currentUrnParts = filledParts;
+		const pub = publisher;
+		const publ = publication;
+		const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl || null;
+		untrack(() => {
+			if (pub && publ) {
+				handleLoadPublication();
+			}
+		});
 	});
 
 	// Render content when URN or runtime changes
@@ -93,6 +107,10 @@
 		const currentUrn = urn;
 		const r = graphRuntime;
 		const p = packageData;
+		const v = activeView;
+		const c = customGridLayoutJson;
+		const refGutter = showReferenceGutter;
+		const annGutter = showAnnotationGutter;
 		if (r && p) {
 			untrack(() => handleRenderUrn(currentUrn));
 		}
@@ -108,6 +126,17 @@
 		errorMessage = null;
 		try {
 			const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl || null;
+			if (
+				publisher === lastLoadedPublisher &&
+				publication === lastLoadedPublication &&
+				(catalogParam || '') === lastLoadedCatalog
+			) {
+				return;
+			}
+			lastLoadedPublisher = publisher;
+			lastLoadedPublication = publication;
+			lastLoadedCatalog = catalogParam || '';
+
 			const result = await loadPublication(publisher, publication, viewerDb, catalogParam);
 
 			diagPublicationUrl = result.diagPublicationUrl;
@@ -117,6 +146,10 @@
 
 			const pubTitle = result.diagCatalog?.items?.find((i) => i.id === publication)?.title || result.packageData.manifest.title || publication;
 			activePublication.setMetadata(pubTitle, result.diagPublicationUrl, result.packageData.manifest.timestamp, catalogParam);
+
+			availableViews = [];
+			activeView = undefined;
+			customGridLayoutJson = undefined;
 
 			// Set packageData LAST to avoid triggering the render $effect
 			// before initialization is complete (WASM Asyncify stack safety).
@@ -146,11 +179,15 @@
 				graphRuntime,
 				packageData,
 				sidebar.flatUrns,
-				activeView,
-				availableViews
+				activeView || '',
+				availableViews,
+				customGridLayoutJson,
+				showReferenceGutter,
+				showAnnotationGutter
 			);
 			activeUrns = result.activeUrns;
 			availableViews = result.availableViews;
+			availableStreams = result.availableStreams;
 			activeView = result.activeView;
 			srcdocContent = result.srcdocContent;
 		} catch (e: unknown) {
@@ -162,8 +199,14 @@
 
 	// --- Navigation ---
 
+	function getNavUrl(targetUrn: string) {
+		const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl;
+		const query = catalogParam ? `?catalog=${encodeURIComponent(catalogParam)}` : '';
+		return `${base}/${publisher}/${publication}/${targetUrn}${query}`;
+	}
+
 	function onNavigate(target: string) {
-		if (target) goto(`${base}/${publisher}/${publication}/${target}`);
+		if (target) goto(getNavUrl(target));
 	}
 
 	function navigateUrn() {
@@ -173,22 +216,32 @@
 
 	function navigateNext() {
 		const flatUrns = sidebar.flatUrns;
-		if (flatUrns.length > 0) {
-			const lastIdx = flatUrns.indexOf(activeUrns[activeUrns.length - 1]);
-			if (lastIdx !== -1 && lastIdx < flatUrns.length - 1) {
-				goto(`${base}/${publisher}/${publication}/${flatUrns[lastIdx + 1]}`);
-			} else if (lastIdx === -1) {
-				goto(`${base}/${publisher}/${publication}/${flatUrns[0]}`);
+		if (!flatUrns || flatUrns.length === 0) return;
+		if (activeUrns.length > 0) {
+			const lastActive = activeUrns[activeUrns.length - 1];
+			const idx = flatUrns.indexOf(lastActive);
+			if (idx !== -1 && idx < flatUrns.length - 1) {
+				goto(getNavUrl(flatUrns[idx + 1]));
 			}
+		} else {
+			goto(getNavUrl(flatUrns[0]));
 		}
 	}
 
 	function navigatePrev() {
 		const flatUrns = sidebar.flatUrns;
-		if (flatUrns.length > 0) {
-			const firstIdx = flatUrns.indexOf(activeUrns[0]);
+		if (!flatUrns || flatUrns.length === 0) return;
+		if (activeUrns.length > 0) {
+			const firstActive = activeUrns[0];
+			const idx = flatUrns.indexOf(firstActive);
+			if (idx > 0) {
+				goto(getNavUrl(flatUrns[idx - 1]));
+			}
+		} else {
+			const u = urn ? urn : '';
+			const firstIdx = flatUrns.findIndex((f) => f.startsWith(u));
 			if (firstIdx > 0) {
-				goto(`${base}/${publisher}/${publication}/${flatUrns[firstIdx - 1]}`);
+				goto(getNavUrl(flatUrns[firstIdx - 1]));
 			}
 		}
 	}
@@ -200,6 +253,13 @@
 		{urnComponents}
 		bind:currentUrnParts
 		bind:isFullWidth
+		bind:activeView
+		{availableViews}
+		{availableStreams}
+		bind:customGridLayoutJson
+		isDocumentLayout={(packageData?.manifest as any)?.layout === 'document'}
+		bind:showReferenceGutter
+		bind:showAnnotationGutter
 		onNavigatePrev={navigatePrev}
 		onNavigateNext={navigateNext}
 		onNavigateUrn={navigateUrn}
