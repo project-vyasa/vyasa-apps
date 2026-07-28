@@ -58,6 +58,20 @@
 			}
 		}
 	}
+
+	function formatEpoch(seconds: number | undefined): string {
+		if (seconds === undefined) return '';
+		return new Date(Number(seconds) * 1000).toLocaleString();
+	}
+
+	function shortUrl(url: string): string {
+		try {
+			const u = new URL(url);
+			return `${u.host}${u.pathname}`;
+		} catch {
+			return url;
+		}
+	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -85,21 +99,46 @@
 				<div class="header-center-info">
 					<strong class="pub-title">{displayTitle}</strong>
 					{#if viewerSettings.debugMode}
-						<span class="debug-meta">
-							<span class="pub-id">{activePublication.publication}</span>
+						<div class="debug-meta">
+							<span class="debug-item">
+								<span class="debug-label">id</span>
+								<span class="debug-value">{activePublication.publication}</span>
+							</span>
+							{#if activePublication.catalogUrl}
+								<span class="debug-item">
+									<span class="debug-label">catalog</span>
+									<span class="debug-value" title={activePublication.catalogUrl}>
+										{shortUrl(activePublication.catalogUrl)}
+									</span>
+								</span>
+							{/if}
 							{#if activePublication.publicationUrl}
-								<span>|</span>
-								<span class="pub-url">
-									URL: <a href={activePublication.publicationUrl} target="_blank" rel="noopener noreferrer">{activePublication.publicationUrl}</a>
+								<span class="debug-item">
+									<span class="debug-label">vyview</span>
+									<a
+										class="debug-value debug-link"
+										href={activePublication.publicationUrl}
+										target="_blank"
+										rel="noopener noreferrer"
+										title={activePublication.publicationUrl}
+									>
+										{shortUrl(activePublication.publicationUrl)}
+									</a>
+								</span>
+							{/if}
+							{#if activePublication.catalogUpdated}
+								<span class="debug-item">
+									<span class="debug-label">updated</span>
+									<span class="debug-value">{formatEpoch(activePublication.catalogUpdated)}</span>
 								</span>
 							{/if}
 							{#if activePublication.timestamp}
-								<span>|</span>
-								<span class="pub-built">
-									Built: {new Date(Number(activePublication.timestamp) * 1000).toLocaleString()}
+								<span class="debug-item">
+									<span class="debug-label">packed</span>
+									<span class="debug-value">{formatEpoch(Number(activePublication.timestamp))}</span>
 								</span>
 							{/if}
-						</span>
+						</div>
 					{/if}
 				</div>
 			{/if}
@@ -115,26 +154,62 @@
 
 <style>
 	.header-center-info {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.15rem;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 		font-size: var(--text-xs);
 		color: var(--text-secondary);
-		display: flex;
-		align-items: center;
-		gap: var(--space-2);
 	}
 	.pub-title {
 		font-weight: 600;
 		color: var(--text-primary);
 		font-size: var(--text-sm);
+		line-height: 1.2;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-width: 100%;
 	}
 	.debug-meta {
-		opacity: 0.7;
-		font-size: 0.85em;
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-2);
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: baseline;
+		gap: 0.15rem 0.65rem;
+		width: 100%;
+		max-width: 100%;
 		font-family: var(--font-mono);
+		font-size: 0.68rem;
+		line-height: 1.35;
+		opacity: 0.85;
 	}
-	.debug-meta a {
+	.debug-item {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.25rem;
+		min-width: 0;
+		max-width: 100%;
+	}
+	.debug-label {
+		flex: 0 0 auto;
+		opacity: 0.65;
+	}
+	.debug-label::after {
+		content: ':';
+	}
+	.debug-value {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		max-width: min(36rem, 48vw);
+	}
+	.debug-link {
 		color: inherit;
 		text-decoration: underline;
 	}

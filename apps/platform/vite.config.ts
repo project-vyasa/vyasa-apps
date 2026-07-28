@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const workspaceRoot = path.resolve(__dirname, '../../..');
+const vyasaUiDist = path.join(workspaceRoot, 'vyasa-ui/svelte/dist');
 
 export default defineConfig({
 	plugins: [
@@ -70,12 +71,19 @@ export default defineConfig({
 		})
 	],
 	server: {
+		port: 5373,
+		strictPort: true,
 		fs: {
 			allow: ['../../..'] // Allow serving files from the monorepo root (e.g. linked packages)
 		}
 	},
 	resolve: {
-		dedupe: ['svelte']
+		dedupe: ['svelte'],
+		alias: {
+			// Linked package is copied into Bun's store; point at live dist after `prepack`.
+			'@project-vyasa/vyasa-ui/style': path.join(vyasaUiDist, 'style'),
+			'@project-vyasa/vyasa-ui': path.join(vyasaUiDist, 'index.js')
+		}
 	},
 	optimizeDeps: {
 		exclude: [

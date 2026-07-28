@@ -3,20 +3,47 @@
 	import { base } from '$app/paths';
 	import type { LibraryPublisherData } from '$lib/types';
 	import { viewerSettings } from '$lib/settings.svelte';
-	import { DEFAULT_REGISTRY_URL } from '$lib/registry';
 	import { Panel, ListView, Badge, Alert } from '@project-vyasa/vyasa-ui';
 	import { Library } from 'lucide-svelte';
+	import type { CatalogSourceError } from '$lib/registry';
 
 	interface Props {
 		publishers: LibraryPublisherData[];
+		sourceErrors?: CatalogSourceError[];
 		loading?: boolean;
 	}
 
-	let { publishers, loading = false }: Props = $props();
+	let { publishers, sourceErrors = [], loading = false }: Props = $props();
 
-	let globalUrl = DEFAULT_REGISTRY_URL;
-	let customPublishers = $derived(publishers.filter((p) => p.sourceUrl !== globalUrl));
-	let globalPublishers = $derived(publishers.filter((p) => p.sourceUrl === globalUrl));
+	let localCatalogPublishers = $derived(
+		publishers.filter((p) => p.sourceKind === 'local-catalog')
+	);
+	let localRegistryPublishers = $derived(
+		publishers.filter((p) => p.sourceKind === 'local-registry')
+	);
+	let globalPublishers = $derived(publishers.filter((p) => p.sourceKind === 'global'));
+
+	let customCatalogsDisabled = $derived(
+		!viewerSettings.enableCustomCatalogs &&
+			viewerSettings.customCatalogs.trim().length > 0
+	);
+	let localRegistriesConfigured = $derived(
+		viewerSettings.enableCustomRegistries &&
+			viewerSettings.customRegistryUrls.length > 0
+	);
+	let localRegistryErrors = $derived(
+		sourceErrors.filter((e) => e.kind === 'registry')
+	);
+	let localRegistriesUnavailable = $derived(
+		localRegistriesConfigured && localRegistryPublishers.length === 0
+	);
+
+	function catalogQuery(pubData: LibraryPublisherData): string {
+		if (pubData.sourceKind === 'global') return '';
+		return pubData.publisher.catalog_url
+			? `?catalog=${encodeURIComponent(pubData.publisher.catalog_url)}`
+			: '';
+	}
 </script>
 
 <div class="library-container">
@@ -29,12 +56,43 @@
 			<Alert variant="warning" title="No Catalogs">No catalogs are currently configured or available.</Alert>
 		</div>
 	{:else}
-		{#if customPublishers.length > 0}
-			<div class="registry-group">
-				{#if globalPublishers.length > 0}
-					<h2 class="registry-group-title">Custom Catalogs</h2>
+		{#if customCatalogsDisabled}
+			<Alert variant="warning" title="Custom Catalogs Disabled">
+				You have local catalog URLs saved in Settings, but <strong>Enable Custom Catalogs</strong> is off.
+				Turn it on to restore the Local Catalogs section above Global Registry.
+			</Alert>
+		{/if}
+
+		{#if localRegistriesUnavailable}
+			<Alert variant="warning" title="Local Registries Unavailable">
+				Custom registry URLs are configured ({viewerSettings.customRegistryUrls.join(', ')}) but none
+				responded.
+				{#if localRegistryErrors.length > 0}
+					<ul class="registry-error-list">
+						{#each localRegistryErrors as err}
+							<li><strong>{err.url}</strong>: {err.error}</li>
+						{/each}
+					</ul>
+				{:else}
+					Ensure Caddy is running on port 8080 (<code>Caddyfile</code> in vyasa-samples) and that
+					<strong>Enable Custom Registries</strong> is on in Settings.
 				{/if}
-				{#each customPublishers as pubData}
+			</Alert>
+		{/if}
+
+		{#if localCatalogPublishers.length > 0}
+			<div class="registry-group">
+				<h2 class="registry-group-title">Local Catalogs</h2>
+				{#each localCatalogPublishers as pubData}
+					{@render publisherSection(pubData)}
+				{/each}
+			</div>
+		{/if}
+
+		{#if localRegistryPublishers.length > 0}
+			<div class="registry-group">
+				<h2 class="registry-group-title">Local Registries</h2>
+				{#each localRegistryPublishers as pubData}
 					{@render publisherSection(pubData)}
 				{/each}
 			</div>
@@ -54,13 +112,14 @@
 {#snippet publisherSection(pubData: LibraryPublisherData)}
 	<div class="publisher-card">
 		<Panel
-			title={pubData.catalog?.catalog?.publisher || pubData.publisher.title || pubData.publisher.identifier}
+			title={pubData.catalog?.title || pubData.publisher.title || pubData.publisher.identifier}
 			icon={Library}
 		>
 			{#snippet actions()}
 				{#if viewerSettings.debugMode}
 					<div class="flex items-center gap-2">
 						<Badge variant="neutral">ID: {pubData.publisher.identifier}</Badge>
+						<Badge variant="neutral">{pubData.sourceKind}</Badge>
 						{#if pubData.publisher.catalog_url}
 							<a href={pubData.publisher.catalog_url} target="_blank" rel="noopener noreferrer" class="catalog-link">
 								<Badge variant="primary">URL</Badge>
@@ -88,13 +147,17 @@
 								subtitleField="id"
 								showFilterInput={(pubData.catalog.items || []).length > 5}
 								onSelect={(item: any) => {
-									const query = pubData.sourceUrl !== globalUrl && pubData.publisher.catalog_url ? `?catalog=${encodeURIComponent(pubData.publisher.catalog_url)}` : '';
-									goto(`${base}/${pubData.publisher.identifier}/${item.id}${query}`);
+									goto(`${base}/${pubData.publisher.identifier}/${item.id}${catalogQuery(pubData)}`);
 								}}
 							>
 								{#snippet meta(item: any)}
 									{#if viewerSettings.debugMode}
 										<Badge variant="neutral">ID: {item.id}</Badge>
+										{#if item.updated}
+											<Badge variant="neutral">
+												updated {new Date(Number(item.updated) * 1000).toLocaleString()}
+											</Badge>
+										{/if}
 									{/if}
 								{/snippet}
 							</ListView>
@@ -177,5 +240,11 @@
 
 	.error-wrapper {
 		padding: var(--space-2) 0;
+	}
+
+	.registry-error-list {
+		margin: var(--space-2) 0 0;
+		padding-left: 1.25rem;
+		font-size: 0.9rem;
 	}
 </style>

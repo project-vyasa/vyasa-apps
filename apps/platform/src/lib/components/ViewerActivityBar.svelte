@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { Button, ActivityBar } from '@project-vyasa/vyasa-ui';
-	import { Library, BookOpen, Compass, Bug, Settings, Monitor, Moon, Sun, Terminal } from 'lucide-svelte';
+	import { Button, ActivityBar, ActivityBarItem } from '@project-vyasa/vyasa-ui';
+	import { Library, BookOpen, Compass, Bug, Settings, Terminal } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
-	import { getContext } from 'svelte';
 	import SettingsModal from './SettingsModal.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
@@ -24,7 +23,6 @@
 		}
 	});
 
-	const publisher = $derived(page.params.publisher || activePublication.publisher);
 	const publication = $derived(page.params.publication || activePublication.publication);
 
 	const active = $derived.by(() => {
@@ -33,94 +31,126 @@
 		if (page.params.publication) return 'reader';
 		return 'library';
 	});
-
-	const themeContext = getContext<{
-		current: 'light' | 'dark';
-		theme: 'light' | 'dark' | 'system';
-		density: 'compact' | 'standard' | 'comfortable';
-		toggleTheme: () => void;
-		cycleDensity: () => void;
-	}>('theme');
 </script>
 
 <ActivityBar>
 	{#snippet top()}
-		<Button
-			variant={active === 'library' ? 'secondary' : 'ghost'}
-			size="icon"
-			icon={Library}
-			title="Library"
-			onclick={() => {
-				goto(base || '/');
-			}}
-		/>
+		<ActivityBarItem active={active === 'library'}>
+			{#snippet children()}
+				<Button
+					variant="ghost"
+					size="icon"
+					class="activity-item"
+					icon={Library}
+					title="Library"
+					onclick={() => {
+						goto(base || '/');
+					}}
+				/>
+			{/snippet}
+		</ActivityBarItem>
 		{#if publication}
-			<Button
-				variant={active === 'reader' ? 'secondary' : 'ghost'}
-				size="icon"
-				icon={BookOpen}
-				title="Reader"
-				onclick={() => {
-					if (active !== 'reader') goto(`${base}${activePublication.readerUrl}`);
-				}}
-			/>
-			<Button
-				variant={active === 'explore' ? 'secondary' : 'ghost'}
-				size="icon"
-				icon={Compass}
-				title="Explore"
-				onclick={() => {
-					if (active !== 'explore') goto(`${base}${activePublication.exploreUrl}`);
-				}}
-			/>
+			<ActivityBarItem active={active === 'reader'}>
+				{#snippet children()}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="activity-item"
+						icon={BookOpen}
+						title="Reader"
+						onclick={() => {
+							if (active !== 'reader') goto(`${base}${activePublication.readerUrl}`);
+						}}
+					/>
+				{/snippet}
+			</ActivityBarItem>
+			<ActivityBarItem active={active === 'explore'}>
+				{#snippet children()}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="activity-item"
+						icon={Compass}
+						title="Explore"
+						onclick={() => {
+							if (active !== 'explore') goto(`${base}${activePublication.exploreUrl}`);
+						}}
+					/>
+				{/snippet}
+			</ActivityBarItem>
 		{:else}
-			<Button
-				variant="ghost"
-				size="icon"
-				icon={BookOpen}
-				title="Reader (Select a publication first)"
-				disabled
-			/>
-			<Button
-				variant="ghost"
-				size="icon"
-				icon={Compass}
-				title="Explore (Select a publication first)"
-				disabled
-			/>
+			<ActivityBarItem>
+				{#snippet children()}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="activity-item"
+						icon={BookOpen}
+						title="Reader (Select a publication first)"
+						disabled
+					/>
+				{/snippet}
+			</ActivityBarItem>
+			<ActivityBarItem>
+				{#snippet children()}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="activity-item"
+						icon={Compass}
+						title="Explore (Select a publication first)"
+						disabled
+					/>
+				{/snippet}
+			</ActivityBarItem>
 		{/if}
 	{/snippet}
 
 	{#snippet bottom()}
-		<Button
-			variant={viewerSettings.debugMode ? 'primary' : 'ghost'}
-			size="icon"
-			icon={Terminal}
-			title={viewerSettings.debugMode ? 'Debug Mode: Active (Click or Ctrl+B to toggle)' : 'Debug Mode: Disabled (Click or Ctrl+B to toggle)'}
-			onclick={() => (viewerSettings.debugMode = !viewerSettings.debugMode)}
-		/>
-		<Button
-			variant={active === 'diagnostics' ? 'secondary' : 'ghost'}
-			size="icon"
-			icon={Bug}
-			title="Diagnostics (Click or Ctrl+U to toggle)"
-			onclick={() => {
-				if (active !== 'diagnostics') {
-					goto(`${base}${activePublication.diagnosticsUrl}`);
-				} else if (activePublication.publication) {
-					goto(`${base}${activePublication.readerUrl}`);
-				} else {
-					goto(`${base}/`);
-				}
-			}}
-		/>
-		<Button
-			variant="ghost"
-			size="icon"
-			icon={Settings}
-			title="Settings"
-			onclick={() => (settingsOpen = true)}
-		/>
+		<ActivityBarItem active={viewerSettings.debugMode}>
+			{#snippet children()}
+				<Button
+					variant="ghost"
+					size="icon"
+					class="activity-item"
+					icon={Terminal}
+					title={viewerSettings.debugMode ? 'Debug Mode: Active (Click or Ctrl+B to toggle)' : 'Debug Mode: Disabled (Click or Ctrl+B to toggle)'}
+					onclick={() => (viewerSettings.debugMode = !viewerSettings.debugMode)}
+				/>
+			{/snippet}
+		</ActivityBarItem>
+		<ActivityBarItem active={active === 'diagnostics'}>
+			{#snippet children()}
+				<Button
+					variant="ghost"
+					size="icon"
+					class="activity-item"
+					icon={Bug}
+					title="Diagnostics (Click or Ctrl+U to toggle)"
+					onclick={() => {
+						if (active !== 'diagnostics') {
+							goto(`${base}${activePublication.diagnosticsUrl}`);
+						} else if (activePublication.publication) {
+							goto(`${base}${activePublication.readerUrl}`);
+						} else {
+							goto(`${base}/`);
+						}
+					}}
+				/>
+			{/snippet}
+		</ActivityBarItem>
+		<ActivityBarItem>
+			{#snippet children()}
+				<Button
+					variant="ghost"
+					size="icon"
+					class="activity-item"
+					icon={Settings}
+					title="Settings"
+					onclick={() => (settingsOpen = true)}
+				/>
+			{/snippet}
+		</ActivityBarItem>
 	{/snippet}
 </ActivityBar>
 

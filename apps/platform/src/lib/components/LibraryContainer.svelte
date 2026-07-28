@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { base } from '$app/paths';
-	import { onMount } from 'svelte';
 	import { getAllPublishers, fetchCatalog, resolvePublisherCatalogUrl } from '$lib/registry';
+	import type { CatalogSourceError } from '$lib/registry';
 	import LibraryView from '$lib/components/LibraryView.svelte';
+	import { viewerSettings } from '$lib/settings.svelte';
 	import type { LibraryPublisherData } from '$lib/types';
 
 	interface Props {
@@ -12,13 +13,26 @@
 	let { publisher = '' }: Props = $props();
 
 	let libraryData = $state<LibraryPublisherData[]>([]);
+	let sourceErrors = $state<CatalogSourceError[]>([]);
 	let loading = $state(true);
 	let multiplePublishers = $state(false);
 
-	onMount(async () => {
+	const catalogSourceKey = $derived(
+		JSON.stringify({
+			publisher,
+			enableGlobalRegistry: viewerSettings.enableGlobalRegistry,
+			enableCustomRegistries: viewerSettings.enableCustomRegistries,
+			customRegistries: viewerSettings.customRegistries,
+			enableCustomCatalogs: viewerSettings.enableCustomCatalogs,
+			customCatalogs: viewerSettings.customCatalogs
+		})
+	);
+
+	async function loadLibrary() {
 		try {
 			loading = true;
-			const allPubs = await getAllPublishers();
+			const { publishers: allPubs, sourceErrors: errors } = await getAllPublishers();
+			sourceErrors = errors;
 			multiplePublishers = allPubs.length > 1;
 
 			if (publisher) {
@@ -33,6 +47,7 @@
 							catalog_url: catalogUrl
 						},
 						sourceUrl: catalogUrl,
+						sourceKind: 'global' as const,
 						catalog: catalogData
 					}
 				];
@@ -42,6 +57,7 @@
 						const data: LibraryPublisherData = {
 							publisher: p.publisher,
 							sourceUrl: p.sourceUrl,
+							sourceKind: p.sourceKind,
 							catalog: null
 						};
 						try {
@@ -58,6 +74,11 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	$effect(() => {
+		catalogSourceKey;
+		void loadLibrary();
 	});
 </script>
 
@@ -80,7 +101,7 @@
 		</div>
 	</div>
 
-	<LibraryView publishers={libraryData} {loading} />
+	<LibraryView publishers={libraryData} {sourceErrors} {loading} />
 </div>
 
 <style>

@@ -6,7 +6,7 @@
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import type { Registry, Catalog, PackageData } from '$lib/types';
-	import { Panel, Badge, Alert, CodeEditor, Tree, type TreeNode } from '@project-vyasa/vyasa-ui';
+	import { Panel, Badge, Alert, Tree, type TreeNode } from '@project-vyasa/vyasa-ui';
 	import { Globe, Server, Database, FileCode } from 'lucide-svelte';
 
 	interface CatalogDiagnostic {
@@ -314,15 +314,8 @@
 						{#if selectedNode.error}
 							<Alert variant="danger" title="Inspection Error">{selectedNode.error}</Alert>
 						{:else if selectedNode.data}
-							<div class="editor-container">
-								<CodeEditor
-									value={JSON.stringify(selectedNode.data, null, 2)}
-									language="typescript"
-									readonly={true}
-									lineWrapping={true}
-									theme="dark"
-									class="h-full border-0"
-								/>
+							<div class="json-view">
+								<pre class="json-pre"><code>{JSON.stringify(selectedNode.data, null, 2)}</code></pre>
 							</div>
 						{:else if selectedNode.status === 'loading'}
 							<Alert variant="info" title="Loading">Fetching target data...</Alert>
@@ -411,12 +404,31 @@
 		flex: 1;
 	}
 
-	.editor-container {
+	.json-view {
 		flex: 1;
 		min-height: 480px;
 		height: calc(100vh - 260px);
 		width: 100%;
-		position: relative;
+		overflow: auto;
+		border: 1px solid var(--border-base);
+		border-radius: var(--control-radius);
+		background-color: var(--bg-surface-alt);
+	}
+
+	.json-pre {
+		margin: 0;
+		padding: var(--space-4);
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.8125rem;
+		line-height: 1.5;
+		color: var(--text-primary);
+		white-space: pre-wrap;
+		word-break: break-word;
+		tab-size: 2;
+	}
+
+	.json-pre code {
+		font-family: inherit;
 	}
 
 	.url-bar {
