@@ -1,12 +1,13 @@
 import { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 import { matchUrns } from '$lib/urn-utils';
 import { ViewerDb } from '$lib/ViewerDb';
-import type { Manifest, PackageData, VocabularyEntry } from '$lib/types';
+import type { Manifest, PackageData } from '$lib/types';
 import {
 	buildWeaveOptionsJson,
 	isPlaceholderContent,
 	prepareDisplayContent
 } from '$lib/viewer/whitespace';
+import { getVocabularyLabel } from '$lib/viewer/vocabulary';
 
 function normalizeBlockContent(content: unknown): Uint8Array {
 	if (content instanceof Uint8Array) return content;
@@ -39,36 +40,6 @@ function getSelectableViews(
 		selectable.push('grid');
 	}
 	return selectable;
-}
-
-function getVocabularyLabel(
-	vocabulary: VocabularyEntry[] | undefined,
-	category: string,
-	key: string,
-	streamName: string,
-	primaryStream?: string
-): string | undefined {
-	if (!vocabulary) return undefined;
-	const lowerKey = key.toLowerCase();
-	const lowerCat = category.toLowerCase();
-	const lowerStream = streamName?.toLowerCase() || '';
-
-	const matchesCategory = (cat: string) => {
-		const c = cat.toLowerCase();
-		return c === lowerCat || c === lowerCat + 's' || c.replace(/s$/, '') === lowerCat;
-	};
-
-	// 1. Exact match for the active stream
-	let match = vocabulary.find(v => matchesCategory(v.category) && v.key.toLowerCase() === lowerKey && v.stream_name?.toLowerCase() === lowerStream);
-	if (match) return match.value;
-
-	// 2. Manifest-declared primary stream (pre-merged labels at pack time)
-	if (primaryStream) {
-		match = vocabulary.find(v => matchesCategory(v.category) && v.key.toLowerCase() === lowerKey && v.stream_name?.toLowerCase() === primaryStream.toLowerCase());
-		if (match) return match.value;
-	}
-
-	return undefined;
 }
 
 export interface RenderResult {

@@ -1,5 +1,6 @@
 import { flattenTree } from '$lib/urn-utils';
 import type { PackageData } from '$lib/types';
+import { getVocabularyLabel, titlesForChromeStream } from '$lib/viewer/vocabulary';
 
 export interface SidebarItem {
 	id: string;
@@ -16,13 +17,15 @@ export interface SidebarItem {
  *   const sidebar = new SidebarState(
  *     () => packageData,
  *     () => urnComponents,
- *     () => urn
+ *     () => urn,
+ *     () => chromeStream
  *   );
  */
 export class SidebarState {
 	readonly #getPackageData: () => PackageData | null;
 	readonly #getUrnComponents: () => string[];
 	readonly #getUrn: () => string;
+	readonly #getChromeStream: () => string | undefined;
 
 	selectedContainerId = $state<string | number | undefined>(undefined);
 
@@ -35,17 +38,38 @@ export class SidebarState {
 	readonly items: SidebarItem[] = $derived.by(() => {
 		const pd = this.#getPackageData();
 		const urnComponents = this.#getUrnComponents();
+		const chromeStream = this.#getChromeStream();
 		const tree = pd?.structure?.catalogTree;
 		if (!tree) return [];
 
-		const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+		const primaryStream = (pd.manifest as { primary_stream?: string })?.primary_stream;
+		const labelStream = chromeStream || primaryStream || '';
+		const titles = titlesForChromeStream(
+			pd.titlesByStream,
+			pd.titles,
+			chromeStream,
+			primaryStream
+		);
+
+		const structureLabel = (componentKey: string, fallback: string) => {
+			const loc = getVocabularyLabel(
+				pd.vocabulary,
+				'structure',
+				componentKey,
+				labelStream,
+				primaryStream
+			);
+			if (loc) return loc;
+			return fallback.charAt(0).toUpperCase() + fallback.slice(1);
+		};
 
 		// Case 1: Flat array of leaf nodes (e.g., single-level publication)
 		if (Array.isArray(tree)) {
-			const label = urnComponents[0] || 'Item';
+			const key = urnComponents[0] || 'Item';
+			const label = structureLabel(key, key);
 			return tree.map((val) => ({
 				id: String(val),
-				title: `${capitalize(label)} ${val}`
+				title: `${label} ${val}`
 			}));
 		}
 
@@ -58,16 +82,18 @@ export class SidebarState {
 					const id = pathParts.join(':');
 					const lastPart = pathParts[pathParts.length - 1];
 					const parentPart = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '';
-					const itemLabel = urnComponents[pathParts.length - 1] || 'Item';
-					const groupLabel =
+					const itemKey = urnComponents[pathParts.length - 1] || 'Item';
+					const groupKey =
 						pathParts.length > 1 ? urnComponents[pathParts.length - 2] || 'Group' : '';
-					const semanticTitle = pd?.titles?.[id];
-					const fallbackTitle = `${capitalize(itemLabel)} ${lastPart}`;
-					const parentSemanticTitle = parentPart ? pd?.titles?.[parentPart] : undefined;
+					const itemLabel = structureLabel(itemKey, itemKey);
+					const groupLabel = groupKey ? structureLabel(groupKey, groupKey) : '';
+					const semanticTitle = titles[id];
+					const fallbackTitle = `${itemLabel} ${lastPart}`;
+					const parentSemanticTitle = parentPart ? titles[parentPart] : undefined;
 					const groupTitle = parentSemanticTitle
-						? `${parentSemanticTitle} (${capitalize(groupLabel)} ${parentPart})`
+						? `${parentSemanticTitle} (${groupLabel} ${parentPart})`
 						: parentPart
-							? `${capitalize(groupLabel)} ${parentPart}`
+							? `${groupLabel} ${parentPart}`
 							: undefined;
 
 					result.push({
@@ -96,11 +122,13 @@ export class SidebarState {
 	constructor(
 		getPackageData: () => PackageData | null,
 		getUrnComponents: () => string[],
-		getUrn: () => string
+		getUrn: () => string,
+		getChromeStream: () => string | undefined = () => undefined
 	) {
 		this.#getPackageData = getPackageData;
 		this.#getUrnComponents = getUrnComponents;
 		this.#getUrn = getUrn;
+		this.#getChromeStream = getChromeStream;
 
 		// Keep selectedContainerId in sync with current URN
 		$effect(() => {

@@ -76,7 +76,10 @@ export interface PackageData {
 		catalogTree: any;
 	};
 	projections: Record<string, string>;
+	/** @deprecated Prefer titlesByStream + chrome stream selection */
 	titles?: Record<string, string>;
+	/** URN → title, keyed by stream name (e.g. mula / iast) */
+	titlesByStream?: Record<string, Record<string, string>>;
 	streams?: Array<{id: string, label: string, count: number}>;
 	vocabulary?: VocabularyEntry[];
 	annotations?: AnnotationEntry[];

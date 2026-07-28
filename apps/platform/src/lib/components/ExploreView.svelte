@@ -5,6 +5,8 @@
 	import { base } from '$app/paths';
 	import type { PackageData } from '$lib/types';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
+	import { viewerSettings } from '$lib/settings.svelte';
+	import { titlesForChromeStream } from '$lib/viewer/vocabulary';
 	import { onMount, getContext } from 'svelte';
 	import DataMap from './explore/DataMap.svelte';
 	import FacetSidebar from './explore/FacetSidebar.svelte';
@@ -27,8 +29,8 @@
 
 	// Multi-select State
 	let multiSelectMode = $state(false);
-	let manualSelections = $state<{startUrn: string, endUrn: string}[]>([]);
-	
+	let manualSelections = $state<{ startUrn: string; endUrn: string }[]>([]);
+
 	// Linear Drag Selection State
 	let isDragging = $state(false);
 	let dragStartUrn = $state<string | null>(null);
@@ -40,22 +42,24 @@
 
 	function parseTree(tree: any, titles: Record<string, string>, prefix = ''): MapNode[] {
 		if (Array.isArray(tree)) {
-			return [{
-				type: 'leaf-container',
-				id: prefix,
-				title: titles[prefix] || `Container ${prefix}`,
-				leafCount: tree.length
-			}];
+			return [
+				{
+					type: 'leaf-container',
+					id: prefix,
+					title: titles[prefix] || `Container ${prefix}`,
+					leafCount: tree.length
+				}
+			];
 		}
-		
+
 		const nodes: MapNode[] = [];
 		const groupKeys = Object.keys(tree).sort((a, b) => Number(a) - Number(b));
-		
+
 		for (const key of groupKeys) {
 			const subNode = tree[key];
 			const fullId = prefix ? `${prefix}:${key}` : key;
 			const title = titles[fullId] || `Node ${fullId}`;
-			
+
 			if (Array.isArray(subNode)) {
 				nodes.push({
 					type: 'leaf-container',
@@ -72,14 +76,21 @@
 				});
 			}
 		}
-		
+
 		return nodes;
 	}
 
 	const parsedNodes = $derived.by<MapNode[]>(() => {
 		const tree = packageData?.structure?.catalogTree;
 		if (!tree || typeof tree !== 'object') return [];
-		const titles = packageData?.titles || {};
+		const primary = (packageData?.manifest as { primary_stream?: string } | undefined)
+			?.primary_stream;
+		const titles = titlesForChromeStream(
+			packageData?.titlesByStream,
+			packageData?.titles,
+			viewerSettings.chromeStream || undefined,
+			primary
+		);
 		return parseTree(tree, titles);
 	});
 
@@ -94,7 +105,10 @@
 				const matchingChildren = filterNodes(node.children, query);
 				if (matchingChildren.length > 0) {
 					result.push({ ...node, children: matchingChildren });
-				} else if (node.title.toLowerCase().includes(query) || node.id.toLowerCase().includes(query)) {
+				} else if (
+					node.title.toLowerCase().includes(query) ||
+					node.id.toLowerCase().includes(query)
+				) {
 					result.push(node);
 				}
 			}
@@ -129,8 +143,8 @@
 	// --- Marquee Selection Logic ---
 	function handleMarqueeSelection(urns: string[]) {
 		if (urns.length === 0) return;
-		
-		const numericUrns = urns.map(u => parseInt(u, 10)).sort((a, b) => a - b);
+
+		const numericUrns = urns.map((u) => parseInt(u, 10)).sort((a, b) => a - b);
 		const startUrn = numericUrns[0].toString();
 		const endUrn = numericUrns[numericUrns.length - 1].toString();
 
@@ -181,6 +195,7 @@
 				class="search-input"
 			/>
 		</div>
+		<!--
 		<div class="top-controls">
 			<label class="multi-select-toggle">
 				<span class="label-text">Multi-select</span>
@@ -190,6 +205,7 @@
 				Hop to Reader
 			</Button>
 		</div>
+		-->
 	</div>
 {/snippet}
 
@@ -201,7 +217,13 @@
 		<div class="sidebar-title-row">
 			<h3 class="sidebar-title">Filters</h3>
 			{#if Object.keys(activeFacets).length > 0}
-				<Button variant="ghost" size="sm" icon={FilterX} onclick={clearFacets} title="Clear Filters" />
+				<Button
+					variant="ghost"
+					size="sm"
+					icon={FilterX}
+					onclick={clearFacets}
+					title="Clear Filters"
+				/>
 			{/if}
 		</div>
 		<div class="sidebar-facets">
@@ -211,7 +233,7 @@
 {/snippet}
 
 <div class="explore-view-page">
-	<DataMap 
+	<DataMap
 		nodes={filteredNodes}
 		{manualSelections}
 		{activeFacets}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { base } from '$app/paths';
-	import { Panel, ListView } from '@project-vyasa/vyasa-ui';
+	import { Panel, ListView, Select, Switch } from '@project-vyasa/vyasa-ui';
 	import { BookOpen } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { onDestroy, getContext, untrack, type Snippet } from 'svelte';
@@ -12,6 +12,7 @@
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
+	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
 	import type { PackageData, Catalog } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 
@@ -35,7 +36,6 @@
 	let srcdocContent = $state('');
 	let errorMessage = $state<string | null>(null);
 	let activeView = $state<string | undefined>(undefined);
-	let activeStream = $state<string | undefined>(undefined);
 	let availableViews = $state<string[]>([]);
 	let availableStreams = $state<string[]>([]);
 	let customGridLayoutJson = $state<string | undefined>(undefined);
@@ -46,8 +46,26 @@
 	let currentUrnParts = $state<string[]>([]);
 	let iframeElement = $state<HTMLIFrameElement>();
 	let showReferenceGutter = $state(true);
-	let showAnnotationGutter = $state(true);
 	let renderGeneration = 0;
+
+	/** Chrome label stream — persisted; drives speaker badges and nav structure terms. */
+	let chromeStream = $state('');
+	let showAnnotationGutter = $state(viewerSettings.showAnnotationGutter);
+	const chromeStreams = $derived(
+		chromeStreamsFromVocabulary(
+			packageData?.vocabulary,
+			(packageData?.manifest as { primary_stream?: string } | undefined)?.primary_stream
+		)
+	);
+
+	$effect(() => {
+		const stream = chromeStream;
+		if (stream) untrack(() => (viewerSettings.chromeStream = stream));
+	});
+	$effect(() => {
+		const show = showAnnotationGutter;
+		untrack(() => (viewerSettings.showAnnotationGutter = show));
+	});
 
 	// --- Diagnostics metadata for debug display ---
 	let diagPublicationUrl = $state('');
@@ -61,7 +79,8 @@
 	const sidebar = new SidebarState(
 		() => packageData,
 		() => urnComponents,
-		() => urn
+		() => urn,
+		() => chromeStream || undefined
 	);
 
 	// Register sidebars with Shell
@@ -110,7 +129,7 @@
 		const r = graphRuntime;
 		const p = packageData;
 		const v = activeView;
-		const s = activeStream;
+		const s = chromeStream;
 		const c = customGridLayoutJson;
 		const refGutter = showReferenceGutter;
 		const annGutter = showAnnotationGutter;
@@ -158,8 +177,19 @@
 
 			availableViews = [];
 			activeView = undefined;
-			activeStream = undefined;
 			customGridLayoutJson = undefined;
+
+			const primary =
+				(result.packageData.manifest as { primary_stream?: string })?.primary_stream;
+			const labelStreams = chromeStreamsFromVocabulary(result.packageData.vocabulary, primary);
+			const preferred = viewerSettings.chromeStream;
+			chromeStream =
+				preferred && labelStreams.includes(preferred)
+					? preferred
+					: primary && labelStreams.includes(primary)
+						? primary
+						: labelStreams[0] || '';
+			showAnnotationGutter = viewerSettings.showAnnotationGutter;
 
 			// Set packageData LAST to avoid triggering the render $effect
 			// before initialization is complete (WASM Asyncify stack safety).
@@ -192,7 +222,7 @@
 				sidebar.flatUrns,
 				activeView || '',
 				availableViews,
-				activeStream,
+				chromeStream,
 				customGridLayoutJson,
 				showReferenceGutter,
 				showAnnotationGutter
@@ -202,7 +232,7 @@
 			availableViews = result.availableViews;
 			availableStreams = result.availableStreams;
 			if (activeView !== result.activeView) activeView = result.activeView;
-			if (activeStream !== result.activeStream) activeStream = result.activeStream;
+			// Do not overwrite chromeStream from weave discovery — chrome is user/settings controlled.
 			srcdocContent = result.srcdocContent;
 		} catch (e: unknown) {
 			if (generation !== renderGeneration) return;
@@ -269,13 +299,10 @@
 		bind:currentUrnParts
 		bind:isFullWidth
 		bind:activeView
-		bind:activeStream
 		{availableViews}
 		{availableStreams}
 		bind:customGridLayoutJson
 		isDocumentLayout={(packageData?.manifest as any)?.layout === 'document'}
-		bind:showReferenceGutter
-		bind:showAnnotationGutter
 		onNavigatePrev={navigatePrev}
 		onNavigateNext={navigateNext}
 		onNavigateUrn={navigateUrn}
@@ -285,6 +312,30 @@
 
 {#snippet sidebarLeftContent()}
 	<Panel title="Navigation" icon={BookOpen}>
+		{#if chromeStreams.length > 0 || packageData?.annotations?.length}
+			<div class="nav-display-controls">
+				{#if chromeStreams.length > 0}
+					<div class="nav-control-row">
+						<span class="nav-control-label">Labels</span>
+						<div class="nav-control-field">
+							<Select
+								options={chromeStreams.map((s) => ({
+									label: s,
+									value: s
+								}))}
+								bind:value={chromeStream}
+							/>
+						</div>
+					</div>
+				{/if}
+				{#if packageData?.annotations?.length}
+					<div class="nav-control-row">
+						<span class="nav-control-label">Annotations</span>
+						<Switch bind:checked={showAnnotationGutter} />
+					</div>
+				{/if}
+			</div>
+		{/if}
 		{#if sidebar.items.length > 0}
 			<ListView
 				items={sidebar.items}
@@ -326,6 +377,32 @@
 </div>
 
 <style>
+	.nav-display-controls {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		padding: var(--space-3) var(--space-4);
+		border-bottom: 1px solid var(--border-base);
+	}
+	.nav-control-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-3);
+	}
+	.nav-control-label {
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+		flex-shrink: 0;
+	}
+	.nav-control-field {
+		flex: 1;
+		min-width: 0;
+		max-width: 10rem;
+	}
 	.sidebar-panel-content {
 		padding: var(--space-4);
 		color: var(--text-secondary);

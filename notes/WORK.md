@@ -18,12 +18,14 @@ Code-review backlog lives in [`assessments/platform/CODE_REVIEW_TASKS.md`](../as
 
 - [~] **Reader / nav / layout polish** — in-flight diffs on ExploreView, ViewerNavBar, urn-renderer, +page.svelte; review, finish, or split before next feature.
 - [x] **Whitespace handling (apps)** — strip stream artifacts, flex-start row alignment, `\n` segment join; compiler: skip `set` in HTML (repack needed).
+- [x] **Chrome Labels control** — Navigation sidebar Labels (chrome stream) + Annotations toggle; speaker badges + structure terms + per-stream container titles follow `chromeStream` (persisted for Explorer).
 - [ ] **Decompose `[...urn]/+page.svelte`** — extract remaining logic per CODE_REVIEW_TASKS (publication-loader, urn-renderer, sidebar runes largely started).
 - [ ] **Cache templates at load time** — move `build_templates_query()` out of hot navigation path into `loadPublication()`.
 - [ ] **Explore leaf titles** — align Explore fallback labels with Reader sidebar (`Sukta n` vs `Node m:n`); see feedback.md §1.
 
 ## NEXT
 
+- [ ] **Localized numerals for URNs / hierarchy components** — when Labels (or a sibling setting) selects a convention, display chapter/verse numbers in that stream’s numeral system (e.g. Western `1` vs Devanagari `१`). Design the setting carefully: (a) follow chrome stream automatically, (b) independent “Numerals” control, or (c) publisher-declared numeral maps in localization. Scope: gutter URNs, nav subtitles, Explorer facets. Prefer pack-time maps over hardcoded digit tables in the viewer.
 - [ ] **Manifest-driven vocabulary/localization** — remove hardcoded stream fallbacks in `urn-renderer.ts` (`vocabulary`, `mula`, `devanagari`, `primary`); consume `primary_stream` + merged labels from manifest — see [`explicit-workspace-design.md`](./explicit-workspace-design.md). **Blocked:** vyasac pack changes.
 - [ ] **WASM API version check** after `initWasm()` — warn on mismatch.
 - [ ] **Dedupe `diagRegistryUrl`** — use settings default, not hardcoded strings.

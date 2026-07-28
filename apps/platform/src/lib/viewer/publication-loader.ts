@@ -97,15 +97,17 @@ export async function loadPublication(
 	// 8. Build WASM graph runtime
 	const graphRuntime = new VyasaViewerRuntime(hierarchyJson, bitLayoutJson, globalPrefix);
 
-	// 8b. Load and parse block attributes (e.g. titles for URNs)
-	// We ORDER BY stream_id ASC and use the first stream's title (typically iast) to prevent later streams (like mula/Devanagari) from overwriting it.
+	// 8b. Load block attributes (titles) per stream — Labels chrome selects which set to show
 	const attrRows = await viewerDb.query(
-		'SELECT sequence_id, attributes FROM block_attributes ORDER BY stream_id ASC'
+		'SELECT s.name, ba.sequence_id, ba.attributes FROM block_attributes ba JOIN streams s ON ba.stream_id = s.id'
 	);
+	const titlesByStream: Record<string, Record<string, string>> = {};
 	const titles: Record<string, string> = {};
+	const primaryStream = (manifest as Manifest).primary_stream;
 	for (const row of attrRows) {
-		const seqId = BigInt(row[0] as string | number);
-		const attrJson = row[1] as string;
+		const streamName = row[0] as string;
+		const seqId = BigInt(row[1] as string | number);
+		const attrJson = row[2] as string;
 		try {
 			const attrs = JSON.parse(attrJson);
 			if (attrs.title) {
@@ -117,11 +119,16 @@ export async function loadPublication(
 						relativeUrn = relativeUrn.slice(1);
 					}
 				}
-				// Strip trailing zero-padding used for container URNs (e.g. "1:0" -> "1")
 				while (relativeUrn.endsWith(':0')) {
 					relativeUrn = relativeUrn.slice(0, -2);
 				}
-				if (!titles[relativeUrn]) {
+				if (!titlesByStream[streamName]) titlesByStream[streamName] = {};
+				titlesByStream[streamName][relativeUrn] = attrs.title;
+				// Flat fallback: prefer primary, else first-seen
+				if (
+					!titles[relativeUrn] ||
+					(primaryStream && streamName === primaryStream)
+				) {
 					titles[relativeUrn] = attrs.title;
 				}
 			}
@@ -199,6 +206,7 @@ export async function loadPublication(
 		structure: { catalogTree: catalogTreeTemp },
 		projections,
 		titles,
+		titlesByStream,
 		streams,
 		vocabulary,
 		annotations

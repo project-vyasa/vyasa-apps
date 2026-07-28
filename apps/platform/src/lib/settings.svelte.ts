@@ -1,16 +1,21 @@
 import { browser } from '$app/environment';
+import { normalizeSourceUrl } from './local-dev-url';
 
 export class ViewerSettings {
 	// Defaults
 	private _enableGlobalRegistry = $state(true);
 
 	private _enableCustomRegistries = $state(true);
-	private _customRegistries = $state('');
+	private _customRegistries = $state('http://localhost:8080/registry.json');
 
 	private _enableCustomCatalogs = $state(true);
 	private _customCatalogs = $state('');
 
 	private _debugMode = $state(false);
+
+	/** Stream id used for chrome labels (speaker badges, structure terms). Shared with Explorer. */
+	private _chromeStream = $state<string | null>(null);
+	private _showAnnotationGutter = $state(true);
 
 	constructor() {
 		if (browser) {
@@ -35,6 +40,10 @@ export class ViewerSettings {
 				if (parsed.customCatalogs) this._customCatalogs = parsed.customCatalogs;
 
 				if (typeof parsed.debugMode === 'boolean') this._debugMode = parsed.debugMode;
+				if (typeof parsed.chromeStream === 'string' || parsed.chromeStream === null)
+					this._chromeStream = parsed.chromeStream;
+				if (typeof parsed.showAnnotationGutter === 'boolean')
+					this._showAnnotationGutter = parsed.showAnnotationGutter;
 			}
 		} catch (e) {
 			console.error('Failed to load settings:', e);
@@ -51,7 +60,9 @@ export class ViewerSettings {
 					customRegistries: this._customRegistries,
 					enableCustomCatalogs: this._enableCustomCatalogs,
 					customCatalogs: this._customCatalogs,
-					debugMode: this._debugMode
+					debugMode: this._debugMode,
+					chromeStream: this._chromeStream,
+					showAnnotationGutter: this._showAnnotationGutter
 				})
 			);
 		}
@@ -85,7 +96,7 @@ export class ViewerSettings {
 		if (!this._enableCustomRegistries || !this._customRegistries) return [];
 		return this._customRegistries
 			.split(/[;,]/)
-			.map((s) => s.trim())
+			.map((s) => normalizeSourceUrl(s))
 			.filter((s) => s.length > 0);
 	}
 
@@ -109,7 +120,7 @@ export class ViewerSettings {
 		if (!this._enableCustomCatalogs || !this._customCatalogs) return [];
 		return this._customCatalogs
 			.split(/[;,]/)
-			.map((s) => s.trim())
+			.map((s) => normalizeSourceUrl(s))
 			.filter((s) => s.length > 0);
 	}
 
@@ -118,6 +129,22 @@ export class ViewerSettings {
 	}
 	set debugMode(val: boolean) {
 		this._debugMode = val;
+		this.save();
+	}
+
+	get chromeStream() {
+		return this._chromeStream;
+	}
+	set chromeStream(val: string | null) {
+		this._chromeStream = val;
+		this.save();
+	}
+
+	get showAnnotationGutter() {
+		return this._showAnnotationGutter;
+	}
+	set showAnnotationGutter(val: boolean) {
+		this._showAnnotationGutter = val;
 		this.save();
 	}
 }

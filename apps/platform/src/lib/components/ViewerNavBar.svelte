@@ -9,13 +9,10 @@
 		currentUrnParts: string[];
 		isFullWidth: boolean;
 		activeView?: string;
-		activeStream?: string;
 		availableViews?: string[];
 		availableStreams?: string[];
 		customGridLayoutJson?: string;
 		isDocumentLayout?: boolean;
-		showReferenceGutter?: boolean;
-		showAnnotationGutter?: boolean;
 		onNavigatePrev: () => void;
 		onNavigateNext: () => void;
 		onNavigateUrn: () => void;
@@ -28,13 +25,10 @@
 		currentUrnParts = $bindable(),
 		isFullWidth = $bindable(),
 		activeView = $bindable(),
-		activeStream = $bindable(),
 		availableViews = [],
 		availableStreams = [],
 		customGridLayoutJson = $bindable(),
 		isDocumentLayout = false,
-		showReferenceGutter = $bindable(true),
-		showAnnotationGutter = $bindable(true),
 		onNavigatePrev,
 		onNavigateNext,
 		onNavigateUrn,
@@ -147,19 +141,6 @@
 				Customize
 			</Button>
 		{/if}
-		<!--
-		{#if availableStreams && availableStreams.length > 0 && !isDocumentLayout}
-			<div style="width: 160px;">
-				<Select
-					options={availableStreams.map((v) => ({
-						label: v.charAt(0).toUpperCase() + v.slice(1),
-						value: v
-					}))}
-					bind:value={activeStream}
-				/>
-			</div>
-		{/if}
-		-->
 	</div>
 
 	<!-- Centered URN Navigation -->
@@ -190,32 +171,10 @@
 		<Button variant="ghost" size="icon" icon={ChevronRight} title="Next" onclick={onNavigateNext} />
 	</div>
 
-	<!-- Right-aligned Gutter Toggles and Maximize Button -->
+	<!-- Right-aligned Maximize Button -->
 	<div
 		style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); padding-right: var(--space-2);"
 	>
-		<!--
-		{#if !isDocumentLayout}
-			<div style="display: flex; gap: var(--space-1); align-items: center;">
-				<Button
-					variant={showReferenceGutter ? 'secondary' : 'ghost'}
-					size="sm"
-					title="Toggle Reference (Left Gutter)"
-					onclick={() => (showReferenceGutter = !showReferenceGutter)}
-				>
-					Reference
-				</Button>
-				<Button
-					variant={showAnnotationGutter ? 'secondary' : 'ghost'}
-					size="sm"
-					title="Toggle Annotations (Left Gutter)"
-					onclick={() => (showAnnotationGutter = !showAnnotationGutter)}
-				>
-					Annotations
-				</Button>
-			</div>
-		{/if}
-		-->
 		<Button
 			variant="ghost"
 			size="icon"
@@ -245,7 +204,7 @@
 						>Columns:</span
 					>
 					<div style="display: flex; gap: 4px;">
-						{#each [0, 1, 2, 3] as cols}
+						{#each [0, 1, 2, 3] as cols (cols)}
 							<button
 								type="button"
 								class="col-btn {customColumnCount === cols ? 'active' : ''}"
@@ -260,7 +219,7 @@
 					</div>
 				</div>
 				<div class="stream-chips">
-					{#each availableStreams as s}
+					{#each availableStreams as s (s)}
 						<button type="button" class="stream-chip" onclick={() => insertStreamChip(s)}
 							>+ {s}</button
 						>
