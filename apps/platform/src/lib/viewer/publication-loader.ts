@@ -1,4 +1,3 @@
-import { dev } from '$app/environment';
 import initWasm, { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 import {
 	resolvePublisherCatalogUrl,
@@ -6,7 +5,7 @@ import {
 	getPublicationVyviewUrl,
 	DEFAULT_REGISTRY_URL
 } from '$lib/registry';
-import { viewerSettings } from '$lib/settings.svelte';
+import { appendCacheBuster, vyviewCacheToken } from '$lib/cache-bust';
 import { activePublication } from '$lib/viewer/active-publication.svelte';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
@@ -19,6 +18,10 @@ export interface PublicationLoadResult {
 	diagCatalogUrl: string;
 	diagPublicationUrl: string;
 	diagCatalog: Catalog;
+	/** catalog.json `updated` for the loaded publication, when present */
+	catalogUpdated?: number;
+	/** Initial manifest timestamp read from the loaded .vyview */
+	manifestTimestamp?: string;
 	/** The first leaf URN to navigate to when arriving at 'root', or null if not applicable */
 	initialTargetUrn: string | null;
 }
@@ -53,8 +56,8 @@ export async function loadPublication(
 	// 4. Resolve and load the .vyview SQLite file
 	const vyviewFullUrl = getPublicationVyviewUrl(catalogUrl, pubItem);
 	const diagPublicationUrl = vyviewFullUrl;
-	const buster = pubItem.updated ? `?t=${pubItem.updated}` : dev ? `?t=${Date.now()}` : '';
-	await viewerDb.loadFromUrl(vyviewFullUrl + buster);
+	const buster = vyviewCacheToken(pubItem.updated);
+	await viewerDb.loadFromUrl(appendCacheBuster(vyviewFullUrl, buster));
 
 	// 5. Read manifest
 	const manifestRows = await viewerDb.query(VyasaViewerRuntime.build_manifest_query());
@@ -62,6 +65,7 @@ export async function loadPublication(
 	for (const row of manifestRows) {
 		manifest[row[0] as string] = row[1] as string;
 	}
+	const manifestTimestamp = manifest['timestamp'];
 	if (manifest['package_type'] !== 'view') {
 		throw new Error(`Unsupported package type in ${vyviewFullUrl}`);
 	}
@@ -208,6 +212,8 @@ export async function loadPublication(
 		diagCatalogUrl,
 		diagPublicationUrl,
 		diagCatalog: catalogData,
+		catalogUpdated: pubItem.updated,
+		manifestTimestamp,
 		initialTargetUrn
 	};
 }

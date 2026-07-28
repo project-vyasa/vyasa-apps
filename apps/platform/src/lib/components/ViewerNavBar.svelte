@@ -9,6 +9,7 @@
 		currentUrnParts: string[];
 		isFullWidth: boolean;
 		activeView?: string;
+		activeStream?: string;
 		availableViews?: string[];
 		availableStreams?: string[];
 		customGridLayoutJson?: string;
@@ -27,6 +28,7 @@
 		currentUrnParts = $bindable(),
 		isFullWidth = $bindable(),
 		activeView = $bindable(),
+		activeStream = $bindable(),
 		availableViews = [],
 		availableStreams = [],
 		customGridLayoutJson = $bindable(),
@@ -41,6 +43,7 @@
 
 	let showCustomizer = $state(false);
 	let customGridText = $state('');
+	let customColumnCount = $state<number>(0);
 	let textareaEl = $state<HTMLTextAreaElement | null>(null);
 
 	$effect(() => {
@@ -88,41 +91,51 @@
 	}
 
 	function parseCustomGridText() {
-		const lines = customGridText.split('\n').map((l) => l.trim()).filter(Boolean);
-		let maxCols = 1;
+		const lines = customGridText
+			.split('\n')
+			.map((l) => l.trim())
+			.filter(Boolean);
+		let derivedMaxCols = 1;
 		const rowsRaw: string[][] = [];
 		for (const line of lines) {
-			const cols = line.split(',').map((c) => c.trim()).filter(Boolean);
-			if (cols.length > maxCols) maxCols = cols.length;
+			const cols = line
+				.split(',')
+				.map((c) => c.trim())
+				.filter(Boolean);
+			if (cols.length > derivedMaxCols) derivedMaxCols = cols.length;
 			rowsRaw.push(cols);
 		}
+		const effectiveCols = customColumnCount > 0 ? customColumnCount : derivedMaxCols;
 		const rows = rowsRaw.map((cols) => {
-			const span = cols.length < maxCols && maxCols > 1 ? maxCols : 1;
+			const span = cols.length < effectiveCols && effectiveCols > 1 ? effectiveCols : 1;
 			return cols.map((col, idx) => {
 				const item: { block: string; span?: number } = { block: col };
 				if (idx === 0 && span > 1 && cols.length === 1) item.span = span;
 				return item;
 			});
 		});
-		customGridLayoutJson = JSON.stringify({ rows });
+		const layoutObj: any = { rows };
+		if (customColumnCount > 0) layoutObj.columns = customColumnCount;
+		customGridLayoutJson = JSON.stringify(layoutObj);
 	}
 </script>
 
 <div class="nav-bar-container">
 	<!-- Left spacer / View Selector -->
-	<div style="flex: 1; display: flex; justify-content: flex-start; align-items: center; gap: var(--space-2); padding-left: var(--space-2);">
+	<div
+		style="flex: 1; display: flex; justify-content: flex-start; align-items: center; gap: var(--space-2); padding-left: var(--space-2);"
+	>
 		{#if availableViews && availableViews.length > 1 && !isDocumentLayout}
 			<div style="width: 160px;">
 				<Select
 					options={availableViews.map((v) => ({
-						label: v === 'grid' ? 'Grid (Columns)' : v === 'plain' ? 'Plain Text (Default)' : v.charAt(0).toUpperCase() + v.slice(1),
+						label: v === 'grid' ? 'Grid (Columns)' : v.charAt(0).toUpperCase() + v.slice(1),
 						value: v
 					}))}
 					bind:value={activeView}
 				/>
 			</div>
 		{/if}
-
 		{#if activeView === 'grid' && availableStreams && availableStreams.length > 0 && !isDocumentLayout}
 			<Button
 				variant="outline"
@@ -134,6 +147,19 @@
 				Customize
 			</Button>
 		{/if}
+		<!--
+		{#if availableStreams && availableStreams.length > 0 && !isDocumentLayout}
+			<div style="width: 160px;">
+				<Select
+					options={availableStreams.map((v) => ({
+						label: v.charAt(0).toUpperCase() + v.slice(1),
+						value: v
+					}))}
+					bind:value={activeStream}
+				/>
+			</div>
+		{/if}
+		-->
 	</div>
 
 	<!-- Centered URN Navigation -->
@@ -154,7 +180,7 @@
 						onkeydown={(e) => e.key === 'Enter' && onNavigateUrn()}
 						onblur={onNavigateUrn}
 						placeholder={urnComponents[lastIdx]}
-						style="text-align: center; font-family: var(--font-mono);"
+						style="text-align: center; font-family: var(--font-mono); font-size: small;"
 					/>
 				</div>
 			{:else}
@@ -165,7 +191,10 @@
 	</div>
 
 	<!-- Right-aligned Gutter Toggles and Maximize Button -->
-	<div style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); padding-right: var(--space-2);">
+	<div
+		style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); padding-right: var(--space-2);"
+	>
+		<!--
 		{#if !isDocumentLayout}
 			<div style="display: flex; gap: var(--space-1); align-items: center;">
 				<Button
@@ -179,13 +208,14 @@
 				<Button
 					variant={showAnnotationGutter ? 'secondary' : 'ghost'}
 					size="sm"
-					title="Toggle Annotation (Right Gutter)"
+					title="Toggle Annotations (Left Gutter)"
 					onclick={() => (showAnnotationGutter = !showAnnotationGutter)}
 				>
-					Annotation
+					Annotations
 				</Button>
 			</div>
 		{/if}
+		-->
 		<Button
 			variant="ghost"
 			size="icon"
@@ -203,10 +233,37 @@
 				<Button variant="ghost" size="icon" icon={X} onclick={() => (showCustomizer = false)} />
 			</div>
 			<div class="customizer-body">
-				<p class="customizer-instructions">Click stream chips below to add them into the layout input (prevents typos). Each line defines a row; comma-separate columns on the same row.</p>
+				<p class="customizer-instructions">
+					Click stream chips below to add them into the layout input (prevents typos). Each line
+					defines a row; comma-separate columns on the same row.
+				</p>
+				<div
+					class="col-selector"
+					style="display: flex; align-items: center; gap: var(--space-2); margin: 4px 0;"
+				>
+					<span style="font-size: var(--text-xs); color: var(--text-secondary); font-weight: 500;"
+						>Columns:</span
+					>
+					<div style="display: flex; gap: 4px;">
+						{#each [0, 1, 2, 3] as cols}
+							<button
+								type="button"
+								class="col-btn {customColumnCount === cols ? 'active' : ''}"
+								onclick={() => {
+									customColumnCount = cols;
+									parseCustomGridText();
+								}}
+							>
+								{cols === 0 ? 'Auto' : cols}
+							</button>
+						{/each}
+					</div>
+				</div>
 				<div class="stream-chips">
 					{#each availableStreams as s}
-						<button type="button" class="stream-chip" onclick={() => insertStreamChip(s)}>+ {s}</button>
+						<button type="button" class="stream-chip" onclick={() => insertStreamChip(s)}
+							>+ {s}</button
+						>
 					{/each}
 				</div>
 				<textarea
@@ -215,8 +272,7 @@
 					oninput={parseCustomGridText}
 					class="custom-grid-textarea"
 					rows="4"
-					placeholder="mula, devanagari&#10;translation&#10;purport"
-				></textarea>
+					placeholder="mula, devanagari&#10;translation&#10;purport"></textarea>
 			</div>
 			<div class="customizer-footer">
 				<span class="customizer-hint">Changes apply instantly to the grid view below.</span>
@@ -338,5 +394,26 @@
 	.customizer-hint {
 		font-size: 11px;
 		color: var(--text-tertiary);
+	}
+	.col-btn {
+		background: var(--bg-surface-alt);
+		border: 1px solid var(--border-base);
+		color: var(--text-secondary);
+		padding: 2px 8px;
+		border-radius: var(--radius-sm);
+		font-size: var(--text-xs);
+		font-family: var(--font-mono);
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+	.col-btn:hover {
+		border-color: var(--border-strong);
+		color: var(--text-primary);
+	}
+	.col-btn.active {
+		background: var(--bg-primary);
+		color: var(--text-on-primary);
+		border-color: var(--bg-primary);
+		font-weight: 600;
 	}
 </style>

@@ -6,6 +6,7 @@ export class ActivePublicationState {
 	private _title = $state('');
 	private _publicationUrl = $state('');
 	private _timestamp = $state('');
+	private _catalogUpdated = $state<number | undefined>(undefined);
 
 	setPublication(publisher: string, publication: string, catalogUrl?: string | null) {
 		if (publisher && publication) {
@@ -23,15 +24,23 @@ export class ActivePublicationState {
 				this._title = '';
 				this._publicationUrl = '';
 				this._timestamp = '';
+				this._catalogUpdated = undefined;
 			}
 		}
 	}
 
-	setMetadata(title: string, publicationUrl: string, timestamp?: string | number, catalogUrl?: string | null) {
+	setMetadata(
+		title: string,
+		publicationUrl: string,
+		manifestTimestamp?: string | number,
+		catalogUrl?: string | null,
+		catalogUpdated?: number
+	) {
 		if (title) this._title = title;
 		if (publicationUrl) this._publicationUrl = publicationUrl;
-		if (timestamp !== undefined) this._timestamp = String(timestamp);
+		if (manifestTimestamp !== undefined) this._timestamp = String(manifestTimestamp);
 		if (catalogUrl !== undefined) this._catalogUrl = catalogUrl || '';
+		if (catalogUpdated !== undefined) this._catalogUpdated = catalogUpdated;
 	}
 
 	setLastUrn(urn: string) {
@@ -66,6 +75,10 @@ export class ActivePublicationState {
 
 	get timestamp() {
 		return this._timestamp;
+	}
+
+	get catalogUpdated() {
+		return this._catalogUpdated;
 	}
 
 	get readerUrl() {

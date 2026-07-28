@@ -12,9 +12,15 @@ export interface Registry {
 	publishers: RegistryEntry[];
 }
 
-export interface LibraryPublisherData {
+export type PublisherSourceKind = 'local-catalog' | 'local-registry' | 'global';
+
+export interface PublisherListing {
 	publisher: RegistryEntry;
 	sourceUrl: string;
+	sourceKind: PublisherSourceKind;
+}
+
+export interface LibraryPublisherData extends PublisherListing {
 	catalog: Catalog | null;
 	error?: string;
 }
@@ -42,6 +48,7 @@ export interface Manifest {
 	timestamp?: string | number;
 	package_type: string;
 	layout?: string;
+	primary_stream?: string;
 
 	catalog_tree: string;
 	streams_config?: string;

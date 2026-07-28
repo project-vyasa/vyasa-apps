@@ -35,6 +35,7 @@
 	let srcdocContent = $state('');
 	let errorMessage = $state<string | null>(null);
 	let activeView = $state<string | undefined>(undefined);
+	let activeStream = $state<string | undefined>(undefined);
 	let availableViews = $state<string[]>([]);
 	let availableStreams = $state<string[]>([]);
 	let customGridLayoutJson = $state<string | undefined>(undefined);
@@ -46,6 +47,7 @@
 	let iframeElement = $state<HTMLIFrameElement>();
 	let showReferenceGutter = $state(true);
 	let showAnnotationGutter = $state(true);
+	let renderGeneration = 0;
 
 	// --- Diagnostics metadata for debug display ---
 	let diagPublicationUrl = $state('');
@@ -108,6 +110,7 @@
 		const r = graphRuntime;
 		const p = packageData;
 		const v = activeView;
+		const s = activeStream;
 		const c = customGridLayoutJson;
 		const refGutter = showReferenceGutter;
 		const annGutter = showAnnotationGutter;
@@ -145,10 +148,17 @@
 			graphRuntime = result.graphRuntime;
 
 			const pubTitle = result.diagCatalog?.items?.find((i) => i.id === publication)?.title || result.packageData.manifest.title || publication;
-			activePublication.setMetadata(pubTitle, result.diagPublicationUrl, result.packageData.manifest.timestamp, catalogParam);
+			activePublication.setMetadata(
+				pubTitle,
+				result.diagPublicationUrl,
+				result.manifestTimestamp ?? result.packageData.manifest.timestamp,
+				catalogParam,
+				result.catalogUpdated
+			);
 
 			availableViews = [];
 			activeView = undefined;
+			activeStream = undefined;
 			customGridLayoutJson = undefined;
 
 			// Set packageData LAST to avoid triggering the render $effect
@@ -172,6 +182,7 @@
 
 	async function handleRenderUrn(targetUrn: string) {
 		if (!graphRuntime || !packageData) return;
+		const generation = ++renderGeneration;
 		try {
 			const result = await renderUrn(
 				targetUrn,
@@ -181,16 +192,20 @@
 				sidebar.flatUrns,
 				activeView || '',
 				availableViews,
+				activeStream,
 				customGridLayoutJson,
 				showReferenceGutter,
 				showAnnotationGutter
 			);
+			if (generation !== renderGeneration) return;
 			activeUrns = result.activeUrns;
 			availableViews = result.availableViews;
 			availableStreams = result.availableStreams;
-			activeView = result.activeView;
+			if (activeView !== result.activeView) activeView = result.activeView;
+			if (activeStream !== result.activeStream) activeStream = result.activeStream;
 			srcdocContent = result.srcdocContent;
 		} catch (e: unknown) {
+			if (generation !== renderGeneration) return;
 			console.error('Render failed', e);
 			const msg = e instanceof Error ? e.message : String(e);
 			srcdocContent = `<div class="render-error">Failed to weave view: ${msg}</div>`;
@@ -254,6 +269,7 @@
 		bind:currentUrnParts
 		bind:isFullWidth
 		bind:activeView
+		bind:activeStream
 		{availableViews}
 		{availableStreams}
 		bind:customGridLayoutJson

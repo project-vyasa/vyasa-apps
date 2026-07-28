@@ -1,7 +1,75 @@
 import { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 import { matchUrns } from '$lib/urn-utils';
 import { ViewerDb } from '$lib/ViewerDb';
-import type { PackageData } from '$lib/types';
+import type { Manifest, PackageData, VocabularyEntry } from '$lib/types';
+import {
+	buildWeaveOptionsJson,
+	isPlaceholderContent,
+	prepareDisplayContent
+} from '$lib/viewer/whitespace';
+
+function normalizeBlockContent(content: unknown): Uint8Array {
+	if (content instanceof Uint8Array) return content;
+	if (content instanceof ArrayBuffer) return new Uint8Array(content);
+	if (Array.isArray(content)) return new Uint8Array(content);
+	return new Uint8Array(0);
+}
+
+const BUILTIN_VIEWS = new Set(['grid']);
+
+/** Views that only supply a layout shell are stylesheet infrastructure, not reading modes. */
+function getSelectableViews(
+	viewsFromDb: string[],
+	projections: Record<string, string>
+): string[] {
+	const viewsWithWeaveTemplate = new Set<string>();
+	for (const key of Object.keys(projections)) {
+		const idx = key.indexOf('_');
+		if (idx === -1) continue;
+		const viewName = key.slice(0, idx);
+		const blockType = key.slice(idx + 1);
+		if (blockType === 'item' || blockType === 'container') {
+			viewsWithWeaveTemplate.add(viewName);
+		}
+	}
+	const selectable = viewsFromDb.filter(
+		(v) => BUILTIN_VIEWS.has(v) || viewsWithWeaveTemplate.has(v)
+	);
+	if (!selectable.includes('grid')) {
+		selectable.push('grid');
+	}
+	return selectable;
+}
+
+function getVocabularyLabel(
+	vocabulary: VocabularyEntry[] | undefined,
+	category: string,
+	key: string,
+	streamName: string,
+	primaryStream?: string
+): string | undefined {
+	if (!vocabulary) return undefined;
+	const lowerKey = key.toLowerCase();
+	const lowerCat = category.toLowerCase();
+	const lowerStream = streamName?.toLowerCase() || '';
+
+	const matchesCategory = (cat: string) => {
+		const c = cat.toLowerCase();
+		return c === lowerCat || c === lowerCat + 's' || c.replace(/s$/, '') === lowerCat;
+	};
+
+	// 1. Exact match for the active stream
+	let match = vocabulary.find(v => matchesCategory(v.category) && v.key.toLowerCase() === lowerKey && v.stream_name?.toLowerCase() === lowerStream);
+	if (match) return match.value;
+
+	// 2. Manifest-declared primary stream (pre-merged labels at pack time)
+	if (primaryStream) {
+		match = vocabulary.find(v => matchesCategory(v.category) && v.key.toLowerCase() === lowerKey && v.stream_name?.toLowerCase() === primaryStream.toLowerCase());
+		if (match) return match.value;
+	}
+
+	return undefined;
+}
 
 export interface RenderResult {
 	srcdocContent: string;
@@ -12,6 +80,8 @@ export interface RenderResult {
 	activeView: string;
 	/** Available stream names discovered in the URN rows */
 	availableStreams: string[];
+	/** Updated activeStream if it was set for the first time */
+	activeStream: string;
 }
 
 /**
@@ -26,6 +96,7 @@ export async function renderUrn(
 	flatUrns: string[],
 	activeView: string | undefined,
 	availableViews: string[],
+	activeStream: string | undefined,
 	customGridLayoutJson?: string,
 	showReferenceGutter: boolean = true,
 	showAnnotationGutter: boolean = true
@@ -47,24 +118,29 @@ export async function renderUrn(
 		rowsJson.push({
 			id: r[0],
 			stream: (r[1] as string).startsWith('dependency.') ? r[1] : `local.${r[1]}`,
-			content: r[2]
+			content: normalizeBlockContent(r[2])
 		});
 	}
 
-	// 4. Apply stream config mapping if present
+	let definedStreamOrder: string[] = [];
 	if (packageData.manifest.streams_config) {
 		const streamsConfig = JSON.parse(packageData.manifest.streams_config);
 		const sourceToName: Record<string, string> = {};
 		for (const s of streamsConfig) {
 			if (typeof s === 'string') {
 				const parts = s.split(':');
+				let streamName = '';
 				if (parts.length > 1) {
+					streamName = parts[1];
 					sourceToName[parts[0]] = parts[1];
 				} else {
-					sourceToName[s] = s.split('.').pop() || s;
+					streamName = s.split('.').pop() || s;
+					sourceToName[s] = streamName;
 				}
+				definedStreamOrder.push(streamName);
 			} else if (s && s.source) {
 				sourceToName[s.source] = s.name;
+				definedStreamOrder.push(s.name);
 			}
 		}
 		rowsJson = rowsJson.map((r) => ({
@@ -85,18 +161,27 @@ export async function renderUrn(
 	let currentActiveView = activeView;
 	if (currentAvailableViews.length === 0) {
 		const viewsRows = await viewerDb.query(VyasaViewerRuntime.build_views_query());
-		currentAvailableViews = viewsRows.map((r) => r[0] as string);
-		if (!currentAvailableViews.includes('grid')) {
-			currentAvailableViews.push('grid');
-		}
-		if (!currentAvailableViews.includes('plain') && !currentAvailableViews.includes('reference')) {
-			currentAvailableViews.push('plain');
-		}
+		currentAvailableViews = getSelectableViews(
+			viewsRows.map((r) => r[0] as string),
+			packageData.projections
+		);
 	}
 	if (!currentActiveView) {
-		currentActiveView = currentAvailableViews.includes('reading')
-			? 'reading'
-			: currentAvailableViews[0] || 'plain';
+		if (isDocumentLayout && currentAvailableViews.includes('reading')) {
+			currentActiveView = 'reading';
+		} else if (currentAvailableViews.includes('grid')) {
+			currentActiveView = 'grid';
+		} else {
+			currentActiveView = currentAvailableViews[0] || 'grid';
+		}
+	}
+
+	let currentActiveStream = activeStream;
+	const primaryStream = (packageData.manifest as Manifest)?.primary_stream;
+	if (!currentActiveStream) {
+		currentActiveStream = primaryStream && allStreams.includes(primaryStream)
+			? primaryStream
+			: (allStreams[0] || '');
 	}
 
 	// 6. Build templates JSON from cached projections (no DB re-fetch)
@@ -115,7 +200,7 @@ export async function renderUrn(
 	const templatesJson = JSON.stringify(templates);
 
 	// 7. Weave view via WASM
-	const optionsJson = JSON.stringify({ wrap_tag: 'span', separator: ' ' });
+	const optionsJson = buildWeaveOptionsJson(currentActiveView, definedStreamOrder);
 	let viewNodes: any[];
 	if (currentActiveView === 'grid') {
 		let layoutJson =
@@ -161,7 +246,7 @@ export async function renderUrn(
 	// 8. Apply layout template
 	const layoutTpl =
 		packageData.projections[`${currentActiveView}_layout`] ||
-		packageData.projections['reading_layout'] ||
+		packageData.projections['theme_layout'] ||
 		'{{ body }}';
 	const prefix = (packageData.manifest as any)?.prefix || (packageData.manifest as any)?.global_prefix || '';
 	let itemsHtml = '';
@@ -170,10 +255,7 @@ export async function renderUrn(
 		if (
 			node.urn.endsWith(':0') ||
 			node.urn.endsWith('.0') ||
-			!node.content ||
-			!node.content.trim() ||
-			node.content.trim() === '// 0 //' ||
-			node.content.includes('// 0 //')
+			isPlaceholderContent(node.content)
 		) {
 			continue;
 		}
@@ -188,7 +270,7 @@ export async function renderUrn(
 			}
 		}
 
-		let rightBadgesHtml = '';
+		let annotationBadgesHtml = '';
 		if (packageData.annotations) {
 			const matchingAnns = packageData.annotations.filter(
 				(ann) =>
@@ -200,26 +282,9 @@ export async function renderUrn(
 				if (ann.label === 'Action' && ann.attributes) {
 					const speakerRaw = ann.attributes.speaker || ann.attributes.action || '';
 					if (speakerRaw) {
-						const speakerLoc =
-							packageData.vocabulary?.find(
-								(v) =>
-									(v.category === 'entities' || v.category === 'entity') &&
-									v.key.toLowerCase() === speakerRaw.toLowerCase()
-							)?.value || speakerRaw;
-						const actionVal = ann.attributes.action || 'uvaca';
-						const actionLoc =
-							packageData.vocabulary?.find(
-								(v) =>
-									(v.category === 'actions' || v.category === 'action') &&
-									v.key.toLowerCase() === actionVal.toLowerCase()
-							)?.value || actionVal;
-						const speakerLabelLoc =
-							packageData.vocabulary?.find(
-								(v) =>
-									(v.category === 'actions' || v.category === 'action') &&
-									v.key.toLowerCase() === 'speaker'
-							)?.value || 'Speaker';
-						rightBadgesHtml += `<span class="speaker-badge" title="${speakerLabelLoc}: ${speakerLoc}">🗣️ ${speakerLoc} ${actionLoc}</span>`;
+						const speakerLoc = getVocabularyLabel(packageData.vocabulary, 'entities', speakerRaw, currentActiveStream, primaryStream) || speakerRaw;
+						const speakerLabelLoc = getVocabularyLabel(packageData.vocabulary, 'actions', 'speaker', currentActiveStream, primaryStream) || 'Speaker';
+						annotationBadgesHtml += `<span class="speaker-badge" title="${speakerLabelLoc}: ${speakerLoc}">🗣️ ${speakerLoc}</span>`;
 					}
 				} else if (ann.label === 'Note' && ann.attributes) {
 					const noteText =
@@ -227,26 +292,21 @@ export async function renderUrn(
 						ann.attributes.text ||
 						ann.attributes.value ||
 						'Editorial Note';
-					const noteLabelLoc =
-						packageData.vocabulary?.find(
-							(v) =>
-								(v.category === 'actions' || v.category === 'action') &&
-								v.key.toLowerCase() === 'note'
-						)?.value || 'Note';
-					rightBadgesHtml += `<span class="note-badge" title="${noteLabelLoc}: ${noteText}">📝</span>`;
+					const noteLabelLoc = getVocabularyLabel(packageData.vocabulary, 'actions', 'note', currentActiveStream, primaryStream) || 'Note';
+					annotationBadgesHtml += `<span class="note-badge" title="${noteLabelLoc}: ${noteText}">📝</span>`;
 				}
 			}
 		}
 
-		let cleanContent = node.content.trim();
+		const displayContent = prepareDisplayContent(node.content);
 
 		if (isDocumentLayout) {
-			itemsHtml += `<div id="${node.urn}" class="urn-content-doc">${cleanContent}</div>`;
+			itemsHtml += `<div id="${node.urn}" class="urn-content-doc">${displayContent}</div>`;
 		} else {
+			const badgesBlock = annotationBadgesHtml ? `<div class="gutter-annotations">${annotationBadgesHtml}</div>` : '';
 			itemsHtml += `<div id="${node.urn}" class="urn-row">
-	<div class="urn-gutter left-gutter"><span class="urn-badge">${shortUrn}</span></div>
-	<div class="urn-content">${cleanContent}</div>
-	<div class="urn-gutter right-gutter">${rightBadgesHtml}</div>
+	<div class="urn-gutter left-gutter"><div class="urn-badge-wrapper"><span class="urn-badge">${shortUrn}</span></div>${badgesBlock}</div>
+	<div class="urn-content"><div class="urn-text">${displayContent}</div></div>
 </div>`;
 		}
 	}
@@ -257,32 +317,34 @@ export async function renderUrn(
 /* Core Viewer Chrome & Gutters (Decoupled from Publisher) */
 .urn-row {
 	display: flex;
-	align-items: baseline;
+	align-items: flex-start;
 	gap: ${showReferenceGutter || showAnnotationGutter ? '1.25rem' : '0'};
 	padding: 1.5rem 0;
 	border-bottom: 1px solid #eee;
 	width: 100%;
 }
 .left-gutter {
-	display: ${showReferenceGutter ? 'block' : 'none'};
-	flex: 0 0 50px;
+	display: ${showReferenceGutter || showAnnotationGutter ? 'flex' : 'none'};
+	flex-direction: column;
+	gap: 0.5rem;
+	flex: 0 0 ${showAnnotationGutter ? '120px' : '50px'};
 	position: sticky;
 	top: 1rem;
 	font-family: monospace;
 	font-size: 0.85rem;
 }
+.urn-badge-wrapper {
+	display: ${showReferenceGutter ? 'block' : 'none'};
+}
 .urn-content {
 	flex: 1 1 0%;
 	min-width: 0;
 }
-.right-gutter {
+.gutter-annotations {
 	display: ${showAnnotationGutter ? 'flex' : 'none'};
-	flex: 0 0 130px;
-	position: sticky;
-	top: 1rem;
 	flex-direction: column;
-	gap: 0.5rem;
-	font-size: 0.85rem;
+	gap: 0.35rem;
+	align-items: flex-start;
 }
 .urn-badge {
 	display: inline-block;
@@ -301,21 +363,25 @@ export async function renderUrn(
 .speaker-badge, .note-badge {
 	display: inline-flex;
 	align-items: center;
-	gap: 0.3rem;
-	padding: 0.25rem 0.5rem;
+	gap: 0.25rem;
+	padding: 0.2rem 0.4rem;
 	background: #f4f4f4;
-	color: #555;
+	color: #444;
 	border: none;
 	border-radius: 4px;
-	font-size: 0.8rem;
-	font-weight: normal;
+	font-size: 0.75rem;
+	line-height: 1.3;
+	font-family: var(--font-sans, sans-serif);
+	word-break: break-word;
+	max-width: 100%;
 }
 .speaker-badge:hover, .note-badge:hover {
 	background: #e0e0e0;
 	color: #222;
 }
-.vyasa-layout-col, .urn-content {
-	white-space: pre-line;
+/* pre-wrap preserves publisher blank lines; pre-line collapses them and fights preserve-whitespace pubs */
+.vyasa-layout-col, .urn-text, .urn-content-doc {
+	white-space: pre-wrap;
 	line-height: 1.6;
 }
 </style>`;
@@ -331,6 +397,7 @@ export async function renderUrn(
 		activeUrns: matchingUrns,
 		availableViews: currentAvailableViews,
 		activeView: currentActiveView,
-		availableStreams: allStreams
+		availableStreams: allStreams,
+		activeStream: currentActiveStream
 	};
 }
