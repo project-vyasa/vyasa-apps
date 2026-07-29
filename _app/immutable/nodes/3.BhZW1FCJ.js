@@ -1,1 +1,0 @@
-import{V as e,at as t,ct as n,lt as r}from"../chunks/Cy7VfIM5.js";import"../chunks/xihTtKlq.js";import{t as i}from"../chunks/CLYb0QhJ.js";import{t as a}from"../chunks/BhtC3fzE.js";function o(o,s){r(s,!0);let c=t(()=>i.params.publisher||``);a(o,{get publisher(){return e(c)}}),n()}export{o as component};

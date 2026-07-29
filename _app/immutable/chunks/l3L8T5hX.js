@@ -1,1 +1,0 @@
-import"./Dxgpsja0.js";var e={name:`Project Vyasa`,primary:`#3b6ca5`,primaryHover:`#2e5786`,primaryMuted:`#eef3f9`};function t(e,t){return`${e.endsWith(`/`)?e.slice(0,-1):e}${t.startsWith(`/`)?t:`/${t}`}`}function n(e){return t(e,`/vyasa-icon.png`)}function r(e){return t(e,`/vyasa-logo.png`)}export{n,r,e as t};
