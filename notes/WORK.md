@@ -26,7 +26,7 @@ Code-review backlog lives in [`assessments/platform/CODE_REVIEW_TASKS.md`](../as
 ## NEXT
 
 - [ ] **Book activity UX (RV)** — after RV repack with `layout = "sequence"`, manifest no longer uses pack `document` mode. Revisit view selector / URN gutter behavior (`isDocumentLayout` was tied to erroneous `layout: document` in workspace TOML). Prefer a dedicated `default_view` manifest key for reading mode.
-- [ ] **Segment join policy (publisher-defined)** — padapatha word breakdown: segment breaks woven with `separator: '\n'` → one word per line; should be space-joined inline. Need manifest or stream/block attribute for join char per stream. Relates to `reading.vy` and whitespace fixes.
+- [x] **Segment join policy (publisher-defined)** — `segment_separator` per stream in `vyasac.toml` → manifest `stream_separators` → WASM weave; RV: padapatha=` `, primary/sayana=`\\n`. **Repack RV** to pick up manifest entry.
 - [ ] **Reading view whitespace audit (RV)** — copious blank lines between samhita / padapatha / sayana; compare `reading.vy`, segment breaks, `prepareDisplayContent`.
 - [ ] **Explore: ṛc vocabulary label** — RV count badge → `structure/rik` from vocabulary, not generic `verse`.
 - [ ] **Explore: stream propagation** — propagate sukta-level `streamsByUrn` to rik cells until per-rik blocks exist in manifest (interim until `catalog_tree_encoding: ranges_v1`).
@@ -55,7 +55,7 @@ Code-review backlog lives in [`assessments/platform/CODE_REVIEW_TASKS.md`](../as
 |------|------|-------|
 | **Catalog tree: authoritative leaf sets + compact ranges** | `vyasa` | [`notes/issues/catalog-tree-leaf-enumeration.md`](../../vyasa/notes/issues/catalog-tree-leaf-enumeration.md) — RV had wrong `layout=document` in TOML (fixed → `sequence`); packer still needs `catalog_tree_encoding: ranges_v1` for ~10k riks |
 | **Localization: manifest + primary stream fallback** | `vyasa` | Pack-time merge; viewer must not guess — [`explicit-workspace-design.md`](./explicit-workspace-design.md) |
-| **Segment join / block display policy** | `vyasa` | Publisher declares separator per stream or block type (space vs `\n`); fixes padapatha word-per-line in reading view |
+| **Segment join / block display policy** | `vyasa` | `segment_separator` on `[streams]` in vyasac.toml → `stream_separators` manifest key (landed); repack pubs to apply |
 | Plain-text / weave stream ordering, SQL allow-list | `vyasa` | Deterministic sequencing at concat time; see [`vyasa/notes/viewer.md`](../../vyasa/notes/viewer.md) |
 | Grid customizer column span behavior | `vyasa` + apps | CSS grid algorithm may span compiler + viewer |
 | Stream / leaf-block layout language | `vyasa` | Publisher-defined columns, stream pickers — [`compiler.md`](../../vyasa/notes/compiler.md) NOW |

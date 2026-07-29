@@ -2,15 +2,41 @@
 export function buildWeaveOptionsJson(
 	_activeView: string,
 	definedStreamOrder: string[],
-	blockAttributesByUrn?: Record<string, Record<string, string>>
+	blockAttributesByUrn?: Record<string, Record<string, string>>,
+	streamSeparators?: Record<string, string>
 ): string {
 	const stream_order = definedStreamOrder.length > 0 ? definedStreamOrder : undefined;
 	const block_attributes =
 		blockAttributesByUrn && Object.keys(blockAttributesByUrn).length > 0
 			? blockAttributesByUrn
 			: undefined;
+	const stream_separators =
+		streamSeparators && Object.keys(streamSeparators).length > 0
+			? streamSeparators
+			: undefined;
 
-	return JSON.stringify({ separator: '\n', stream_order, block_attributes });
+	return JSON.stringify({
+		separator: '\n',
+		stream_order,
+		block_attributes,
+		stream_separators
+	});
+}
+
+/** Parse `stream_separators` manifest entry (JSON object). */
+export function parseStreamSeparators(raw: string | undefined): Record<string, string> | undefined {
+	if (!raw?.trim()) return undefined;
+	try {
+		const parsed = JSON.parse(raw) as unknown;
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+		const out: Record<string, string> = {};
+		for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+			if (typeof value === 'string') out[key] = value;
+		}
+		return Object.keys(out).length > 0 ? out : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /** True when woven HTML has no visible text (placeholders, containers, whitespace-only). */

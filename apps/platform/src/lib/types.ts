@@ -86,6 +86,8 @@ export interface PackageData {
 	/** Relative leaf URN → stream ids with html_blocks */
 	streamsByUrn?: Record<string, string[]>;
 	streams?: Array<{id: string, label: string, count: number}>;
+	/** Per-stream SegmentBreak join characters from manifest `stream_separators`. */
+	streamSeparators?: Record<string, string>;
 	vocabulary?: VocabularyEntry[];
 	annotations?: AnnotationEntry[];
 }

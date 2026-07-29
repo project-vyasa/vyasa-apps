@@ -123,7 +123,7 @@
 									class="swatch small"
 									style:background={colorFor(facetType.id, value.id)}
 								></span>
-								<span class="facet-label">{value.label}</span>
+								<span class="facet-label" title={value.label}>{value.label}</span>
 								<span class="facet-count">{value.count}</span>
 							</label>
 						{/each}
@@ -136,7 +136,7 @@
 						{#each facetType.values as value (facetType.id + value.id)}
 							<div class="legend-item">
 								<span class="swatch" style:background={colorFor(facetType.id, value.id)}></span>
-								<span class="facet-label">{value.label}</span>
+								<span class="facet-label" title={value.label}>{value.label}</span>
 								<span class="facet-count">{value.count}</span>
 							</div>
 						{/each}
@@ -154,7 +154,7 @@
 									class="swatch small"
 									style:background={colorFor(facetType.id, value.id)}
 								></span>
-								<span class="facet-label">{value.label}</span>
+								<span class="facet-label" title={value.label}>{value.label}</span>
 								<span class="facet-count">{value.count}</span>
 							</label>
 						{/each}
@@ -256,7 +256,7 @@
 	.facet-item,
 	.legend-item {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: var(--space-2);
 		font-size: 0.85rem;
 		color: var(--text-primary);
@@ -264,7 +264,7 @@
 
 	.facet-item {
 		cursor: pointer;
-		padding: 0.2rem 0.35rem;
+		padding: 0.35rem 0.35rem;
 		border-radius: var(--control-radius);
 	}
 
@@ -276,6 +276,8 @@
 	.facet-item input[type='radio'] {
 		accent-color: var(--action-primary);
 		cursor: pointer;
+		margin-top: 0.2rem;
+		flex: 0 0 auto;
 	}
 
 	.swatch {
@@ -284,6 +286,7 @@
 		border-radius: 2px;
 		flex: 0 0 auto;
 		border: 1px solid color-mix(in srgb, var(--border-base) 80%, transparent);
+		margin-top: 0.2rem;
 	}
 
 	.swatch.small {
@@ -295,8 +298,14 @@
 		flex: 1;
 		min-width: 0;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		white-space: normal;
+		overflow-wrap: anywhere;
+		line-height: 1.35;
+		font-family: 'Noto Sans Devanagari', var(--font-sans, sans-serif);
 	}
 
 	.facet-count {
@@ -306,5 +315,7 @@
 		padding: 2px 6px;
 		border-radius: 10px;
 		font-variant-numeric: tabular-nums;
+		flex: 0 0 auto;
+		margin-top: 0.1rem;
 	}
 </style>

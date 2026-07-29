@@ -174,7 +174,8 @@ export async function renderUrn(
 	const optionsJson = buildWeaveOptionsJson(
 		currentActiveView,
 		definedStreamOrder,
-		packageData.blockAttributesByUrn
+		packageData.blockAttributesByUrn,
+		packageData.streamSeparators
 	);
 	let viewNodes: any[];
 	if (currentActiveView === 'grid') {

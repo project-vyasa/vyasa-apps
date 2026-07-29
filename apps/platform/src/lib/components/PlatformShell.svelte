@@ -25,9 +25,11 @@
 	let rightVisible = $state(false);
 	let topVisible = $state(true);
 	let bottomVisible = $state(false);
+	let leftWidth = $state(320);
 
 	setContext('shellState', {
 		setSidebarLeft: (s: Snippet | undefined) => (sidebarLeft = s),
+		setLeftWidth: (w: number) => (leftWidth = w),
 		setSidebarRight: (s: Snippet | undefined) => (sidebarRight = s),
 		setSidebarTop: (s: Snippet | undefined) => (sidebarTop = s),
 		setPanelBottom: (s: Snippet | undefined) => (panelBottom = s),
@@ -85,6 +87,7 @@
 	{rightVisible}
 	{topVisible}
 	{bottomVisible}
+	{leftWidth}
 	topHeight={48}
 >
 	{#snippet header()}

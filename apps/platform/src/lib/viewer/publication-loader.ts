@@ -10,6 +10,7 @@ import { activePublication } from '$lib/viewer/active-publication.svelte';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
 import { collectLeafUrns, toRelativeUrn } from '$lib/explore/urn-utils';
+import { parseStreamSeparators } from '$lib/viewer/whitespace';
 
 export interface PublicationLoadResult {
 	packageData: PackageData;
@@ -216,6 +217,8 @@ export async function loadPublication(
 		console.warn('Vyasa Load: Annotations extraction failed or table missing:', e);
 	}
 
+	const streamSeparators = parseStreamSeparators(manifest['stream_separators']);
+
 	const packageData: PackageData = {
 		manifest: manifest as unknown as Manifest,
 		structure: { catalogTree: catalogTreeTemp },
@@ -225,6 +228,7 @@ export async function loadPublication(
 		blockAttributesByUrn,
 		streamsByUrn,
 		streams,
+		streamSeparators,
 		vocabulary,
 		annotations
 	};

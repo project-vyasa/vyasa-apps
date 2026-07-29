@@ -225,16 +225,20 @@
 		userDismissedMap = true;
 	}
 
+	const EXPLORE_SIDEBAR_WIDTH = 380;
+
 	onMount(() => {
 		if (shellState) {
 			shellState.setSidebarTop(topSidebar);
 			shellState.setSidebarLeft(leftSidebar);
+			shellState.setLeftWidth?.(EXPLORE_SIDEBAR_WIDTH);
 		}
 
 		return () => {
 			if (shellState) {
 				shellState.setSidebarTop(undefined);
 				shellState.setSidebarLeft(undefined);
+				shellState.setLeftWidth?.(320);
 			}
 		};
 	});

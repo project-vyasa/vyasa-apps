@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest';
 import {
 	buildWeaveOptionsJson,
 	isPlaceholderContent,
+	parseStreamSeparators,
 	prepareDisplayContent
 } from './whitespace';
 
 describe('whitespace helpers', () => {
 	describe('buildWeaveOptionsJson', () => {
-		it('joins segment breaks with newlines and no span wrapper', () => {
+		it('joins segment breaks with newlines by default', () => {
 			const json = buildWeaveOptionsJson('reading', ['mula', 'iast']);
 			expect(JSON.parse(json)).toEqual({
 				separator: '\n',
@@ -15,9 +16,35 @@ describe('whitespace helpers', () => {
 			});
 		});
 
+		it('includes per-stream separators when provided', () => {
+			const json = buildWeaveOptionsJson('reading', ['primary', 'padapatha'], undefined, {
+				padapatha: ' ',
+				primary: '\n'
+			});
+			expect(JSON.parse(json)).toEqual({
+				separator: '\n',
+				stream_order: ['primary', 'padapatha'],
+				stream_separators: { padapatha: ' ', primary: '\n' }
+			});
+		});
+
 		it('omits stream_order when empty', () => {
 			const json = buildWeaveOptionsJson('grid', []);
 			expect(JSON.parse(json)).toEqual({ separator: '\n' });
+		});
+	});
+
+	describe('parseStreamSeparators', () => {
+		it('parses manifest JSON object', () => {
+			expect(parseStreamSeparators('{"padapatha":" ","primary":"\\n"}')).toEqual({
+				padapatha: ' ',
+				primary: '\n'
+			});
+		});
+
+		it('returns undefined for invalid input', () => {
+			expect(parseStreamSeparators(undefined)).toBeUndefined();
+			expect(parseStreamSeparators('not json')).toBeUndefined();
 		});
 	});
 
