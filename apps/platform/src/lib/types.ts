@@ -80,6 +80,10 @@ export interface PackageData {
 	titles?: Record<string, string>;
 	/** URN → title, keyed by stream name (e.g. mula / iast) */
 	titlesByStream?: Record<string, Record<string, string>>;
+	/** Relative URN → packed block attribute JSON (rishi, chandas, title, …) */
+	blockAttributesByUrn?: Record<string, Record<string, string>>;
+	/** Relative leaf URN → stream ids with html_blocks */
+	streamsByUrn?: Record<string, string[]>;
 	streams?: Array<{id: string, label: string, count: number}>;
 	vocabulary?: VocabularyEntry[];
 	annotations?: AnnotationEntry[];

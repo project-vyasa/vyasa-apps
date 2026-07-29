@@ -1,15 +1,17 @@
 <script lang="ts">
-	import { Button, Switch } from '@project-vyasa/vyasa-ui';
+	import { Button, Switch, Select } from '@project-vyasa/vyasa-ui';
 	import { BookOpen, Search, FilterX } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import type { PackageData } from '$lib/types';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
-	import { titlesForChromeStream } from '$lib/viewer/vocabulary';
+	import { titlesForChromeStream, chromeStreamsFromVocabulary, getVocabularyLabel } from '$lib/viewer/vocabulary';
 	import { onMount, getContext } from 'svelte';
 	import DataMap from './explore/DataMap.svelte';
 	import FacetSidebar from './explore/FacetSidebar.svelte';
+	import { buildFacetIndex, type FacetSelection } from '$lib/explore/facet-index';
+	import { catalogLeafIndices } from '$lib/explore/urn-utils';
 
 	interface Props {
 		publisher: string;
@@ -25,7 +27,31 @@
 	// Controls
 	let selectedBookFilter = $state<string>('ALL');
 	let searchQuery = $state<string>('');
-	let activeFacets = $state<Record<string, any>>({});
+	let activeFacets = $state<FacetSelection>({});
+	let mapFacetTypeId = $state<string | null>(null);
+	let userDismissedMap = $state(false);
+	let chromeStream = $state('');
+
+	const primaryStream = $derived(
+		(packageData?.manifest as { primary_stream?: string } | undefined)?.primary_stream
+	);
+	const chromeStreams = $derived(
+		chromeStreamsFromVocabulary(packageData?.vocabulary, primaryStream)
+	);
+
+	$effect(() => {
+		const preferred = viewerSettings.chromeStream;
+		const streams = chromeStreams;
+		if (preferred && streams.includes(preferred)) {
+			chromeStream = preferred;
+		} else if (streams.length > 0) {
+			chromeStream = streams[0];
+		}
+	});
+
+	$effect(() => {
+		if (chromeStream) viewerSettings.chromeStream = chromeStream;
+	});
 
 	// Multi-select State
 	let multiSelectMode = $state(false);
@@ -38,16 +64,17 @@
 	// --- Structure Parsing ---
 	export type MapNode =
 		| { type: 'branch'; id: string; title: string; children: MapNode[] }
-		| { type: 'leaf-container'; id: string; title: string; leafCount: number };
+		| { type: 'leaf-container'; id: string; title: string; leafIndices: number[] };
 
 	function parseTree(tree: any, titles: Record<string, string>, prefix = ''): MapNode[] {
 		if (Array.isArray(tree)) {
+			const leafIndices = catalogLeafIndices(tree);
 			return [
 				{
 					type: 'leaf-container',
 					id: prefix,
 					title: titles[prefix] || `Container ${prefix}`,
-					leafCount: tree.length
+					leafIndices
 				}
 			];
 		}
@@ -61,11 +88,12 @@
 			const title = titles[fullId] || `Node ${fullId}`;
 
 			if (Array.isArray(subNode)) {
+				const leafIndices = catalogLeafIndices(subNode);
 				nodes.push({
 					type: 'leaf-container',
 					id: fullId,
 					title: title,
-					leafCount: subNode.length
+					leafIndices
 				});
 			} else if (typeof subNode === 'object' && subNode !== null) {
 				nodes.push({
@@ -116,7 +144,19 @@
 		return result;
 	}
 
-	// Filtered Nodes
+	const labelStream = $derived(chromeStream || primaryStream);
+
+	const facetIndex = $derived(buildFacetIndex(packageData, labelStream));
+
+	$effect(() => {
+		if (
+			!userDismissedMap &&
+			mapFacetTypeId === null &&
+			facetIndex.types.some((t) => t.id === 'speaker')
+		) {
+			mapFacetTypeId = 'speaker';
+		}
+	});
 	const filteredNodes = $derived.by<MapNode[]>(() => {
 		let list = parsedNodes;
 		if (selectedBookFilter !== 'ALL') {
@@ -132,13 +172,25 @@
 	function countLeaves(nodes: MapNode[]): number {
 		let count = 0;
 		for (const node of nodes) {
-			if (node.type === 'leaf-container') count += node.leafCount;
+			if (node.type === 'leaf-container') count += node.leafIndices.length;
 			else if (node.type === 'branch') count += countLeaves(node.children);
 		}
 		return count;
 	}
 
 	const totalVisibleVerses = $derived(countLeaves(filteredNodes));
+
+	const leafUnitLabel = $derived(
+		getVocabularyLabel(
+			packageData?.vocabulary,
+			'structure',
+			'verse',
+			labelStream || '',
+			primaryStream
+		) ?? 'verses'
+	);
+
+	const leafCountLabel = $derived(`${totalVisibleVerses} ${leafUnitLabel}`);
 
 	// --- Marquee Selection Logic ---
 	function handleMarqueeSelection(urns: string[]) {
@@ -167,6 +219,8 @@
 
 	function clearFacets() {
 		activeFacets = {};
+		mapFacetTypeId = null;
+		userDismissedMap = true;
 	}
 
 	onMount(() => {
@@ -195,28 +249,26 @@
 				class="search-input"
 			/>
 		</div>
-		<!--
-		<div class="top-controls">
-			<label class="multi-select-toggle">
-				<span class="label-text">Multi-select</span>
-				<Switch bind:checked={multiSelectMode} />
-			</label>
-			<Button variant="primary" icon={BookOpen} onclick={hopToReader}>
-				Hop to Reader
-			</Button>
-		</div>
-		-->
+		{#if chromeStreams.length > 0}
+			<div class="labels-control">
+				<span class="labels-label">Labels</span>
+				<Select
+					options={chromeStreams.map((s) => ({ value: s, label: s }))}
+					bind:value={chromeStream}
+				/>
+			</div>
+		{/if}
 	</div>
 {/snippet}
 
 {#snippet leftSidebar()}
 	<div class="explore-left-sidebar">
 		<div class="sidebar-header">
-			<span class="meta-badge">{totalVisibleVerses} total blocks</span>
+			<span class="meta-badge">{leafCountLabel}</span>
 		</div>
 		<div class="sidebar-title-row">
-			<h3 class="sidebar-title">Filters</h3>
-			{#if Object.keys(activeFacets).length > 0}
+			<h3 class="sidebar-title">Facets</h3>
+			{#if Object.keys(activeFacets).length > 0 || mapFacetTypeId}
 				<Button
 					variant="ghost"
 					size="sm"
@@ -227,7 +279,12 @@
 			{/if}
 		</div>
 		<div class="sidebar-facets">
-			<FacetSidebar bind:activeFacets {packageData} />
+			<FacetSidebar
+				bind:activeFacets
+				bind:mapFacetTypeId
+				{facetIndex}
+				onMapDismiss={() => (userDismissedMap = true)}
+			/>
 		</div>
 	</div>
 {/snippet}
@@ -237,6 +294,8 @@
 		nodes={filteredNodes}
 		{manualSelections}
 		{activeFacets}
+		{facetIndex}
+		{mapFacetTypeId}
 		onMarqueeSelection={handleMarqueeSelection}
 	/>
 </div>
@@ -282,6 +341,19 @@
 		font-size: 0.85rem;
 		outline: none;
 		width: 100%;
+	}
+
+	.labels-control {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+	}
+
+	.labels-label {
+		font-size: 0.8rem;
+		color: var(--text-secondary);
+		font-weight: 500;
+		white-space: nowrap;
 	}
 
 	.top-controls {

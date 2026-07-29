@@ -171,7 +171,11 @@ export async function renderUrn(
 	const templatesJson = JSON.stringify(templates);
 
 	// 7. Weave view via WASM
-	const optionsJson = buildWeaveOptionsJson(currentActiveView, definedStreamOrder);
+	const optionsJson = buildWeaveOptionsJson(
+		currentActiveView,
+		definedStreamOrder,
+		packageData.blockAttributesByUrn
+	);
 	let viewNodes: any[];
 	if (currentActiveView === 'grid') {
 		let layoutJson =

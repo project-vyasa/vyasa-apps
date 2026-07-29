@@ -9,6 +9,7 @@ import { appendCacheBuster, vyviewCacheToken } from '$lib/cache-bust';
 import { activePublication } from '$lib/viewer/active-publication.svelte';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
+import { toRelativeUrn } from '$lib/explore/urn-utils';
 
 export interface PublicationLoadResult {
 	packageData: PackageData;
@@ -103,28 +104,23 @@ export async function loadPublication(
 	);
 	const titlesByStream: Record<string, Record<string, string>> = {};
 	const titles: Record<string, string> = {};
+	const blockAttributesByUrn: Record<string, Record<string, string>> = {};
 	const primaryStream = (manifest as Manifest).primary_stream;
 	for (const row of attrRows) {
 		const streamName = row[0] as string;
 		const seqId = BigInt(row[1] as string | number);
 		const attrJson = row[2] as string;
 		try {
-			const attrs = JSON.parse(attrJson);
+			const attrs = JSON.parse(attrJson) as Record<string, string>;
+			const relativeUrn = toRelativeUrn(graphRuntime.get_urn(seqId), globalPrefix);
+			if (!blockAttributesByUrn[relativeUrn]) {
+				blockAttributesByUrn[relativeUrn] = { ...attrs };
+			} else {
+				Object.assign(blockAttributesByUrn[relativeUrn], attrs);
+			}
 			if (attrs.title) {
-				const fullUrn = graphRuntime.get_urn(seqId);
-				let relativeUrn = fullUrn;
-				if (relativeUrn.startsWith(globalPrefix)) {
-					relativeUrn = relativeUrn.slice(globalPrefix.length);
-					if (relativeUrn.startsWith(':')) {
-						relativeUrn = relativeUrn.slice(1);
-					}
-				}
-				while (relativeUrn.endsWith(':0')) {
-					relativeUrn = relativeUrn.slice(0, -2);
-				}
 				if (!titlesByStream[streamName]) titlesByStream[streamName] = {};
 				titlesByStream[streamName][relativeUrn] = attrs.title;
-				// Flat fallback: prefer primary, else first-seen
 				if (
 					!titles[relativeUrn] ||
 					(primaryStream && streamName === primaryStream)
@@ -160,6 +156,25 @@ export async function loadPublication(
 			label: id.charAt(0).toUpperCase() + id.slice(1),
 			count: Number(row[2])
 		});
+	}
+
+	// 8c2. Per-leaf stream presence for explore facets
+	const streamsByUrn: Record<string, string[]> = {};
+	try {
+		const blockStreamRows = await viewerDb.query(
+			'SELECT h.sequence_id, s.name FROM html_blocks h JOIN streams s ON h.stream_id = s.id'
+		);
+		for (const row of blockStreamRows) {
+			const seqId = BigInt(row[0] as string | number);
+			const streamName = row[1] as string;
+			const relativeUrn = toRelativeUrn(graphRuntime.get_urn(seqId), globalPrefix);
+			if (!streamsByUrn[relativeUrn]) streamsByUrn[relativeUrn] = [];
+			if (!streamsByUrn[relativeUrn].includes(streamName)) {
+				streamsByUrn[relativeUrn].push(streamName);
+			}
+		}
+	} catch (e) {
+		console.warn('Vyasa Load: streams-by-urn query failed:', e);
 	}
 
 	// 8d. Load vocabulary table if present
@@ -207,6 +222,8 @@ export async function loadPublication(
 		projections,
 		titles,
 		titlesByStream,
+		blockAttributesByUrn,
+		streamsByUrn,
 		streams,
 		vocabulary,
 		annotations

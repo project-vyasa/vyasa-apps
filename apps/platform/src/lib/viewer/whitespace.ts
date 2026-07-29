@@ -1,13 +1,16 @@
 /** Controls how WASM joins SegmentBreak (`\x1f`) splits during weave. */
 export function buildWeaveOptionsJson(
 	_activeView: string,
-	definedStreamOrder: string[]
+	definedStreamOrder: string[],
+	blockAttributesByUrn?: Record<string, Record<string, string>>
 ): string {
 	const stream_order = definedStreamOrder.length > 0 ? definedStreamOrder : undefined;
+	const block_attributes =
+		blockAttributesByUrn && Object.keys(blockAttributesByUrn).length > 0
+			? blockAttributesByUrn
+			: undefined;
 
-	// Do not wrap segments in <span> — publisher templates already provide block structure.
-	// Join segment breaks with newlines so pre-wrap in publisher CSS can honor them.
-	return JSON.stringify({ separator: '\n', stream_order });
+	return JSON.stringify({ separator: '\n', stream_order, block_attributes });
 }
 
 /** True when woven HTML has no visible text (placeholders, containers, whitespace-only). */

@@ -1,12 +1,15 @@
 <script lang="ts">
 	import LeafMatrix from './LeafMatrix.svelte';
 	import type { MapNode } from '../ExploreView.svelte';
+	import type { FacetIndex, FacetSelection } from '$lib/explore/facet-index';
 	import SelectionMarquee from './SelectionMarquee.svelte';
 
 	interface Props {
 		nodes: MapNode[];
 		manualSelections: Array<{startUrn: string, endUrn: string}>;
-		activeFacets?: Record<string, any>;
+		activeFacets?: FacetSelection;
+		facetIndex?: FacetIndex;
+		mapFacetTypeId?: string | null;
 		onMarqueeSelection?: (urns: string[]) => void;
 	}
 
@@ -14,12 +17,14 @@
 		nodes,
 		manualSelections = [],
 		activeFacets = {},
+		facetIndex,
+		mapFacetTypeId = null,
 		onMarqueeSelection
 	}: Props = $props();
 
 	function handleMarqueeSelection(rect: DOMRect) {
 		const intersectingUrns: string[] = [];
-		const links = document.querySelectorAll('.plot-container a');
+		const links = document.querySelectorAll('.leaf-grid a, .plot-container a');
 		links.forEach((link) => {
 			const linkRect = link.getBoundingClientRect();
 			const intersect = !(
@@ -53,6 +58,8 @@
 					containerData={leaf}
 					{manualSelections}
 					{activeFacets}
+					{facetIndex}
+					{mapFacetTypeId}
 					blocksPerRow={10}
 				/>
 			{/each}
