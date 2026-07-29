@@ -1,14 +1,15 @@
 import { browser } from '$app/environment';
 import { normalizeSourceUrl } from './local-dev-url';
+import { isLegacyUntouchedCustomRegistryDefaults } from './library-warnings';
 
 export class ViewerSettings {
-	// Defaults
+	// Out-of-box: global registry only; custom sources opt-in via Settings.
 	private _enableGlobalRegistry = $state(true);
 
-	private _enableCustomRegistries = $state(true);
-	private _customRegistries = $state('http://localhost:8080/registry.json');
+	private _enableCustomRegistries = $state(false);
+	private _customRegistries = $state('');
 
-	private _enableCustomCatalogs = $state(true);
+	private _enableCustomCatalogs = $state(false);
 	private _customCatalogs = $state('');
 
 	private _debugMode = $state(false);
@@ -27,23 +28,32 @@ export class ViewerSettings {
 		try {
 			const saved = localStorage.getItem('vyasa_viewer_settings');
 			if (saved) {
-				const parsed = JSON.parse(saved);
+				const parsed = JSON.parse(saved) as Record<string, unknown>;
 				if (typeof parsed.enableGlobalRegistry === 'boolean')
 					this._enableGlobalRegistry = parsed.enableGlobalRegistry;
 
 				if (typeof parsed.enableCustomRegistries === 'boolean')
 					this._enableCustomRegistries = parsed.enableCustomRegistries;
-				if (parsed.customRegistries) this._customRegistries = parsed.customRegistries;
+				if (typeof parsed.customRegistries === 'string')
+					this._customRegistries = parsed.customRegistries;
 
 				if (typeof parsed.enableCustomCatalogs === 'boolean')
 					this._enableCustomCatalogs = parsed.enableCustomCatalogs;
-				if (parsed.customCatalogs) this._customCatalogs = parsed.customCatalogs;
+				if (typeof parsed.customCatalogs === 'string')
+					this._customCatalogs = parsed.customCatalogs;
 
 				if (typeof parsed.debugMode === 'boolean') this._debugMode = parsed.debugMode;
 				if (typeof parsed.chromeStream === 'string' || parsed.chromeStream === null)
 					this._chromeStream = parsed.chromeStream;
 				if (typeof parsed.showAnnotationGutter === 'boolean')
 					this._showAnnotationGutter = parsed.showAnnotationGutter;
+
+				if (isLegacyUntouchedCustomRegistryDefaults(parsed)) {
+					this._enableCustomRegistries = false;
+					this._customRegistries = '';
+					this._enableCustomCatalogs = false;
+					this.save();
+				}
 			}
 		} catch (e) {
 			console.error('Failed to load settings:', e);

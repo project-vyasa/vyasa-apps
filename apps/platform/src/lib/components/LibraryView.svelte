@@ -5,7 +5,12 @@
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { Panel, ListView, Badge, Alert } from '@project-vyasa/vyasa-ui';
 	import { Library } from 'lucide-svelte';
+	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 	import type { CatalogSourceError } from '$lib/registry';
+	import {
+		shouldWarnCustomCatalogsDisabled,
+		shouldWarnLocalRegistriesUnavailable
+	} from '$lib/library-warnings';
 
 	interface Props {
 		publishers: LibraryPublisherData[];
@@ -24,18 +29,18 @@
 	let globalPublishers = $derived(publishers.filter((p) => p.sourceKind === 'global'));
 
 	let customCatalogsDisabled = $derived(
-		!viewerSettings.enableCustomCatalogs &&
-			viewerSettings.customCatalogs.trim().length > 0
+		shouldWarnCustomCatalogsDisabled(
+			viewerSettings.enableCustomCatalogs,
+			viewerSettings.customCatalogs
+		)
 	);
-	let localRegistriesConfigured = $derived(
-		viewerSettings.enableCustomRegistries &&
-			viewerSettings.customRegistryUrls.length > 0
-	);
-	let localRegistryErrors = $derived(
-		sourceErrors.filter((e) => e.kind === 'registry')
-	);
+	let localRegistryErrors = $derived(sourceErrors.filter((e) => e.kind === 'registry'));
 	let localRegistriesUnavailable = $derived(
-		localRegistriesConfigured && localRegistryPublishers.length === 0
+		shouldWarnLocalRegistriesUnavailable(
+			viewerSettings.enableCustomRegistries,
+			viewerSettings.customRegistryUrls,
+			localRegistryPublishers.length
+		)
 	);
 
 	function catalogQuery(pubData: LibraryPublisherData): string {
@@ -49,7 +54,7 @@
 <div class="library-container">
 	{#if loading}
 		<div class="status-wrapper">
-			<Alert variant="info" title="Loading Library">Please wait while catalogs are being loaded...</Alert>
+			<LoadingBrand message="Please wait while catalogs are being loaded…" />
 		</div>
 	{:else if publishers.length === 0}
 		<div class="status-wrapper">
@@ -73,9 +78,6 @@
 							<li><strong>{err.url}</strong>: {err.error}</li>
 						{/each}
 					</ul>
-				{:else}
-					Ensure Caddy is running on port 8080 (<code>Caddyfile</code> in vyasa-samples) and that
-					<strong>Enable Custom Registries</strong> is on in Settings.
 				{/if}
 			</Alert>
 		{/if}
@@ -179,9 +181,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: 3rem;
+		flex: 1 1 auto;
+		width: 100%;
 	}
 
 	.status-wrapper {
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
 		padding: var(--space-8) 0;
 	}
 
