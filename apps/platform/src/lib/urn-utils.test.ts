@@ -26,6 +26,23 @@ describe('urn-utils', () => {
 			const result = flattenTree(tree);
 			expect(result).toEqual(['1:1:1']);
 		});
+
+		it('should flatten ranges_v1 catalog nodes without descending into slots/leaves keys', () => {
+			const tree = {
+				'1': {
+					'0': { slots: [0], leaves: [] },
+					'1': { slots: [0], leaves: [[1, 3]] },
+					'2': { slots: [0], leaves: [[1, 2]] }
+				}
+			};
+			expect(flattenTree(tree)).toEqual([
+				'1:1:1',
+				'1:1:2',
+				'1:1:3',
+				'1:2:1',
+				'1:2:2'
+			]);
+		});
 	});
 
 	describe('matchUrns', () => {

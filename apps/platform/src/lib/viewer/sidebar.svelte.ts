@@ -1,6 +1,7 @@
 import { flattenTree } from '$lib/urn-utils';
 import type { PackageData } from '$lib/types';
 import { getVocabularyLabel, titlesForChromeStream } from '$lib/viewer/vocabulary';
+import { buildSidebarItems } from '$lib/viewer/sidebar-items';
 
 export interface SidebarItem {
 	id: string;
@@ -63,60 +64,7 @@ export class SidebarState {
 			return fallback.charAt(0).toUpperCase() + fallback.slice(1);
 		};
 
-		// Case 1: Flat array of leaf nodes (e.g., single-level publication)
-		if (Array.isArray(tree)) {
-			const key = urnComponents[0] || 'Item';
-			const label = structureLabel(key, key);
-			return tree.map((val) => ({
-				id: String(val),
-				title: `${label} ${val}`
-			}));
-		}
-
-		// Case 2: Nested object tree
-		const result: SidebarItem[] = [];
-
-		function traverse(node: unknown, pathParts: string[]) {
-			if (Array.isArray(node)) {
-				if (pathParts.length > 0) {
-					const id = pathParts.join(':');
-					const lastPart = pathParts[pathParts.length - 1];
-					const parentPart = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '';
-					const itemKey = urnComponents[pathParts.length - 1] || 'Item';
-					const groupKey =
-						pathParts.length > 1 ? urnComponents[pathParts.length - 2] || 'Group' : '';
-					const itemLabel = structureLabel(itemKey, itemKey);
-					const groupLabel = groupKey ? structureLabel(groupKey, groupKey) : '';
-					const semanticTitle = titles[id];
-					const fallbackTitle = `${itemLabel} ${lastPart}`;
-					const parentSemanticTitle = parentPart ? titles[parentPart] : undefined;
-					const groupTitle = parentSemanticTitle
-						? `${parentSemanticTitle} (${groupLabel} ${parentPart})`
-						: parentPart
-							? `${groupLabel} ${parentPart}`
-							: undefined;
-
-					result.push({
-						id,
-						title: semanticTitle || fallbackTitle,
-						subtitle: semanticTitle ? fallbackTitle : undefined,
-						group: groupTitle
-					});
-				}
-				return;
-			}
-			if (typeof node === 'object' && node !== null) {
-				const keys = Object.keys(node as Record<string, unknown>).sort(
-					(a, b) => Number(a) - Number(b)
-				);
-				for (const k of keys) {
-					traverse((node as Record<string, unknown>)[k], [...pathParts, k]);
-				}
-			}
-		}
-
-		traverse(tree, []);
-		return result;
+		return buildSidebarItems(tree, { urnComponents, titles, structureLabel });
 	});
 
 	constructor(

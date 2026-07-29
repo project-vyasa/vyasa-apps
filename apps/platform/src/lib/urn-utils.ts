@@ -1,17 +1,8 @@
-export function flattenTree(node: any, prefix: string = ''): string[] {
-	const flatUrns: string[] = [];
-	if (Array.isArray(node)) {
-		for (const val of node) {
-			flatUrns.push(prefix ? `${prefix}:${val}` : `${val}`);
-		}
-	} else if (typeof node === 'object' && node !== null) {
-		// sort keys numerically if possible
-		const keys = Object.keys(node).sort((a, b) => Number(a) - Number(b));
-		for (const k of keys) {
-			flatUrns.push(...flattenTree(node[k], prefix ? `${prefix}:${k}` : `${k}`));
-		}
-	}
-	return flatUrns;
+import { collectLeafUrns } from '$lib/explore/urn-utils';
+
+/** Flatten a catalog tree to relative leaf URNs (supports legacy arrays and ranges_v1). */
+export function flattenTree(node: unknown, prefix = ''): string[] {
+	return collectLeafUrns(node, prefix);
 }
 
 export function matchUrns(targetUrn: string, flatUrns: string[]): string[] {
