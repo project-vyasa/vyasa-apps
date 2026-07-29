@@ -51,6 +51,7 @@ export interface Manifest {
 	primary_stream?: string;
 
 	catalog_tree: string;
+	catalog_tree_encoding?: string;
 	streams_config?: string;
 	urn_hierarchy?: string;
 	urn_bit_layout?: string;

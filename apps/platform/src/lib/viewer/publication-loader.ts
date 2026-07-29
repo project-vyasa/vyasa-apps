@@ -9,7 +9,7 @@ import { appendCacheBuster, vyviewCacheToken } from '$lib/cache-bust';
 import { activePublication } from '$lib/viewer/active-publication.svelte';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
-import { toRelativeUrn } from '$lib/explore/urn-utils';
+import { collectLeafUrns, toRelativeUrn } from '$lib/explore/urn-utils';
 
 export interface PublicationLoadResult {
 	packageData: PackageData;
@@ -136,7 +136,7 @@ export async function loadPublication(
 	// 9. Determine initial navigation target (for 'root' URN redirect)
 	// Flatten the catalog tree to find the first leaf
 	let initialTargetUrn: string | null = null;
-	const flatUrns = flattenTreeForInit(catalogTreeTemp);
+	const flatUrns = collectLeafUrns(catalogTreeTemp);
 	if (flatUrns.length > 0) {
 		const firstLeaf = flatUrns[0];
 		const parts = firstLeaf.split(':');
@@ -243,20 +243,3 @@ export async function loadPublication(
 	};
 }
 
-/** Minimal tree flattening used only to compute the initial navigation target. */
-function flattenTreeForInit(node: unknown, prefix = ''): string[] {
-	if (Array.isArray(node)) {
-		return node.map((val) => (prefix ? `${prefix}:${val}` : `${val}`));
-	}
-	if (typeof node === 'object' && node !== null) {
-		const keys = Object.keys(node as Record<string, unknown>).sort((a, b) => Number(a) - Number(b));
-		const results: string[] = [];
-		for (const k of keys) {
-			results.push(
-				...flattenTreeForInit((node as Record<string, unknown>)[k], prefix ? `${prefix}:${k}` : k)
-			);
-		}
-		return results;
-	}
-	return [];
-}

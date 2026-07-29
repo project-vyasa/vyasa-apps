@@ -17,9 +17,51 @@ describe('explore urn-utils', () => {
 		expect(catalogLeafIndices([0, 1, 2, 47])).toEqual([1, 2, 47]);
 	});
 
+	it('expands compact [0, max] range encoding (RV suktas)', () => {
+		expect(catalogLeafIndices([0, 9])).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+		expect(catalogLeafIndices([0, 1])).toEqual([1]);
+		expect(catalogLeafIndices([0])).toEqual([]);
+	});
+
 	it('collects verse leaf URNs using catalog indices (not array length)', () => {
 		const tree = { '1': [0, 1, 2, 3], '2': { '1': [0, 1, 2] } };
 		expect(collectLeafUrns(tree)).toEqual(['1:1', '1:2', '1:3', '2:1:1', '2:1:2']);
+	});
+
+	it('collects riks from compact sukta arrays', () => {
+		const tree = { '1': { '1': [0, 3], '2': [0, 2] } };
+		expect(collectLeafUrns(tree)).toEqual([
+			'1:1:1',
+			'1:1:2',
+			'1:1:3',
+			'1:2:1',
+			'1:2:2'
+		]);
+	});
+
+	it('expands ranges_v1 leaf buckets', () => {
+		const node = { slots: [0], leaves: [[1, 5], [9, 9]] as [number, number][] };
+		expect(catalogLeafIndices(node)).toEqual([1, 2, 3, 4, 5, 9]);
+	});
+
+	it('collects URNs from ranges_v1 catalog tree', () => {
+		const tree = {
+			'1': {
+				slots: [],
+				leaves: []
+			},
+			'2': {
+				'1': { slots: [0], leaves: [[1, 3]] },
+				'2': { slots: [0], leaves: [[1, 2]] }
+			}
+		};
+		expect(collectLeafUrns(tree)).toEqual([
+			'2:1:1',
+			'2:1:2',
+			'2:1:3',
+			'2:2:1',
+			'2:2:2'
+		]);
 	});
 
 	it('matches container URNs to descendant leaves', () => {

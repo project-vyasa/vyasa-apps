@@ -11,7 +11,7 @@
 	import DataMap from './explore/DataMap.svelte';
 	import FacetSidebar from './explore/FacetSidebar.svelte';
 	import { buildFacetIndex, type FacetSelection } from '$lib/explore/facet-index';
-	import { catalogLeafIndices } from '$lib/explore/urn-utils';
+	import { catalogLeafIndices, isCatalogRangesNode } from '$lib/explore/urn-utils';
 
 	interface Props {
 		publisher: string;
@@ -67,8 +67,9 @@
 		| { type: 'leaf-container'; id: string; title: string; leafIndices: number[] };
 
 	function parseTree(tree: any, titles: Record<string, string>, prefix = ''): MapNode[] {
-		if (Array.isArray(tree)) {
+		if (Array.isArray(tree) || isCatalogRangesNode(tree)) {
 			const leafIndices = catalogLeafIndices(tree);
+			if (leafIndices.length === 0) return [];
 			return [
 				{
 					type: 'leaf-container',
@@ -87,8 +88,9 @@
 			const fullId = prefix ? `${prefix}:${key}` : key;
 			const title = titles[fullId] || `Node ${fullId}`;
 
-			if (Array.isArray(subNode)) {
+			if (Array.isArray(subNode) || isCatalogRangesNode(subNode)) {
 				const leafIndices = catalogLeafIndices(subNode);
+				if (leafIndices.length === 0) continue;
 				nodes.push({
 					type: 'leaf-container',
 					id: fullId,
