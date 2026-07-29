@@ -3,6 +3,7 @@
 	import { getAllPublishers, fetchCatalog, resolvePublisherCatalogUrl } from '$lib/registry';
 	import type { CatalogSourceError } from '$lib/registry';
 	import LibraryView from '$lib/components/LibraryView.svelte';
+	import BrandMark from '$lib/components/BrandMark.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import type { LibraryPublisherData } from '$lib/types';
 
@@ -99,6 +100,7 @@
 				{/if}
 			</p>
 		</div>
+		<BrandMark variant="logo" href={base || '/'} class="library-brand" />
 	</div>
 
 	<LibraryView publishers={libraryData} {sourceErrors} {loading} />
@@ -108,13 +110,27 @@
 	.content-container {
 		max-width: 1200px;
 		margin: 0 auto;
+		display: flex;
+		flex-direction: column;
+		min-height: 100%;
+		flex: 1 1 auto;
+		width: 100%;
 	}
 	.header-section {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+		gap: var(--space-8);
 		padding: var(--space-8);
-		padding-bottom: 0;
+		padding-bottom: var(--space-4);
+	}
+	.header-section :global(.library-brand) {
+		width: min(11rem, 34vw);
+		aspect-ratio: 1;
+		flex-shrink: 0;
+	}
+	.library-brand :global(img) {
+		opacity: 0.95;
 	}
 	.page-title {
 		font-size: 2.5rem;

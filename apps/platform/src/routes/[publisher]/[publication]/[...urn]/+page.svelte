@@ -10,6 +10,7 @@
 	import { renderUrn } from '$lib/viewer/urn-renderer';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
+	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
@@ -364,7 +365,7 @@
 	{#if errorMessage}
 		<div class="error-box">{errorMessage}</div>
 	{:else if !srcdocContent}
-		<div class="loading-box">Loading {publication}...</div>
+		<LoadingBrand message="Loading {publication}…" />
 	{:else}
 		<iframe
 			bind:this={iframeElement}
@@ -411,12 +412,15 @@
 	.viewer-container {
 		width: 100%;
 		height: 100%;
+		min-height: 100%;
+		flex: 1 1 auto;
 		background-color: var(--bg-surface);
 		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		overflow: hidden;
+		justify-content: center;
+		overflow: auto;
 	}
 	.error-box {
 		margin: var(--space-8);
@@ -426,18 +430,13 @@
 		border: 1px solid var(--color-red-200);
 		border-radius: var(--control-radius);
 	}
-	.loading-box {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		color: var(--text-secondary);
-	}
 	.viewer-iframe {
 		width: 100%;
 		max-width: 900px;
 		height: 100%;
+		min-height: 100%;
+		flex: 1 1 auto;
+		align-self: stretch;
 		border: 0;
 		border-left: 1px solid var(--border-base);
 		border-right: 1px solid var(--border-base);

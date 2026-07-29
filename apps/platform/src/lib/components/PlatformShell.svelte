@@ -7,6 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
+	import { brandIconSrc } from '$lib/brand';
 
 	const themeContext = getContext<any>('theme');
 
@@ -93,6 +94,9 @@
 	{#snippet header()}
 		<AppHeader
 			appName="Project Vyasa"
+			href={base || '/'}
+			logoSrc={brandIconSrc(base)}
+			logoAlt="Project Vyasa"
 			bind:leftVisible
 			bind:rightVisible
 			{themeContext}

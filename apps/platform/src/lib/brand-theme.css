@@ -1,0 +1,19 @@
+/* Project Vyasa brand overrides — matches project-vyasa.github.io custom.css */
+:root {
+	--color-brand-500: #3b6ca5;
+	--color-brand-600: #2e5786;
+	--color-brand-50: #eef3f9;
+	--color-brand-100: #d6e3f2;
+
+	--action-primary: var(--color-brand-500);
+	--action-primary-hover: var(--color-brand-600);
+	--border-focus: var(--color-brand-500);
+}
+
+[data-theme='dark'] {
+	--color-brand-500: #5a8ec4;
+	--color-brand-600: #3b6ca5;
+
+	--action-primary: var(--color-brand-500);
+	--action-primary-hover: var(--color-brand-600);
+}

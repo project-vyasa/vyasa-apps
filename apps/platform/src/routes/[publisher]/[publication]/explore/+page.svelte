@@ -6,6 +6,7 @@
 	import type { PackageData } from '$lib/types';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import ExploreView from '$lib/components/ExploreView.svelte';
+	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 
 	const publisher = $derived(page.params.publisher || '');
 	const publication = $derived(page.params.publication || '');
@@ -36,19 +37,7 @@
 </script>
 
 {#if loading}
-	<div class="loading-state">Loading visual explore data for {publication}...</div>
+	<LoadingBrand message="Loading visual explore data for {publication}…" />
 {:else}
 	<ExploreView {publisher} {publication} {packageData} />
 {/if}
-
-<style>
-	.loading-state {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		height: 100%;
-		padding: var(--space-12);
-		color: var(--text-secondary);
-		font-size: 1.125rem;
-	}
-</style>
