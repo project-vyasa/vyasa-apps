@@ -9,6 +9,7 @@ import type { CatalogRef } from '$lib/catalog-ref';
 import { ADI_REGISTRY_ID } from '$lib/catalog-ref';
 import { appendCacheBuster, vyviewCacheToken } from '$lib/cache-bust';
 import { activePublication } from '$lib/viewer/active-publication.svelte';
+import { shouldReuseResolvedCatalogUrl } from './catalog-url-cache';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
 import { collectLeafUrns, toRelativeUrn } from '$lib/explore/urn-utils';
@@ -42,13 +43,14 @@ export async function loadPublication(
 	await initWasm();
 
 	const diagRegistryUrl = ref.registryId === ADI_REGISTRY_ID ? DEFAULT_REGISTRY_URL : ref.registryId;
-	const catalogUrl =
-		activePublication.catalogRef?.registryId === ref.registryId &&
-		activePublication.catalogRef?.catalogId === ref.catalogId &&
-		activePublication.catalogRef?.publicationId === ref.publicationId &&
-		activePublication.catalogUrl
-			? activePublication.catalogUrl
-			: await resolveCatalogUrl(ref.registryId, ref.catalogId);
+	const catalogUrl = shouldReuseResolvedCatalogUrl(
+		activePublication.registryId,
+		activePublication.catalogId,
+		activePublication.catalogUrl,
+		ref
+	)
+		? activePublication.catalogUrl
+		: await resolveCatalogUrl(ref.registryId, ref.catalogId);
 	const diagCatalogUrl = catalogUrl;
 
 	const catalogData = await fetchCatalog(catalogUrl);

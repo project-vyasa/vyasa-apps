@@ -13,7 +13,8 @@
 		catalogHeaderLine2,
 		catalogHeaderLine3,
 		publicationMetaLine,
-		publicationDescriptionLine
+		publicationDescriptionLine,
+		publicationDisplayBadges
 	} from '$lib/library-metadata';
 	import {
 		shouldWarnLocalSourcesUnavailable,
@@ -79,6 +80,8 @@
 			libraryCatalogVisibility.isHidden(c.registryId, c.catalogEntry.id)
 		).length;
 	});
+
+	const debugMode = $derived(viewerSettings.debugMode);
 
 	let localSourcesUnavailable = $derived(
 		shouldWarnLocalSourcesUnavailable(
@@ -205,7 +208,7 @@
 							View catalog
 						</a>
 					{/if}
-					{#if viewerSettings.debugMode}
+					{#if debugMode}
 						<Badge variant="neutral">{catalogRow.registryId}/{catalogRow.catalogEntry.id}</Badge>
 						<Badge variant="neutral">{catalogRow.sourceKind}</Badge>
 						{#if catalogRow.catalog?.publisher}
@@ -244,6 +247,28 @@
 					</div>
 				{:else if catalogRow.catalog}
 					{#if (catalogRow.catalog.publications || []).length > 0}
+						{#snippet publicationRowMeta(item: { id: string; license?: string; type?: string; updated?: number })}
+							{#each publicationDisplayBadges(item) as label (label)}
+								<Badge variant="ghost">{label}</Badge>
+							{/each}
+							{#if debugMode}
+								<span title="Canonical durable ID">
+									<Badge variant="neutral">
+										{catalogLinkToVyasaUri({
+											registryId: catalogRow.registryId,
+											catalogId: catalogRow.catalogEntry.id,
+											publicationId: item.id
+										})}
+									</Badge>
+								</span>
+								<Badge variant="neutral">ID: {item.id}</Badge>
+								{#if item.updated}
+									<Badge variant="neutral">
+										updated {new Date(Number(item.updated) * 1000).toLocaleString()}
+									</Badge>
+								{/if}
+							{/if}
+						{/snippet}
 						<div class="list-wrapper">
 							<ListView
 								items={catalogRow.catalog.publications || []}
@@ -251,6 +276,7 @@
 								subtitleField={(item) => publicationMetaLine(item)}
 								descriptionField={(item) => publicationDescriptionLine(item)}
 								showFilterInput={(catalogRow.catalog.publications || []).length > 5}
+								meta={publicationRowMeta}
 								onSelect={(item: { id: string }) => {
 									goto(
 										publicationReaderPath(
@@ -264,30 +290,7 @@
 										)
 									);
 								}}
-							>
-								{#snippet meta(item: { id: string; license?: string; updated?: number })}
-									{#if item.license}
-										<Badge variant="neutral">{item.license}</Badge>
-									{/if}
-									{#if viewerSettings.debugMode}
-										<span title="Canonical durable ID">
-											<Badge variant="neutral">
-												{catalogLinkToVyasaUri({
-													registryId: catalogRow.registryId,
-													catalogId: catalogRow.catalogEntry.id,
-													publicationId: item.id
-												})}
-											</Badge>
-										</span>
-										<Badge variant="neutral">ID: {item.id}</Badge>
-										{#if item.updated}
-											<Badge variant="neutral">
-												updated {new Date(Number(item.updated) * 1000).toLocaleString()}
-											</Badge>
-										{/if}
-									{/if}
-								{/snippet}
-							</ListView>
+							/>
 						</div>
 					{:else}
 						<div class="empty-catalog">No publications found in this catalog.</div>

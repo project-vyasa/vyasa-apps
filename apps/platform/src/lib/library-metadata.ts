@@ -27,3 +27,11 @@ export function publicationMetaLine(item: PublicationEntry): string {
 export function publicationDescriptionLine(item: PublicationEntry): string {
 	return item.description?.trim() || '';
 }
+
+/** Up to two muted badges for publication rows (type + language). */
+export function publicationDisplayBadges(item: PublicationEntry): string[] {
+	const badges: string[] = [];
+	if (item.type?.trim()) badges.push(item.type.trim());
+	if (item.language?.trim()) badges.push(item.language.trim());
+	return badges.slice(0, 2);
+}

@@ -3,5 +3,10 @@
   "private": true,
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "scripts": {
+    "build:vyasa-ui": "node scripts/ensure-vyasa-ui.mjs",
+    "build:platform": "bun run --cwd apps/platform build",
+    "deploy:platform": "bun run --cwd apps/platform deploy"
+  }
 }

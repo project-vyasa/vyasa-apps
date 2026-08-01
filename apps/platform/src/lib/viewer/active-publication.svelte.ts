@@ -16,9 +16,11 @@ export class ActivePublicationState {
 	setPublication(ref: CatalogRef, catalogUrl?: string | null) {
 		if (!ref.registryId || !ref.catalogId || !ref.publicationId) return;
 
+		const catalogIdentityChanged =
+			this._registryId !== ref.registryId || this._catalogId !== ref.catalogId;
+
 		const changed =
-			this._registryId !== ref.registryId ||
-			this._catalogId !== ref.catalogId ||
+			catalogIdentityChanged ||
 			this._publicationId !== ref.publicationId ||
 			(catalogUrl !== undefined && this._catalogUrl !== (catalogUrl || ''));
 
@@ -28,6 +30,9 @@ export class ActivePublicationState {
 			this._publicationId = ref.publicationId;
 			if (catalogUrl !== undefined) {
 				this._catalogUrl = catalogUrl || '';
+			} else if (catalogIdentityChanged) {
+				// Route changed before loadPublication resolved the new catalog.json URL.
+				this._catalogUrl = '';
 			}
 			this._lastUrn = 'root';
 			this._title = '';

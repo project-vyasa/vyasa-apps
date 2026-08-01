@@ -3,7 +3,8 @@ import {
 	catalogHeaderLine2,
 	catalogHeaderLine3,
 	publicationMetaLine,
-	publicationDescriptionLine
+	publicationDescriptionLine,
+	publicationDisplayBadges
 } from './library-metadata';
 import type { LibraryCatalogData } from './types';
 
@@ -40,5 +41,6 @@ describe('library metadata lines', () => {
 		};
 		expect(publicationMetaLine(item)).toBe('work · sa · CC0');
 		expect(publicationDescriptionLine(item)).toBe('Canonical sample edition.');
+		expect(publicationDisplayBadges(item)).toEqual(['work', 'sa']);
 	});
 });
