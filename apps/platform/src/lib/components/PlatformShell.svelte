@@ -8,6 +8,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { brandIconSrc } from '$lib/brand';
+	import CopyVyasaLinkButton from '$lib/components/CopyVyasaLinkButton.svelte';
 
 	const themeContext = getContext<any>('theme');
 
@@ -50,13 +51,13 @@
 				e.preventDefault();
 				if (page.url.pathname.includes('/diagnostics')) {
 					// Toggle back to active publication or library
-					if (activePublication.publication) {
-						goto(`${base}${activePublication.readerUrl}`);
+					if (activePublication.publicationId) {
+						goto(activePublication.readerUrl);
 					} else {
-						goto(`${base}/`);
+						goto(base || '/');
 					}
 				} else {
-					goto(`${base}${activePublication.diagnosticsUrl}`);
+					goto(activePublication.diagnosticsUrl);
 				}
 			}
 		}
@@ -101,35 +102,50 @@
 			bind:rightVisible
 			{themeContext}
 		>
-			{#if activePublication.publication}
-				{@const displayTitle = activePublication.title || activePublication.publication}
+			{#if activePublication.publicationId}
+				{@const displayTitle = activePublication.title || activePublication.publicationId}
 				<div class="header-center-info">
 					<strong class="pub-title">{displayTitle}</strong>
 					{#if viewerSettings.debugMode}
 						<div class="debug-meta">
 							<span class="debug-item">
-								<span class="debug-label">id</span>
-								<span class="debug-value">{activePublication.publication}</span>
+								<span class="debug-label">registry</span>
+								<span class="debug-value">{activePublication.registryId}</span>
+							</span>
+							<span class="debug-item">
+								<span class="debug-label">catalog</span>
+								<span class="debug-value">{activePublication.catalogId}</span>
+							</span>
+							<span class="debug-item">
+								<span class="debug-label">publication</span>
+								<span class="debug-value">{activePublication.publicationId}</span>
+							</span>
+							<span class="debug-item">
+								<span class="debug-label">vyasa</span>
+								<span class="debug-value" title={activePublication.vyasaUri}>
+									{activePublication.vyasaUri}
+								</span>
+								<CopyVyasaLinkButton vyasaUri={activePublication.vyasaUri} />
 							</span>
 							{#if activePublication.catalogUrl}
 								<span class="debug-item">
-									<span class="debug-label">catalog</span>
+									<span class="debug-label">catalog.json</span>
 									<span class="debug-value" title={activePublication.catalogUrl}>
 										{shortUrl(activePublication.catalogUrl)}
 									</span>
 								</span>
 							{/if}
-							{#if activePublication.publicationUrl}
+							{#if activePublication.vyviewUrl}
 								<span class="debug-item">
 									<span class="debug-label">vyview</span>
 									<a
 										class="debug-value debug-link"
-										href={activePublication.publicationUrl}
+										href={activePublication.vyviewUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										title={activePublication.publicationUrl}
+										title={activePublication.vyviewUrl}
 									>
-										{shortUrl(activePublication.publicationUrl)}
+										{shortUrl(activePublication.vyviewUrl)}
 									</a>
 								</span>
 							{/if}

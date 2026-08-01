@@ -1,10 +1,12 @@
 import initWasm, { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 import {
-	resolvePublisherCatalogUrl,
+	resolveCatalogUrl,
 	fetchCatalog,
 	getPublicationVyviewUrl,
 	DEFAULT_REGISTRY_URL
 } from '$lib/registry';
+import type { CatalogRef } from '$lib/catalog-ref';
+import { ADI_REGISTRY_ID } from '$lib/catalog-ref';
 import { appendCacheBuster, vyviewCacheToken } from '$lib/cache-bust';
 import { activePublication } from '$lib/viewer/active-publication.svelte';
 import { ViewerDb } from '$lib/ViewerDb';
@@ -34,31 +36,30 @@ export interface PublicationLoadResult {
  * Throws on any failure.
  */
 export async function loadPublication(
-	publisher: string,
-	publication: string,
-	viewerDb: ViewerDb,
-	explicitCatalogUrl?: string | null
+	ref: CatalogRef,
+	viewerDb: ViewerDb
 ): Promise<PublicationLoadResult> {
-	// 1. Initialize WASM
 	await initWasm();
 
-	// 2. Resolve catalog URL (use explicit if provided, else in-memory active catalog, else custom catalogs first, then global registry)
-	const diagRegistryUrl = DEFAULT_REGISTRY_URL;
-	const catalogUrl = explicitCatalogUrl || activePublication.catalogUrl || await resolvePublisherCatalogUrl(publisher);
+	const diagRegistryUrl = ref.registryId === ADI_REGISTRY_ID ? DEFAULT_REGISTRY_URL : ref.registryId;
+	const catalogUrl =
+		activePublication.catalogRef?.registryId === ref.registryId &&
+		activePublication.catalogRef?.catalogId === ref.catalogId &&
+		activePublication.catalogRef?.publicationId === ref.publicationId &&
+		activePublication.catalogUrl
+			? activePublication.catalogUrl
+			: await resolveCatalogUrl(ref.registryId, ref.catalogId);
 	const diagCatalogUrl = catalogUrl;
 
-	// 3. Fetch catalog and find the publication
 	const catalogData = await fetchCatalog(catalogUrl);
-	const items = catalogData.items || [];
-	const pubItem = items.find((item) => item.id === publication);
-	if (!pubItem) {
-		throw new Error(`Publication ${publication} not found in catalog at ${catalogUrl}`);
+	const publication = catalogData.publications.find((item) => item.id === ref.publicationId);
+	if (!publication) {
+		throw new Error(`Publication ${ref.publicationId} not found in catalog at ${catalogUrl}`);
 	}
 
-	// 4. Resolve and load the .vyview SQLite file
-	const vyviewFullUrl = getPublicationVyviewUrl(catalogUrl, pubItem);
+	const vyviewFullUrl = getPublicationVyviewUrl(catalogUrl, publication);
 	const diagPublicationUrl = vyviewFullUrl;
-	const buster = vyviewCacheToken(pubItem.updated);
+	const buster = vyviewCacheToken(publication.updated);
 	await viewerDb.loadFromUrl(appendCacheBuster(vyviewFullUrl, buster));
 
 	// 5. Read manifest
@@ -241,7 +242,7 @@ export async function loadPublication(
 		diagCatalogUrl,
 		diagPublicationUrl,
 		diagCatalog: catalogData,
-		catalogUpdated: pubItem.updated,
+		catalogUpdated: publication.updated,
 		manifestTimestamp,
 		initialTargetUrn
 	};

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { viewerSettings } from '$lib/settings.svelte';
-	import { DEFAULT_REGISTRY_URL, fetchCatalog } from '$lib/registry';
+	import { DEFAULT_REGISTRY_URL, fetchCatalog, catalogEntriesFromRegistry } from '$lib/registry';
+	import { classifyLocalSourceDocument } from '$lib/local-source';
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { ViewerDb } from '$lib/ViewerDb';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
@@ -16,45 +17,90 @@
 		catalog?: Catalog | null;
 	}
 
-	interface CustomRegistryDiagnostic {
+	interface RegistryDiagnostic {
 		url: string;
 		status: 'loading' | 'success' | 'error';
 		error?: string;
 		registryData?: Registry | null;
-		publisherCatalogs: CatalogDiagnostic[];
+		catalogDiagnostics: CatalogDiagnostic[];
 	}
 
-	let globalRegistryUrl = $derived(
-		viewerSettings.enableGlobalRegistry ? DEFAULT_REGISTRY_URL : ''
-	);
+	let globalRegistryUrl = $derived(DEFAULT_REGISTRY_URL);
 	let globalRegistryData = $state<Registry | null>(null);
 	let globalRegistryError = $state<string | null>(null);
-	let globalPublisherCatalogs = $state<CatalogDiagnostic[]>([]);
+	let globalCatalogDiagnostics = $state<CatalogDiagnostic[]>([]);
 
-	let customRegistries = $state<CustomRegistryDiagnostic[]>([]);
-	let customCatalogs = $state<CatalogDiagnostic[]>([]);
+	let localRegistries = $state<RegistryDiagnostic[]>([]);
+	let localCatalogs = $state<CatalogDiagnostic[]>([]);
 
 	let activePubUrl = $state('');
 	let activePackageData = $state<PackageData | null>(null);
 	let activePubError = $state<string | null>(null);
 
 	let selectedId = $state<string | undefined>(undefined);
-	let expandedIds = $state<Set<string>>(new Set(['global-reg', 'custom-regs-group', 'custom-cats-group']));
+	let expandedIds = $state<Set<string>>(new Set(['global-reg', 'local-regs-group', 'local-cats-group']));
 
 	const viewerDb = new ViewerDb();
 
 	onMount(async () => {
-		// 1. Fetch Global Registry JSON and its Publisher Catalogs
-		if (viewerSettings.enableGlobalRegistry) {
-			const regUrl = globalRegistryUrl;
+		// 1. Fetch Adi (global) registry and its catalogs
+		const regUrl = globalRegistryUrl;
+		try {
+			const res = await fetch(regUrl);
+			if (res.ok) {
+				const data: Registry = await res.json();
+				globalRegistryData = data;
+				const entries = catalogEntriesFromRegistry(data);
+				if (entries.length) {
+					globalCatalogDiagnostics = await Promise.all(
+						entries.map(async (p) => {
+							try {
+								const cat = await fetchCatalog(p.catalog_url);
+								return { url: p.catalog_url, status: 'success', catalog: cat };
+							} catch (err: any) {
+								return { url: p.catalog_url, status: 'error', error: err.message };
+							}
+						})
+					);
+				}
+			} else {
+				globalRegistryError = `HTTP ${res.status}: ${res.statusText}`;
+			}
+		} catch (err: any) {
+			globalRegistryError = err.message || String(err);
+		}
+
+		// 2. Fetch local sources (autodetect registry vs catalog)
+		const localUrls = viewerSettings.localSourceUrls;
+		const registryResults: RegistryDiagnostic[] = [];
+		const catalogResults: CatalogDiagnostic[] = [];
+
+		for (const url of localUrls) {
 			try {
-				const res = await fetch(regUrl);
-				if (res.ok) {
-					const data: Registry = await res.json();
-					globalRegistryData = data;
-					if (data.publishers) {
-						globalPublisherCatalogs = await Promise.all(
-							data.publishers.map(async (p) => {
+				const res = await fetch(url);
+				if (!res.ok) {
+					catalogResults.push({
+						url,
+						status: 'error',
+						error: `HTTP ${res.status}: ${res.statusText}`
+					});
+					continue;
+				}
+				const data = await res.json();
+				const kind = classifyLocalSourceDocument(data);
+				if (kind === 'catalog') {
+					try {
+						const cat = await fetchCatalog(url);
+						catalogResults.push({ url, status: 'success', catalog: cat });
+					} catch (err: any) {
+						catalogResults.push({ url, status: 'error', error: err.message });
+					}
+				} else if (kind === 'registry') {
+					const entries = catalogEntriesFromRegistry(data);
+					let catalogDiagnostics: CatalogDiagnostic[] = [];
+					if (entries.length) {
+						catalogDiagnostics = await Promise.all(
+							entries.map(async (p) => {
 								try {
 									const cat = await fetchCatalog(p.catalog_url);
 									return { url: p.catalog_url, status: 'success', catalog: cat };
@@ -64,81 +110,36 @@
 							})
 						);
 					}
+					registryResults.push({
+						url,
+						status: 'success',
+						registryData: data,
+						catalogDiagnostics
+					});
 				} else {
-					globalRegistryError = `HTTP ${res.status}: ${res.statusText}`;
+					catalogResults.push({
+						url,
+						status: 'error',
+						error: 'Unrecognized JSON (expected registry or catalog)'
+					});
 				}
 			} catch (err: any) {
-				globalRegistryError = err.message || String(err);
+				catalogResults.push({
+					url,
+					status: 'error',
+					error: err.message || String(err)
+				});
 			}
 		}
 
-		// 2. Fetch Custom / Local Registries JSON and their Publisher Catalogs
-		if (viewerSettings.enableCustomRegistries) {
-			const regUrls = viewerSettings.customRegistryUrls;
-			customRegistries = await Promise.all(
-				regUrls.map(async (url) => {
-					try {
-						const res = await fetch(url);
-						if (res.ok) {
-							const data: Registry = await res.json();
-							let pubCats: CatalogDiagnostic[] = [];
-							if (data.publishers) {
-								pubCats = await Promise.all(
-									data.publishers.map(async (p) => {
-										try {
-											const cat = await fetchCatalog(p.catalog_url);
-											return { url: p.catalog_url, status: 'success', catalog: cat };
-										} catch (err: any) {
-											return { url: p.catalog_url, status: 'error', error: err.message };
-										}
-									})
-								);
-							}
-							return {
-								url,
-								status: 'success',
-								registryData: data,
-								publisherCatalogs: pubCats
-							};
-						} else {
-							return {
-								url,
-								status: 'error',
-								error: `HTTP ${res.status}: ${res.statusText}`,
-								publisherCatalogs: []
-							};
-						}
-					} catch (err: any) {
-						return {
-							url,
-							status: 'error',
-							error: err.message || String(err),
-							publisherCatalogs: []
-						};
-					}
-				})
-			);
-		}
+		localRegistries = registryResults;
+		localCatalogs = catalogResults;
 
-		// 3. Fetch ALL Custom / Private Catalogs configured in settings
-		const customUrls = viewerSettings.customCatalogUrls;
-		customCatalogs = await Promise.all(
-			customUrls.map(async (url) => {
-				try {
-					const cat = await fetchCatalog(url);
-					return { url, status: 'success', catalog: cat };
-				} catch (err: any) {
-					return { url, status: 'error', error: err.message };
-				}
-			})
-		);
-
-		// 4. Fetch Active Publication Manifest (if active)
-		const pub = activePublication.publisher;
-		const publicationId = activePublication.publication;
-		if (pub && publicationId) {
+		// 3. Fetch Active Publication Manifest (if active)
+		const ref = activePublication.catalogRef;
+		if (ref) {
 			try {
-				const result = await loadPublication(pub, publicationId, viewerDb, activePublication.catalogUrl);
+				const result = await loadPublication(ref, viewerDb);
 				activePubUrl = result.diagPublicationUrl;
 				activePackageData = result.packageData;
 			} catch (err: any) {
@@ -154,11 +155,11 @@
 	let treeData = $derived.by<TreeNode[]>(() => {
 		const nodes: TreeNode[] = [];
 
-		// 1. Global Registry
-		if (viewerSettings.enableGlobalRegistry) {
-			const children: TreeNode[] = globalPublisherCatalogs.map((item) => ({
+		// 1. Adi (global) registry
+		{
+			const children: TreeNode[] = globalCatalogDiagnostics.map((item) => ({
 				id: `global-cat-${item.url}`,
-				label: item.catalog?.identifier || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
+				label: item.catalog?.id || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
 				icon: Database,
 				targetType: 'catalog',
 				url: item.url,
@@ -169,7 +170,7 @@
 
 			nodes.push({
 				id: 'global-reg',
-				label: 'Global Registry',
+				label: 'Adi Registry',
 				icon: Globe,
 				targetType: 'registry',
 				url: globalRegistryUrl,
@@ -180,12 +181,12 @@
 			});
 		}
 
-		// 2. Custom Registries
-		if (viewerSettings.enableCustomRegistries && customRegistries.length > 0) {
-			const regChildren: TreeNode[] = customRegistries.map((reg) => {
-				const pubChildren: TreeNode[] = reg.publisherCatalogs.map((item) => ({
+		// 2. Local registries
+		if (localRegistries.length > 0) {
+			const regChildren: TreeNode[] = localRegistries.map((reg) => {
+				const catalogChildren: TreeNode[] = reg.catalogDiagnostics.map((item) => ({
 					id: `custom-cat-${reg.url}-${item.url}`,
-					label: item.catalog?.identifier || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
+					label: item.catalog?.id || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
 					icon: Database,
 					targetType: 'catalog',
 					url: item.url,
@@ -203,23 +204,23 @@
 					status: reg.status,
 					error: reg.error,
 					data: reg.registryData,
-					children: pubChildren.length > 0 ? pubChildren : undefined
+					children: catalogChildren.length > 0 ? catalogChildren : undefined
 				};
 			});
 
 			nodes.push({
-				id: 'custom-regs-group',
-				label: `Custom Registries (${customRegistries.length})`,
+				id: 'local-regs-group',
+				label: `Local Registries (${localRegistries.length})`,
 				icon: Server,
 				children: regChildren
 			});
 		}
 
-		// 3. Standalone Catalogs
-		if (customCatalogs.length > 0) {
-			const catChildren: TreeNode[] = customCatalogs.map((item) => ({
+		// 3. Local standalone catalogs
+		if (localCatalogs.length > 0) {
+			const catChildren: TreeNode[] = localCatalogs.map((item) => ({
 				id: `standalone-cat-${item.url}`,
-				label: item.catalog?.identifier || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
+				label: item.catalog?.id || item.catalog?.title || item.url.split('/').slice(-2).join('/'),
 				icon: Database,
 				targetType: 'catalog',
 				url: item.url,
@@ -229,21 +230,21 @@
 			}));
 
 			nodes.push({
-				id: 'custom-cats-group',
-				label: `Standalone Catalogs (${customCatalogs.length})`,
+				id: 'local-cats-group',
+				label: `Local Catalogs (${localCatalogs.length})`,
 				icon: Database,
 				children: catChildren
 			});
 		}
 
-		// 4. Active Publication
-		if (activePublication.publication) {
+		// 4. Active package
+		if (activePublication.publicationId) {
 			nodes.push({
 				id: 'active-pub',
-				label: `Active Publication (${activePublication.publication})`,
+				label: `Active Publication (${activePublication.publicationId})`,
 				icon: FileCode,
 				targetType: 'manifest',
-				url: activePubUrl || `${activePublication.publisher}/${activePublication.publication}`,
+				url: activePubUrl || `${activePublication.catalogId}/${activePublication.publicationId}`,
 				status: activePubError ? 'error' : activePackageData ? 'success' : 'loading',
 				error: activePubError,
 				data: activePackageData?.manifest
@@ -278,7 +279,7 @@
 <div class="diagnostics-container">
 	<div class="diagnostics-header">
 		<h1 class="diagnostics-title">System Diagnostics</h1>
-		<p class="diagnostics-desc">Global & Custom Registries, Catalogs & Active Manifest Inspection</p>
+		<p class="diagnostics-desc">Registry indexes, catalog documents, and active manifest inspection</p>
 	</div>
 
 	<div class="diagnostics-layout">

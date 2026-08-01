@@ -1,43 +1,51 @@
+	import { publicationExplorePath, publicationReaderPath, catalogLinkToVyasaUri, catalogLinkToHttp, type CatalogRef } from '$lib/catalog-ref';
+	import { base } from '$app/paths';
+	import { browser } from '$app/environment';
+
 export class ActivePublicationState {
-	private _publisher = $state('');
-	private _publication = $state('');
+	private _registryId = $state('');
+	private _catalogId = $state('');
+	private _publicationId = $state('');
 	private _catalogUrl = $state('');
 	private _lastUrn = $state('root');
 	private _title = $state('');
-	private _publicationUrl = $state('');
+	private _vyviewUrl = $state('');
 	private _timestamp = $state('');
 	private _catalogUpdated = $state<number | undefined>(undefined);
 
-	setPublication(publisher: string, publication: string, catalogUrl?: string | null) {
-		if (publisher && publication) {
-			if (
-				this._publisher !== publisher ||
-				this._publication !== publication ||
-				(catalogUrl !== undefined && this._catalogUrl !== (catalogUrl || ''))
-			) {
-				this._publisher = publisher;
-				this._publication = publication;
-				if (catalogUrl !== undefined) {
-					this._catalogUrl = catalogUrl || '';
-				}
-				this._lastUrn = 'root';
-				this._title = '';
-				this._publicationUrl = '';
-				this._timestamp = '';
-				this._catalogUpdated = undefined;
+	setPublication(ref: CatalogRef, catalogUrl?: string | null) {
+		if (!ref.registryId || !ref.catalogId || !ref.publicationId) return;
+
+		const changed =
+			this._registryId !== ref.registryId ||
+			this._catalogId !== ref.catalogId ||
+			this._publicationId !== ref.publicationId ||
+			(catalogUrl !== undefined && this._catalogUrl !== (catalogUrl || ''));
+
+		if (changed) {
+			this._registryId = ref.registryId;
+			this._catalogId = ref.catalogId;
+			this._publicationId = ref.publicationId;
+			if (catalogUrl !== undefined) {
+				this._catalogUrl = catalogUrl || '';
 			}
+			this._lastUrn = 'root';
+			this._title = '';
+			this._vyviewUrl = '';
+			this._timestamp = '';
+			this._catalogUpdated = undefined;
 		}
 	}
 
 	setMetadata(
 		title: string,
-		publicationUrl: string,
+		vyviewUrl: string,
 		manifestTimestamp?: string | number,
 		catalogUrl?: string | null,
 		catalogUpdated?: number
 	) {
 		if (title) this._title = title;
-		if (publicationUrl) this._publicationUrl = publicationUrl;
+		if (vyviewUrl) this._vyviewUrl = vyviewUrl;
 		if (manifestTimestamp !== undefined) this._timestamp = String(manifestTimestamp);
 		if (catalogUrl !== undefined) this._catalogUrl = catalogUrl || '';
 		if (catalogUpdated !== undefined) this._catalogUpdated = catalogUpdated;
@@ -49,12 +57,25 @@ export class ActivePublicationState {
 		}
 	}
 
-	get publisher() {
-		return this._publisher;
+	get catalogRef(): CatalogRef | null {
+		if (!this._registryId || !this._catalogId || !this._publicationId) return null;
+		return {
+			registryId: this._registryId,
+			catalogId: this._catalogId,
+			publicationId: this._publicationId
+		};
 	}
 
-	get publication() {
-		return this._publication;
+	get registryId() {
+		return this._registryId;
+	}
+
+	get catalogId() {
+		return this._catalogId;
+	}
+
+	get publicationId() {
+		return this._publicationId;
 	}
 
 	get catalogUrl() {
@@ -69,8 +90,8 @@ export class ActivePublicationState {
 		return this._title;
 	}
 
-	get publicationUrl() {
-		return this._publicationUrl;
+	get vyviewUrl() {
+		return this._vyviewUrl;
 	}
 
 	get timestamp() {
@@ -82,21 +103,36 @@ export class ActivePublicationState {
 	}
 
 	get readerUrl() {
-		if (!this._publisher || !this._publication) return '';
-		const query = this._catalogUrl ? `?catalog=${encodeURIComponent(this._catalogUrl)}` : '';
-		return this._lastUrn && this._lastUrn !== 'root'
-			? `/${this._publisher}/${this._publication}/${this._lastUrn}${query}`
-			: `/${this._publisher}/${this._publication}${query}`;
+		const ref = this.catalogRef;
+		if (!ref) return '';
+		const urn = this._lastUrn && this._lastUrn !== 'root' ? this._lastUrn : undefined;
+		return publicationReaderPath(ref, urn, base);
 	}
 
 	get exploreUrl() {
-		if (!this._publisher || !this._publication) return '';
-		const query = this._catalogUrl ? `?catalog=${encodeURIComponent(this._catalogUrl)}` : '';
-		return `/${this._publisher}/${this._publication}/explore${query}`;
+		const ref = this.catalogRef;
+		if (!ref) return '';
+		return publicationExplorePath(ref, base);
+	}
+
+	get vyasaUri() {
+		const ref = this.catalogRef;
+		if (!ref) return '';
+		const urn = this._lastUrn && this._lastUrn !== 'root' ? this._lastUrn : undefined;
+		return catalogLinkToVyasaUri({ ...ref, urn });
+	}
+
+	get httpReaderUrl() {
+		if (!browser) return '';
+		const ref = this.catalogRef;
+		if (!ref) return '';
+		const urn = this._lastUrn && this._lastUrn !== 'root' ? this._lastUrn : undefined;
+		return catalogLinkToHttp({ ...ref, urn }, window.location.origin, base);
 	}
 
 	get diagnosticsUrl() {
-		return '/diagnostics';
+		const prefix = base.replace(/\/$/, '');
+		return `${prefix}/diagnostics`;
 	}
 }
 

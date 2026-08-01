@@ -1,28 +1,35 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { base } from '$app/paths';
-	import { Panel, ListView, Select, Switch } from '@project-vyasa/vyasa-ui';
-	import { BookOpen } from 'lucide-svelte';
+	import { Panel } from '@project-vyasa/vyasa-ui';
 	import { goto } from '$app/navigation';
 	import { onDestroy, getContext, untrack, type Snippet } from 'svelte';
 	import { ViewerDb } from '$lib/ViewerDb';
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { renderUrn } from '$lib/viewer/urn-renderer';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
+	import { navigateReaderNext, navigateReaderPrev, readerNavUrl } from '$lib/viewer/reader-navigation';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
+	import ReaderNavigationPanel from '$lib/components/ReaderNavigationPanel.svelte';
 	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
-	import type { PackageData, Catalog } from '$lib/types';
+	import { catalogRefFromParams, publicationReaderPath } from '$lib/catalog-ref';
+	import type { PackageData } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 
-	// --- URL Parameters ---
-	const publisher = $derived(page.params.publisher || '');
-	const publication = $derived(page.params.publication || '');
+	const registryId = $derived(page.params.registry || '');
+	const catalogId = $derived(page.params.catalog || '');
+	const publicationId = $derived(page.params.publication || '');
 	const urn = $derived(page.params.urn || 'root');
 
-	// Register sidebars with root shell layout
+	const catalogRef = $derived(
+		registryId && catalogId && publicationId
+			? catalogRefFromParams(registryId, catalogId, publicationId)
+			: null
+	);
+
 	const shell = getContext<{
 		setSidebarLeft: (s: Snippet | undefined) => void;
 		setSidebarRight: (s: Snippet | undefined) => void;
@@ -30,10 +37,7 @@
 		setPanelBottom: (s: Snippet | undefined) => void;
 	}>('shellState');
 
-	// --- Layout state ---
 	let isFullWidth = $state(false);
-
-	// --- Viewer State ---
 	let srcdocContent = $state('');
 	let errorMessage = $state<string | null>(null);
 	let activeView = $state<string | undefined>(undefined);
@@ -45,11 +49,9 @@
 	let graphRuntime = $state<VyasaViewerRuntime | null>(null);
 	let urnComponents = $state<string[]>([]);
 	let currentUrnParts = $state<string[]>([]);
-	let iframeElement = $state<HTMLIFrameElement>();
 	let showReferenceGutter = $state(true);
 	let renderGeneration = 0;
 
-	/** Chrome label stream — persisted; drives speaker badges and nav structure terms. */
 	let chromeStream = $state('');
 	let showAnnotationGutter = $state(viewerSettings.showAnnotationGutter);
 	const chromeStreams = $derived(
@@ -68,14 +70,10 @@
 		untrack(() => (viewerSettings.showAnnotationGutter = show));
 	});
 
-	// --- Diagnostics metadata for debug display ---
-	let diagPublicationUrl = $state('');
-	let diagCatalog = $state<Catalog | null>(null);
-	let lastLoadedPublisher = '';
-	let lastLoadedPublication = '';
+	let lastLoadedRegistryId = '';
 	let lastLoadedCatalog = '';
+	let lastLoadedPublication = '';
 
-	// --- DB & Sidebar State ---
 	const viewerDb = new ViewerDb();
 	const sidebar = new SidebarState(
 		() => packageData,
@@ -84,7 +82,6 @@
 		() => chromeStream || undefined
 	);
 
-	// Register sidebars with Shell
 	$effect(() => {
 		if (shell) {
 			shell.setSidebarLeft(sidebarLeftContent);
@@ -98,7 +95,6 @@
 		}
 	});
 
-	// Synchronize URN parts with sidebar state when URN or catalog changes
 	$effect(() => {
 		const u = urn;
 		const l = urnComponents.length;
@@ -112,67 +108,54 @@
 		});
 	});
 
-	// Trigger data loading when route parameters change
 	$effect(() => {
-		const pub = publisher;
-		const publ = publication;
-		const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl || null;
+		const ref = catalogRef;
 		untrack(() => {
-			if (pub && publ) {
-				handleLoadPublication();
-			}
+			if (ref) handleLoadPublication();
 		});
 	});
 
-	// Render content when URN or runtime changes
 	$effect(() => {
 		const currentUrn = urn;
 		const r = graphRuntime;
 		const p = packageData;
-		const v = activeView;
-		const s = chromeStream;
-		const c = customGridLayoutJson;
-		const refGutter = showReferenceGutter;
-		const annGutter = showAnnotationGutter;
 		if (r && p) {
 			untrack(() => handleRenderUrn(currentUrn));
 		}
 	});
 
-	onDestroy(() => {
-		viewerDb.close();
-	});
-
-	// --- Handlers ---
+	onDestroy(() => viewerDb.close());
 
 	async function handleLoadPublication() {
+		const ref = catalogRef;
+		if (!ref) return;
 		errorMessage = null;
 		try {
-			const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl || null;
 			if (
-				publisher === lastLoadedPublisher &&
-				publication === lastLoadedPublication &&
-				(catalogParam || '') === lastLoadedCatalog
+				ref.registryId === lastLoadedRegistryId &&
+				ref.catalogId === lastLoadedCatalog &&
+				ref.publicationId === lastLoadedPublication
 			) {
 				return;
 			}
-			lastLoadedPublisher = publisher;
-			lastLoadedPublication = publication;
-			lastLoadedCatalog = catalogParam || '';
+			lastLoadedRegistryId = ref.registryId;
+			lastLoadedCatalog = ref.catalogId;
+			lastLoadedPublication = ref.publicationId;
 
-			const result = await loadPublication(publisher, publication, viewerDb, catalogParam);
-
-			diagPublicationUrl = result.diagPublicationUrl;
-			diagCatalog = result.diagCatalog;
+			const result = await loadPublication(ref, viewerDb);
 			urnComponents = result.urnComponents;
 			graphRuntime = result.graphRuntime;
 
-			const pubTitle = result.diagCatalog?.items?.find((i) => i.id === publication)?.title || result.packageData.manifest.title || publication;
+			const pubTitle =
+				result.diagCatalog?.publications?.find((i) => i.id === ref.publicationId)?.title ||
+				result.packageData.manifest.title ||
+				ref.publicationId;
+			activePublication.setPublication(ref, result.diagCatalogUrl);
 			activePublication.setMetadata(
 				pubTitle,
 				result.diagPublicationUrl,
 				result.manifestTimestamp ?? result.packageData.manifest.timestamp,
-				catalogParam,
+				result.diagCatalogUrl,
 				result.catalogUpdated
 			);
 
@@ -192,15 +175,11 @@
 						: labelStreams[0] || '';
 			showAnnotationGutter = viewerSettings.showAnnotationGutter;
 
-			// Set packageData LAST to avoid triggering the render $effect
-			// before initialization is complete (WASM Asyncify stack safety).
 			packageData = result.packageData;
 
-			// Navigate to first content if arriving at 'root'
 			if ((urn === 'root' || !urn) && result.initialTargetUrn) {
 				setTimeout(() => {
-					const query = catalogParam ? `?catalog=${encodeURIComponent(catalogParam)}` : '';
-					goto(`${base}/${publisher}/${publication}/${result.initialTargetUrn}${query}`, {
+					goto(publicationReaderPath(ref, result.initialTargetUrn!, base), {
 						replaceState: true
 					});
 				}, 0);
@@ -233,7 +212,6 @@
 			availableViews = result.availableViews;
 			availableStreams = result.availableStreams;
 			if (activeView !== result.activeView) activeView = result.activeView;
-			// Do not overwrite chromeStream from weave discovery — chrome is user/settings controlled.
 			srcdocContent = result.srcdocContent;
 		} catch (e: unknown) {
 			if (generation !== renderGeneration) return;
@@ -243,16 +221,14 @@
 		}
 	}
 
-	// --- Navigation ---
-
-	function getNavUrl(targetUrn: string) {
-		const catalogParam = page.url.searchParams.get('catalog') || activePublication.catalogUrl;
-		const query = catalogParam ? `?catalog=${encodeURIComponent(catalogParam)}` : '';
-		return `${base}/${publisher}/${publication}/${targetUrn}${query}`;
+	function navUrl(targetUrn: string) {
+		const ref = catalogRef;
+		if (!ref) return base || '/';
+		return readerNavUrl(ref, targetUrn, base);
 	}
 
 	function onNavigate(target: string) {
-		if (target) goto(getNavUrl(target));
+		if (target) goto(navUrl(target));
 	}
 
 	function navigateUrn() {
@@ -261,35 +237,11 @@
 	}
 
 	function navigateNext() {
-		const flatUrns = sidebar.flatUrns;
-		if (!flatUrns || flatUrns.length === 0) return;
-		if (activeUrns.length > 0) {
-			const lastActive = activeUrns[activeUrns.length - 1];
-			const idx = flatUrns.indexOf(lastActive);
-			if (idx !== -1 && idx < flatUrns.length - 1) {
-				goto(getNavUrl(flatUrns[idx + 1]));
-			}
-		} else {
-			goto(getNavUrl(flatUrns[0]));
-		}
+		navigateReaderNext(sidebar.flatUrns, activeUrns, goto, navUrl);
 	}
 
 	function navigatePrev() {
-		const flatUrns = sidebar.flatUrns;
-		if (!flatUrns || flatUrns.length === 0) return;
-		if (activeUrns.length > 0) {
-			const firstActive = activeUrns[0];
-			const idx = flatUrns.indexOf(firstActive);
-			if (idx > 0) {
-				goto(getNavUrl(flatUrns[idx - 1]));
-			}
-		} else {
-			const u = urn ? urn : '';
-			const firstIdx = flatUrns.findIndex((f) => f.startsWith(u));
-			if (firstIdx > 0) {
-				goto(getNavUrl(flatUrns[firstIdx - 1]));
-			}
-		}
+		navigateReaderPrev(sidebar.flatUrns, activeUrns, urn, goto, navUrl);
 	}
 </script>
 
@@ -303,7 +255,7 @@
 		{availableViews}
 		{availableStreams}
 		bind:customGridLayoutJson
-		isDocumentLayout={(packageData?.manifest as any)?.layout === 'document'}
+		isDocumentLayout={(packageData?.manifest as { layout?: string })?.layout === 'document'}
 		onNavigatePrev={navigatePrev}
 		onNavigateNext={navigateNext}
 		onNavigateUrn={navigateUrn}
@@ -312,45 +264,14 @@
 {/snippet}
 
 {#snippet sidebarLeftContent()}
-	<Panel title="Navigation" icon={BookOpen}>
-		{#if chromeStreams.length > 0 || packageData?.annotations?.length}
-			<div class="nav-display-controls">
-				{#if chromeStreams.length > 0}
-					<div class="nav-control-row">
-						<span class="nav-control-label">Labels</span>
-						<div class="nav-control-field">
-							<Select
-								options={chromeStreams.map((s) => ({
-									label: s,
-									value: s
-								}))}
-								bind:value={chromeStream}
-							/>
-						</div>
-					</div>
-				{/if}
-				{#if packageData?.annotations?.length}
-					<div class="nav-control-row">
-						<span class="nav-control-label">Annotations</span>
-						<Switch bind:checked={showAnnotationGutter} />
-					</div>
-				{/if}
-			</div>
-		{/if}
-		{#if sidebar.items.length > 0}
-			<ListView
-				items={sidebar.items}
-				keyField="id"
-				bind:selectedId={sidebar.selectedContainerId}
-				titleField="title"
-				subtitleField="subtitle"
-				groupBy={sidebar.items.some((item) => item.group) ? 'group' : undefined}
-				onSelect={(item) => onNavigate(item.id)}
-			/>
-		{:else}
-			<div class="sidebar-panel-content">No navigation items available.</div>
-		{/if}
-	</Panel>
+	<ReaderNavigationPanel
+		{sidebar}
+		{packageData}
+		{chromeStreams}
+		bind:chromeStream
+		bind:showAnnotationGutter
+		onNavigate={onNavigate}
+	/>
 {/snippet}
 
 {#snippet sidebarRightContent()}
@@ -365,10 +286,9 @@
 	{#if errorMessage}
 		<div class="error-box">{errorMessage}</div>
 	{:else if !srcdocContent}
-		<LoadingBrand message="Loading {publication}…" />
+		<LoadingBrand message="Loading {publicationId}…" />
 	{:else}
 		<iframe
-			bind:this={iframeElement}
 			srcdoc={srcdocContent}
 			title="Vyasa Content"
 			class="viewer-iframe"
@@ -378,32 +298,6 @@
 </div>
 
 <style>
-	.nav-display-controls {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-2);
-		padding: var(--space-3) var(--space-4);
-		border-bottom: 1px solid var(--border-base);
-	}
-	.nav-control-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-3);
-	}
-	.nav-control-label {
-		font-size: 0.75rem;
-		font-weight: 600;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--text-secondary);
-		flex-shrink: 0;
-	}
-	.nav-control-field {
-		flex: 1;
-		min-width: 0;
-		max-width: 10rem;
-	}
 	.sidebar-panel-content {
 		padding: var(--space-4);
 		color: var(--text-secondary);

@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import LibraryContainer from '$lib/components/LibraryContainer.svelte';
 
-	const publisher = $derived(page.params.publisher || '');
+	const registryId = $derived(page.params.registry || '');
 </script>
 
-<LibraryContainer {publisher} />
+<LibraryContainer {registryId} />

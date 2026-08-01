@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SettingsModal } from '@project-vyasa/vyasa-ui';
 	import { viewerSettings } from '../settings.svelte';
+	import { DEFAULT_REGISTRY_URL } from '../registry';
 	import { Database, Link, Palette } from 'lucide-svelte';
 	import { getContext } from 'svelte';
 
@@ -17,22 +18,30 @@
 	}>('theme');
 
 	let settingsData = {
-		get enableGlobalRegistry() { return viewerSettings.enableGlobalRegistry; },
-		set enableGlobalRegistry(val) { viewerSettings.enableGlobalRegistry = val; },
-		get enableCustomRegistries() { return viewerSettings.enableCustomRegistries; },
-		set enableCustomRegistries(val) { viewerSettings.enableCustomRegistries = val; },
-		get customRegistries() { return viewerSettings.customRegistries; },
-		set customRegistries(val) { viewerSettings.customRegistries = val; },
-		get enableCustomCatalogs() { return viewerSettings.enableCustomCatalogs; },
-		set enableCustomCatalogs(val) { viewerSettings.enableCustomCatalogs = val; },
-		get customCatalogs() { return viewerSettings.customCatalogs; },
-		set customCatalogs(val) { viewerSettings.customCatalogs = val; },
-		get debugMode() { return viewerSettings.debugMode; },
-		set debugMode(val) { viewerSettings.debugMode = val; },
-		get theme() { return themeContext?.theme || 'system'; },
-		set theme(val) { if (themeContext) themeContext.theme = val as any; },
-		get density() { return themeContext?.density || 'standard'; },
-		set density(val) { if (themeContext) themeContext.density = val as any; }
+		get localSources() {
+			return viewerSettings.localSources;
+		},
+		set localSources(val) {
+			viewerSettings.localSources = val;
+		},
+		get debugMode() {
+			return viewerSettings.debugMode;
+		},
+		set debugMode(val) {
+			viewerSettings.debugMode = val;
+		},
+		get theme() {
+			return themeContext?.theme || 'system';
+		},
+		set theme(val) {
+			if (themeContext) themeContext.theme = val as any;
+		},
+		get density() {
+			return themeContext?.density || 'standard';
+		},
+		set density(val) {
+			if (themeContext) themeContext.density = val as any;
+		}
 	};
 
 	const schema: any[] = [
@@ -76,49 +85,13 @@
 			icon: Database,
 			groups: [
 				{
-					title: 'Local & Custom Registries',
+					title: 'Local Sources',
 					items: [
 						{
-							id: 'enableCustomRegistries',
-							label: 'Enable Custom Registries',
-							description:
-								'Fetch publishers from custom local or private registry endpoints',
-							type: 'boolean' as const
-						},
-						{
-							id: 'customRegistries',
-							label: 'Custom Registry URLs',
-							description: 'Semicolon or comma separated list of registry URLs (e.g. http://localhost:8080/registry.json)',
+							id: 'localSources',
+							label: 'Local source URLs',
+							description: `The Adi global registry (${DEFAULT_REGISTRY_URL}) is always loaded. Optionally add semicolon- or comma-separated local registry or catalog URLs (e.g. http://localhost:8080/registry.json). Each URL is autodetected.`,
 							type: 'text' as const
-						}
-					]
-				},
-				{
-					title: 'Custom Catalogs',
-					items: [
-						{
-							id: 'enableCustomCatalogs',
-							label: 'Enable Custom Catalogs',
-							description:
-								'Fetch publishers from custom catalog URLs directly',
-							type: 'boolean' as const
-						},
-						{
-							id: 'customCatalogs',
-							label: 'Custom Catalog URLs',
-							description: 'Semicolon separated list of catalog URLs (e.g. http://localhost:8080/vysamples/catalog.json)',
-							type: 'text' as const
-						}
-					]
-				},
-				{
-					title: 'Global Registry',
-					items: [
-						{
-							id: 'enableGlobalRegistry',
-							label: 'Enable Global Registry',
-							description: 'Fetch publishers from the default global registry (https://project-vyasa.github.io/vyasa-docs/registry.json)',
-							type: 'boolean' as const
 						}
 					]
 				}
@@ -135,7 +108,8 @@
 						{
 							id: 'debugMode',
 							label: 'Enable Debug Mode',
-							description: 'Show diagnostic information and URLs in the UI',
+							description:
+								'Show vyasa:// URIs, catalog metadata, and diagnostic URLs in the UI. Toggle with Ctrl+B.',
 							type: 'boolean' as const
 						}
 					]

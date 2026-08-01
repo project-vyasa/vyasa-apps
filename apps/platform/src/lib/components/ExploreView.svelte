@@ -12,14 +12,17 @@
 	import FacetSidebar from './explore/FacetSidebar.svelte';
 	import { buildFacetIndex, type FacetSelection } from '$lib/explore/facet-index';
 	import { catalogLeafIndices, isCatalogRangesNode } from '$lib/explore/urn-utils';
+	import { publicationReaderPath, catalogLinkToVyasaUri } from '$lib/catalog-ref';
+	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 
 	interface Props {
-		publisher: string;
-		publication: string;
+		registryId: string;
+		catalogId: string;
+		publicationId: string;
 		packageData: PackageData | null;
 	}
 
-	let { publisher, publication, packageData }: Props = $props();
+	let { registryId, catalogId, publicationId, packageData }: Props = $props();
 
 	// Shell Context
 	const shellState = getContext<any>('shellState');
@@ -194,6 +197,17 @@
 
 	const leafCountLabel = $derived(`${totalVisibleVerses} ${leafUnitLabel}`);
 
+	const selectionVyasaUri = $derived.by(() => {
+		if (!registryId || !catalogId || !publicationId) return '';
+		const urn = manualSelections[0]?.startUrn;
+		return catalogLinkToVyasaUri({
+			registryId,
+			catalogId,
+			publicationId,
+			urn: urn && urn !== 'root' ? urn : undefined
+		});
+	});
+
 	// --- Marquee Selection Logic ---
 	function handleMarqueeSelection(urns: string[]) {
 		if (urns.length === 0) return;
@@ -210,12 +224,18 @@
 	}
 
 	function hopToReader() {
-		if (publisher && publication) {
+		if (registryId && catalogId && publicationId) {
 			let target = activePublication.lastUrn || '1:1';
 			if (manualSelections.length > 0) {
 				target = manualSelections[0].startUrn;
 			}
-			goto(`${base}/${publisher}/${publication}/${target}`);
+			goto(
+				publicationReaderPath(
+					{ registryId, catalogId, publicationId },
+					target,
+					base
+				)
+			);
 		}
 	}
 
@@ -262,6 +282,14 @@
 					options={chromeStreams.map((s) => ({ value: s, label: s }))}
 					bind:value={chromeStream}
 				/>
+			</div>
+		{/if}
+		{#if selectionVyasaUri}
+			<div class="link-control">
+				<span class="labels-label" title={selectionVyasaUri}>
+					{manualSelections.length > 0 ? 'Selection link' : 'Publication link'}
+				</span>
+				<CopyVyasaLinkButton vyasaUri={selectionVyasaUri} />
 			</div>
 		{/if}
 	</div>
@@ -353,6 +381,13 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-2);
+	}
+
+	.link-control {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-left: auto;
 	}
 
 	.labels-label {

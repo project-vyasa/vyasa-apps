@@ -1,16 +1,9 @@
 import { browser } from '$app/environment';
 import { normalizeSourceUrl } from './local-dev-url';
-import { isLegacyUntouchedCustomRegistryDefaults } from './library-warnings';
+import { migrateLocalSourcesFromSettings } from './local-source';
 
 export class ViewerSettings {
-	// Out-of-box: global registry only; custom sources opt-in via Settings.
-	private _enableGlobalRegistry = $state(true);
-
-	private _enableCustomRegistries = $state(false);
-	private _customRegistries = $state('');
-
-	private _enableCustomCatalogs = $state(false);
-	private _customCatalogs = $state('');
+	private _localSources = $state('');
 
 	private _debugMode = $state(false);
 
@@ -29,18 +22,14 @@ export class ViewerSettings {
 			const saved = localStorage.getItem('vyasa_viewer_settings');
 			if (saved) {
 				const parsed = JSON.parse(saved) as Record<string, unknown>;
-				if (typeof parsed.enableGlobalRegistry === 'boolean')
-					this._enableGlobalRegistry = parsed.enableGlobalRegistry;
-
-				if (typeof parsed.enableCustomRegistries === 'boolean')
-					this._enableCustomRegistries = parsed.enableCustomRegistries;
-				if (typeof parsed.customRegistries === 'string')
-					this._customRegistries = parsed.customRegistries;
-
-				if (typeof parsed.enableCustomCatalogs === 'boolean')
-					this._enableCustomCatalogs = parsed.enableCustomCatalogs;
-				if (typeof parsed.customCatalogs === 'string')
-					this._customCatalogs = parsed.customCatalogs;
+				const hadLegacyFormat =
+					'enableGlobalRegistry' in parsed ||
+					'enableCustomRegistries' in parsed ||
+					'enableCustomCatalogs' in parsed ||
+					'customRegistries' in parsed ||
+					'customCatalogs' in parsed ||
+					'showVyasaUris' in parsed;
+				this._localSources = migrateLocalSourcesFromSettings(parsed);
 
 				if (typeof parsed.debugMode === 'boolean') this._debugMode = parsed.debugMode;
 				if (typeof parsed.chromeStream === 'string' || parsed.chromeStream === null)
@@ -48,10 +37,7 @@ export class ViewerSettings {
 				if (typeof parsed.showAnnotationGutter === 'boolean')
 					this._showAnnotationGutter = parsed.showAnnotationGutter;
 
-				if (isLegacyUntouchedCustomRegistryDefaults(parsed)) {
-					this._enableCustomRegistries = false;
-					this._customRegistries = '';
-					this._enableCustomCatalogs = false;
+				if (hadLegacyFormat) {
 					this.save();
 				}
 			}
@@ -65,11 +51,7 @@ export class ViewerSettings {
 			localStorage.setItem(
 				'vyasa_viewer_settings',
 				JSON.stringify({
-					enableGlobalRegistry: this._enableGlobalRegistry,
-					enableCustomRegistries: this._enableCustomRegistries,
-					customRegistries: this._customRegistries,
-					enableCustomCatalogs: this._enableCustomCatalogs,
-					customCatalogs: this._customCatalogs,
+					localSources: this._localSources,
 					debugMode: this._debugMode,
 					chromeStream: this._chromeStream,
 					showAnnotationGutter: this._showAnnotationGutter
@@ -78,57 +60,18 @@ export class ViewerSettings {
 		}
 	}
 
-	get enableGlobalRegistry() {
-		return this._enableGlobalRegistry;
+	/** Semicolon- or comma-separated local registry/catalog URLs (autodetected). */
+	get localSources() {
+		return this._localSources;
 	}
-	set enableGlobalRegistry(val: boolean) {
-		this._enableGlobalRegistry = val;
+	set localSources(val: string) {
+		this._localSources = val;
 		this.save();
 	}
 
-	get enableCustomRegistries() {
-		return this._enableCustomRegistries;
-	}
-	set enableCustomRegistries(val: boolean) {
-		this._enableCustomRegistries = val;
-		this.save();
-	}
-
-	get customRegistries() {
-		return this._customRegistries;
-	}
-	set customRegistries(val: string) {
-		this._customRegistries = val;
-		this.save();
-	}
-
-	get customRegistryUrls(): string[] {
-		if (!this._enableCustomRegistries || !this._customRegistries) return [];
-		return this._customRegistries
-			.split(/[;,]/)
-			.map((s) => normalizeSourceUrl(s))
-			.filter((s) => s.length > 0);
-	}
-
-	get customCatalogs() {
-		return this._customCatalogs;
-	}
-	set customCatalogs(val: string) {
-		this._customCatalogs = val;
-		this.save();
-	}
-
-	get enableCustomCatalogs() {
-		return this._enableCustomCatalogs;
-	}
-	set enableCustomCatalogs(val: boolean) {
-		this._enableCustomCatalogs = val;
-		this.save();
-	}
-
-	get customCatalogUrls(): string[] {
-		if (!this._enableCustomCatalogs || !this._customCatalogs) return [];
-		return this._customCatalogs
+	get localSourceUrls(): string[] {
+		if (!this._localSources.trim()) return [];
+		return this._localSources
 			.split(/[;,]/)
 			.map((s) => normalizeSourceUrl(s))
 			.filter((s) => s.length > 0);

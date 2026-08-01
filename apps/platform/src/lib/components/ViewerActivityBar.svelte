@@ -2,28 +2,31 @@
 	import { Button, ActivityBar, ActivityBarItem } from '@project-vyasa/vyasa-ui';
 	import { Library, BookOpen, Compass, Bug, Settings, Terminal } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
+	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import SettingsModal from './SettingsModal.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
+	import { catalogRefFromParams } from '$lib/catalog-ref';
 
 	let settingsOpen = $state(false);
 
-	// Synchronize active publication state from route parameters
 	$effect(() => {
-		const pub = page.params.publisher;
+		const registryId = page.params.registry;
+		const catalogId = page.params.catalog;
 		const publicationId = page.params.publication;
-		const catalogParam = page.url.searchParams.get('catalog');
-		if (pub && publicationId) {
-			activePublication.setPublication(pub, publicationId, catalogParam);
+		if (registryId && catalogId && publicationId) {
+			activePublication.setPublication(
+				catalogRefFromParams(registryId, catalogId, publicationId)
+			);
 		}
 		if (page.params.urn) {
 			activePublication.setLastUrn(page.params.urn);
 		}
 	});
 
-	const publication = $derived(page.params.publication || activePublication.publication);
+	const publicationId = $derived(page.params.publication || activePublication.publicationId);
 
 	const active = $derived.by(() => {
 		if (page.url.pathname.includes('/diagnostics')) return 'diagnostics';
@@ -49,7 +52,7 @@
 				/>
 			{/snippet}
 		</ActivityBarItem>
-		{#if publication}
+		{#if publicationId}
 			<ActivityBarItem active={active === 'reader'}>
 				{#snippet children()}
 					<Button
@@ -59,7 +62,7 @@
 						icon={BookOpen}
 						title="Reader"
 						onclick={() => {
-							if (active !== 'reader') goto(`${base}${activePublication.readerUrl}`);
+							if (active !== 'reader') goto(activePublication.readerUrl);
 						}}
 					/>
 				{/snippet}
@@ -73,7 +76,7 @@
 						icon={Compass}
 						title="Explore"
 						onclick={() => {
-							if (active !== 'explore') goto(`${base}${activePublication.exploreUrl}`);
+							if (active !== 'explore') goto(activePublication.exploreUrl);
 						}}
 					/>
 				{/snippet}
@@ -104,6 +107,13 @@
 				{/snippet}
 			</ActivityBarItem>
 		{/if}
+		{#if publicationId}
+			<ActivityBarItem>
+				{#snippet children()}
+					<CopyVyasaLinkButton vyasaUri={activePublication.vyasaUri} />
+				{/snippet}
+			</ActivityBarItem>
+		{/if}
 	{/snippet}
 
 	{#snippet bottom()}
@@ -114,7 +124,9 @@
 					size="icon"
 					class="activity-item"
 					icon={Terminal}
-					title={viewerSettings.debugMode ? 'Debug Mode: Active (Click or Ctrl+B to toggle)' : 'Debug Mode: Disabled (Click or Ctrl+B to toggle)'}
+					title={viewerSettings.debugMode
+						? 'Debug Mode: Active (Click or Ctrl+B to toggle)'
+						: 'Debug Mode: Disabled (Click or Ctrl+B to toggle)'}
 					onclick={() => (viewerSettings.debugMode = !viewerSettings.debugMode)}
 				/>
 			{/snippet}
@@ -129,11 +141,11 @@
 					title="Diagnostics (Click or Ctrl+U to toggle)"
 					onclick={() => {
 						if (active !== 'diagnostics') {
-							goto(`${base}${activePublication.diagnosticsUrl}`);
-						} else if (activePublication.publication) {
-							goto(`${base}${activePublication.readerUrl}`);
+							goto(activePublication.diagnosticsUrl);
+						} else if (activePublication.publicationId) {
+							goto(activePublication.readerUrl);
 						} else {
-							goto(`${base}/`);
+							goto(base || '/');
 						}
 					}}
 				/>

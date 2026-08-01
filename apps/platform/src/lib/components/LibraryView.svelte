@@ -1,53 +1,98 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
-	import type { LibraryPublisherData } from '$lib/types';
+	import type { LibraryCatalogData, RegistryInfo } from '$lib/types';
 	import { viewerSettings } from '$lib/settings.svelte';
-	import { Panel, ListView, Badge, Alert } from '@project-vyasa/vyasa-ui';
-	import { Library } from 'lucide-svelte';
+	import { Panel, ListView, Badge, Alert, Button } from '@project-vyasa/vyasa-ui';
+	import { Library, EyeOff } from 'lucide-svelte';
 	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 	import type { CatalogSourceError } from '$lib/registry';
+	import { publicationReaderPath, catalogLinkToVyasaUri, registryLibraryPath, catalogLibraryPath } from '$lib/catalog-ref';
+	import { libraryCatalogVisibility } from '$lib/library-catalog-visibility.svelte';
 	import {
-		shouldWarnCustomCatalogsDisabled,
-		shouldWarnLocalRegistriesUnavailable
+		catalogHeaderLine2,
+		catalogHeaderLine3,
+		publicationMetaLine,
+		publicationDescriptionLine
+	} from '$lib/library-metadata';
+	import {
+		shouldWarnLocalSourcesUnavailable,
+		countLocalCatalogs
 	} from '$lib/library-warnings';
 
 	interface Props {
-		publishers: LibraryPublisherData[];
+		registries?: RegistryInfo[];
+		catalogs: LibraryCatalogData[];
 		sourceErrors?: CatalogSourceError[];
 		loading?: boolean;
+		/** When set, library is scoped to this registry (hides registry drill-down links). */
+		scopeRegistryId?: string;
+		/** When set, library is scoped to this catalog (hides catalog drill-down links). */
+		scopeCatalogId?: string;
 	}
 
-	let { publishers, sourceErrors = [], loading = false }: Props = $props();
+	let {
+		registries = [],
+		catalogs,
+		sourceErrors = [],
+		loading = false,
+		scopeRegistryId = '',
+		scopeCatalogId = ''
+	}: Props = $props();
 
-	let localCatalogPublishers = $derived(
-		publishers.filter((p) => p.sourceKind === 'local-catalog')
-	);
-	let localRegistryPublishers = $derived(
-		publishers.filter((p) => p.sourceKind === 'local-registry')
-	);
-	let globalPublishers = $derived(publishers.filter((p) => p.sourceKind === 'global'));
+	const registryGroups = $derived.by(() => {
+		const order = registries.map((r) => r.id);
+		const grouped = new Map<string, LibraryCatalogData[]>();
+		for (const row of catalogs) {
+			const list = grouped.get(row.registryId) || [];
+			list.push(row);
+			grouped.set(row.registryId, list);
+		}
+		const ids = [...new Set([...order, ...grouped.keys()])];
+		return ids
+			.filter((id) => grouped.has(id))
+			.map((id) => ({
+				id,
+				title: registries.find((r) => r.id === id)?.title || id,
+				description: registries.find((r) => r.id === id)?.description,
+				catalogs: grouped.get(id) || []
+			}));
+	});
 
-	let customCatalogsDisabled = $derived(
-		shouldWarnCustomCatalogsDisabled(
-			viewerSettings.enableCustomCatalogs,
-			viewerSettings.customCatalogs
+	const visibleRegistryGroups = $derived.by(() => {
+		const _visibility = libraryCatalogVisibility.hiddenCount;
+		if (scopeCatalogId) return registryGroups;
+		return registryGroups
+			.map((group) => ({
+				...group,
+				catalogs: group.catalogs.filter(
+					(c) => !libraryCatalogVisibility.isHidden(c.registryId, c.catalogEntry.id)
+				)
+			}))
+			.filter((group) => group.catalogs.length > 0);
+	});
+
+	const hiddenCatalogCount = $derived.by(() => {
+		const _visibility = libraryCatalogVisibility.hiddenCount;
+		if (scopeCatalogId) return 0;
+		return catalogs.filter((c) =>
+			libraryCatalogVisibility.isHidden(c.registryId, c.catalogEntry.id)
+		).length;
+	});
+
+	let localSourcesUnavailable = $derived(
+		shouldWarnLocalSourcesUnavailable(
+			viewerSettings.localSourceUrls,
+			countLocalCatalogs(catalogs)
 		)
 	);
-	let localRegistryErrors = $derived(sourceErrors.filter((e) => e.kind === 'registry'));
-	let localRegistriesUnavailable = $derived(
-		shouldWarnLocalRegistriesUnavailable(
-			viewerSettings.enableCustomRegistries,
-			viewerSettings.customRegistryUrls,
-			localRegistryPublishers.length
-		)
-	);
+	let localSourceErrors = $derived(sourceErrors.filter((e) => e.kind === 'registry' || e.kind === 'catalog'));
 
-	function catalogQuery(pubData: LibraryPublisherData): string {
-		if (pubData.sourceKind === 'global') return '';
-		return pubData.publisher.catalog_url
-			? `?catalog=${encodeURIComponent(pubData.publisher.catalog_url)}`
-			: '';
+	function catalogHeaderMeta(catalogRow: LibraryCatalogData) {
+		return {
+			line2: catalogHeaderLine2(catalogRow),
+			line3: catalogHeaderLine3(catalogRow)
+		};
 	}
 </script>
 
@@ -56,25 +101,46 @@
 		<div class="status-wrapper">
 			<LoadingBrand message="Please wait while catalogs are being loaded…" />
 		</div>
-	{:else if publishers.length === 0}
+	{:else if catalogs.length === 0}
 		<div class="status-wrapper">
 			<Alert variant="warning" title="No Catalogs">No catalogs are currently configured or available.</Alert>
 		</div>
+	{:else if visibleRegistryGroups.length === 0 && hiddenCatalogCount > 0}
+		<div class="status-wrapper">
+			<Alert variant="warning" title="All Catalogs Hidden">
+				{#snippet children()}
+					<div class="hidden-catalogs-banner">
+						<span>Every catalog is hidden from this library view.</span>
+						<Button variant="ghost" size="sm" onclick={() => libraryCatalogVisibility.showAll()}>
+							Show all catalogs
+						</Button>
+					</div>
+				{/snippet}
+			</Alert>
+		</div>
 	{:else}
-		{#if customCatalogsDisabled}
-			<Alert variant="warning" title="Custom Catalogs Disabled">
-				You have local catalog URLs saved in Settings, but <strong>Enable Custom Catalogs</strong> is off.
-				Turn it on to restore the Local Catalogs section above Global Registry.
+		{#if hiddenCatalogCount > 0 && !scopeCatalogId}
+			<Alert variant="info" title="Hidden catalogs">
+				{#snippet children()}
+					<div class="hidden-catalogs-banner">
+						<span>
+							{hiddenCatalogCount} catalog{hiddenCatalogCount === 1 ? '' : 's'} hidden.
+						</span>
+						<Button variant="ghost" size="sm" onclick={() => libraryCatalogVisibility.showAll()}>
+							Show all
+						</Button>
+					</div>
+				{/snippet}
 			</Alert>
 		{/if}
 
-		{#if localRegistriesUnavailable}
-			<Alert variant="warning" title="Local Registries Unavailable">
-				Custom registry URLs are configured ({viewerSettings.customRegistryUrls.join(', ')}) but none
+		{#if localSourcesUnavailable}
+			<Alert variant="warning" title="Local Sources Unavailable">
+				Local source URLs are configured ({viewerSettings.localSourceUrls.join(', ')}) but none
 				responded.
-				{#if localRegistryErrors.length > 0}
+				{#if localSourceErrors.length > 0}
 					<ul class="registry-error-list">
-						{#each localRegistryErrors as err}
+						{#each localSourceErrors as err}
 							<li><strong>{err.url}</strong>: {err.error}</li>
 						{/each}
 					</ul>
@@ -82,78 +148,137 @@
 			</Alert>
 		{/if}
 
-		{#if localCatalogPublishers.length > 0}
+		{#each visibleRegistryGroups as group (group.id)}
 			<div class="registry-group">
-				<h2 class="registry-group-title">Local Catalogs</h2>
-				{#each localCatalogPublishers as pubData}
-					{@render publisherSection(pubData)}
+				{#if !scopeRegistryId}
+					<h2 class="registry-group-title">
+						<a href={registryLibraryPath(group.id, base)} class="registry-group-link">{group.title}</a>
+					</h2>
+				{:else}
+					<h2 class="registry-group-title">{group.title}</h2>
+				{/if}
+				{#if group.description}
+					<p class="registry-group-desc">{group.description}</p>
+				{/if}
+				<p class="registry-group-meta">
+					{group.catalogs.length} catalog{group.catalogs.length === 1 ? '' : 's'}
+				</p>
+				{#each group.catalogs as catalogRow (catalogRow.catalogEntry.id + catalogRow.sourceUrl)}
+					{@render catalogSection(catalogRow)}
 				{/each}
 			</div>
-		{/if}
-
-		{#if localRegistryPublishers.length > 0}
-			<div class="registry-group">
-				<h2 class="registry-group-title">Local Registries</h2>
-				{#each localRegistryPublishers as pubData}
-					{@render publisherSection(pubData)}
-				{/each}
-			</div>
-		{/if}
-
-		{#if globalPublishers.length > 0}
-			<div class="registry-group">
-				<h2 class="registry-group-title">Global Registry</h2>
-				{#each globalPublishers as pubData}
-					{@render publisherSection(pubData)}
-				{/each}
-			</div>
-		{/if}
+		{/each}
 	{/if}
 </div>
 
-{#snippet publisherSection(pubData: LibraryPublisherData)}
-	<div class="publisher-card">
+{#snippet catalogSection(catalogRow: LibraryCatalogData)}
+	<div class="catalog-card">
+		{@render catalogPanel(catalogRow)}
+	</div>
+{/snippet}
+
+{#snippet catalogPanel(catalogRow: LibraryCatalogData)}
 		<Panel
-			title={pubData.catalog?.title || pubData.publisher.title || pubData.publisher.identifier}
+			title={catalogRow.catalog?.title || catalogRow.catalogEntry.title || catalogRow.catalogEntry.id}
 			icon={Library}
 		>
 			{#snippet actions()}
-				{#if viewerSettings.debugMode}
-					<div class="flex items-center gap-2">
-						<Badge variant="neutral">ID: {pubData.publisher.identifier}</Badge>
-						<Badge variant="neutral">{pubData.sourceKind}</Badge>
-						{#if pubData.publisher.catalog_url}
-							<a href={pubData.publisher.catalog_url} target="_blank" rel="noopener noreferrer" class="catalog-link">
-								<Badge variant="primary">URL</Badge>
+				<div class="flex items-center gap-2">
+					{#if !scopeCatalogId}
+						<Button
+							variant="ghost"
+							size="icon"
+							class="catalog-hide-btn"
+							icon={EyeOff}
+							title="Hide this catalog from the library"
+							onclick={() =>
+								libraryCatalogVisibility.setHidden(
+									catalogRow.registryId,
+									catalogRow.catalogEntry.id,
+									true
+								)}
+						/>
+						<a
+							href={catalogLibraryPath(catalogRow.registryId, catalogRow.catalogEntry.id, base)}
+							class="catalog-drill-link"
+						>
+							View catalog
+						</a>
+					{/if}
+					{#if viewerSettings.debugMode}
+						<Badge variant="neutral">{catalogRow.registryId}/{catalogRow.catalogEntry.id}</Badge>
+						<Badge variant="neutral">{catalogRow.sourceKind}</Badge>
+						{#if catalogRow.catalog?.publisher}
+							<Badge variant="neutral">{catalogRow.catalog.publisher.title}</Badge>
+						{/if}
+						{#if catalogRow.catalogEntry.catalog_url}
+							<a
+								href={catalogRow.catalogEntry.catalog_url}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="catalog-link"
+							>
+								<Badge variant="primary">catalog.json</Badge>
 							</a>
 						{/if}
-					</div>
-				{/if}
+					{/if}
+				</div>
 			{/snippet}
 
 			<div class="panel-body">
-				{#if pubData.catalog?.catalog?.description}
-					<p class="catalog-desc">{pubData.catalog.catalog.description}</p>
+				{#if catalogHeaderMeta(catalogRow).line2 || catalogHeaderMeta(catalogRow).line3}
+					{@const meta = catalogHeaderMeta(catalogRow)}
+					<div class="catalog-header-meta">
+						{#if meta.line2}
+							<p class="catalog-meta-line">{meta.line2}</p>
+						{/if}
+						{#if meta.line3}
+							<p class="catalog-meta-line catalog-meta-desc">{meta.line3}</p>
+						{/if}
+					</div>
 				{/if}
 
-				{#if pubData.error}
+				{#if catalogRow.error}
 					<div class="error-wrapper">
-						<Alert variant="danger" title="Catalog Error">{pubData.error}</Alert>
+						<Alert variant="danger" title="Catalog Error">{catalogRow.error}</Alert>
 					</div>
-				{:else if pubData.catalog}
-					{#if (pubData.catalog.items || []).length > 0}
+				{:else if catalogRow.catalog}
+					{#if (catalogRow.catalog.publications || []).length > 0}
 						<div class="list-wrapper">
 							<ListView
-								items={pubData.catalog.items || []}
+								items={catalogRow.catalog.publications || []}
 								titleField="title"
-								subtitleField="id"
-								showFilterInput={(pubData.catalog.items || []).length > 5}
-								onSelect={(item: any) => {
-									goto(`${base}/${pubData.publisher.identifier}/${item.id}${catalogQuery(pubData)}`);
+								subtitleField={(item) => publicationMetaLine(item)}
+								descriptionField={(item) => publicationDescriptionLine(item)}
+								showFilterInput={(catalogRow.catalog.publications || []).length > 5}
+								onSelect={(item: { id: string }) => {
+									goto(
+										publicationReaderPath(
+											{
+												registryId: catalogRow.registryId,
+												catalogId: catalogRow.catalogEntry.id,
+												publicationId: item.id
+											},
+											undefined,
+											base
+										)
+									);
 								}}
 							>
-								{#snippet meta(item: any)}
+								{#snippet meta(item: { id: string; license?: string; updated?: number })}
+									{#if item.license}
+										<Badge variant="neutral">{item.license}</Badge>
+									{/if}
 									{#if viewerSettings.debugMode}
+										<span title="Canonical durable ID">
+											<Badge variant="neutral">
+												{catalogLinkToVyasaUri({
+													registryId: catalogRow.registryId,
+													catalogId: catalogRow.catalogEntry.id,
+													publicationId: item.id
+												})}
+											</Badge>
+										</span>
 										<Badge variant="neutral">ID: {item.id}</Badge>
 										{#if item.updated}
 											<Badge variant="neutral">
@@ -170,7 +295,6 @@
 				{/if}
 			</div>
 		</Panel>
-	</div>
 {/snippet}
 
 <style>
@@ -208,9 +332,47 @@
 		border-bottom: 2px solid var(--border-base);
 	}
 
-	.publisher-card {
+	.registry-group-link {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.registry-group-link:hover {
+		color: var(--text-primary);
+		text-decoration: underline;
+	}
+
+	.registry-group-desc {
+		margin: calc(-1 * var(--space-4)) 0 0;
+		color: var(--text-secondary);
+		font-size: 0.95rem;
+	}
+
+	.registry-group-meta {
+		margin: calc(-1 * var(--space-4)) 0 0;
+		color: var(--text-tertiary);
+		font-size: 0.85rem;
+	}
+
+	.catalog-card {
 		display: flex;
 		flex-direction: column;
+	}
+
+	.catalog-link {
+		text-decoration: none;
+	}
+
+	.catalog-drill-link {
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	.catalog-drill-link:hover {
+		color: var(--text-primary);
+		text-decoration: underline;
 	}
 
 	.panel-body {
@@ -220,10 +382,33 @@
 		padding: var(--space-4);
 	}
 
-	.catalog-desc {
-		color: var(--text-secondary);
-		font-size: 0.95rem;
+	.catalog-header-meta {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.catalog-meta-line {
 		margin: 0;
+		font-size: 0.85rem;
+		color: var(--text-secondary);
+		line-height: 1.4;
+	}
+
+	.catalog-meta-desc {
+		color: var(--text-tertiary);
+		display: -webkit-box;
+		line-clamp: 2;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.hidden-catalogs-banner {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-2) var(--space-4);
 	}
 
 	.list-wrapper {
@@ -242,10 +427,6 @@
 		font-size: 0.9rem;
 	}
 
-	.catalog-link {
-		text-decoration: none;
-	}
-
 	.error-wrapper {
 		padding: var(--space-2) 0;
 	}
@@ -254,5 +435,14 @@
 		margin: var(--space-2) 0 0;
 		padding-left: 1.25rem;
 		font-size: 0.9rem;
+	}
+
+	.catalog-hide-btn {
+		flex-shrink: 0;
+		opacity: 0.75;
+	}
+
+	.catalog-hide-btn:hover {
+		opacity: 1;
 	}
 </style>

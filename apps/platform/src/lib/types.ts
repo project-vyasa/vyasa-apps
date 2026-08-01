@@ -1,46 +1,71 @@
-export interface RegistryEntry {
-	identifier: string;
+/** Catalog pointer in a registry index (`catalogs[]`). */
+export interface CatalogRegistryEntry {
+	id: string;
 	title: string;
 	catalog_url: string;
+	description?: string;
+	homepage?: string;
 }
 
 export interface Registry {
 	schemaVersion?: string;
-	identifier?: string;
+	id: string;
 	title?: string;
 	description?: string;
-	publishers: RegistryEntry[];
+	homepage?: string;
+	catalogs: CatalogRegistryEntry[];
 }
 
-export type PublisherSourceKind = 'local-catalog' | 'local-registry' | 'global';
-
-export interface PublisherListing {
-	publisher: RegistryEntry;
+export interface RegistryInfo {
+	id: string;
+	title: string;
+	description?: string;
+	homepage?: string;
 	sourceUrl: string;
-	sourceKind: PublisherSourceKind;
 }
 
-export interface LibraryPublisherData extends PublisherListing {
+export type CatalogSourceKind = 'local-catalog' | 'local-registry' | 'global';
+
+export interface CatalogListing {
+	registryId: string;
+	catalogEntry: CatalogRegistryEntry;
+	sourceUrl: string;
+	sourceKind: CatalogSourceKind;
+}
+
+export interface LibraryCatalogData extends CatalogListing {
+	/** Loaded catalog.json document. */
 	catalog: Catalog | null;
 	error?: string;
 }
 
-export interface CatalogItem {
+export interface PublisherInfo {
+	id: string;
+	title: string;
+	homepage?: string;
+}
+
+export interface PublicationEntry {
 	id: string;
 	title: string;
 	vyviewUrl: string;
 	updated?: number;
+	description?: string;
+	type?: string;
+	language?: string;
+	license?: string;
+	schemaVersion?: string;
 }
 
 export interface Catalog {
 	schemaVersion: string;
-	identifier: string;
+	/** Catalog id (route segment; often matches a publisher slug when 1:1). */
+	id: string;
 	title: string;
-	catalog?: {
-		publisher: string;
-		description?: string;
-	};
-	items: CatalogItem[];
+	description?: string;
+	homepage?: string;
+	publisher?: PublisherInfo;
+	publications: PublicationEntry[];
 }
 
 export interface Manifest {
@@ -85,7 +110,7 @@ export interface PackageData {
 	blockAttributesByUrn?: Record<string, Record<string, string>>;
 	/** Relative leaf URN → stream ids with html_blocks */
 	streamsByUrn?: Record<string, string[]>;
-	streams?: Array<{id: string, label: string, count: number}>;
+	streams?: Array<{ id: string; label: string; count: number }>;
 	/** Per-stream SegmentBreak join characters from manifest `stream_separators`. */
 	streamSeparators?: Record<string, string>;
 	vocabulary?: VocabularyEntry[];
