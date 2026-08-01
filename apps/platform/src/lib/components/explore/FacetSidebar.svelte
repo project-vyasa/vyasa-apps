@@ -1,12 +1,18 @@
 <script lang="ts">
 	import { Map, List } from 'lucide-svelte';
+	import { Switch } from '@project-vyasa/vyasa-ui';
 	import type { FacetIndex, FacetSelection } from '$lib/explore/facet-index';
-	import { buildFacetValueColorMap, isCoverageFacet } from '$lib/explore/facet-index';
+	import {
+		STREAM_COVERAGE_MAX,
+		buildFacetValueColorMap,
+		isCoverageFacet
+	} from '$lib/explore/facet-index';
 
 	interface Props {
 		activeFacets: FacetSelection;
 		facetIndex: FacetIndex;
 		mapFacetTypeId?: string | null;
+		hideContainersWithoutGaps?: boolean;
 		onMapDismiss?: () => void;
 	}
 
@@ -14,8 +20,11 @@
 		activeFacets = $bindable({}),
 		facetIndex,
 		mapFacetTypeId = $bindable<string | null>(null),
+		hideContainersWithoutGaps = $bindable(true),
 		onMapDismiss
 	}: Props = $props();
+
+	const streamCoverageActive = $derived((activeFacets.stream?.size ?? 0) > 0);
 
 	function toggleFilter(typeId: string, valueId: string) {
 		if (mapFacetTypeId === typeId) return;
@@ -36,18 +45,35 @@
 		activeFacets = { ...activeFacets };
 	}
 
-	function selectCoverage(typeId: string, valueId: string) {
+	function toggleCoverage(typeId: string, valueId: string, gapCount: number) {
+		if (gapCount === 0) return;
 		if (mapFacetTypeId) {
 			mapFacetTypeId = null;
 			onMapDismiss?.();
 		}
-		if (activeFacets[typeId]?.has(valueId)) {
+		const current = new Set(activeFacets[typeId] ?? []);
+		if (current.has(valueId)) {
+			current.delete(valueId);
 			const next = { ...activeFacets };
-			delete next[typeId];
+			if (current.size === 0) delete next[typeId];
+			else next[typeId] = current;
 			activeFacets = next;
 			return;
 		}
-		activeFacets = { ...activeFacets, [typeId]: new Set([valueId]) };
+		if (current.size >= STREAM_COVERAGE_MAX) return;
+		current.add(valueId);
+		activeFacets = { ...activeFacets, [typeId]: current };
+	}
+
+	function coverageAtMax(typeId: string, valueId: string, gapCount: number): boolean {
+		if (gapCount === 0) return true;
+		const current = activeFacets[typeId];
+		if (!current || current.has(valueId)) return false;
+		return current.size >= STREAM_COVERAGE_MAX;
+	}
+
+	function streamCoverageComplete(facetType: { values: { count: number }[] }): boolean {
+		return facetType.values.every((value) => value.count === 0);
 	}
 
 	function toggleMapMode(typeId: string) {
@@ -77,7 +103,7 @@
 	{#if facetIndex.types.length === 0}
 		<div class="empty-facets">
 			<p>No entity or attribute facets in this publication yet.</p>
-			<p class="hint">Speaker facets appear when annotations are packed; rishi/devata when block attributes are present.</p>
+			<p class="hint">Facets come from packed graph annotations and block metadata when present.</p>
 		</div>
 	{:else}
 		{#each facetIndex.types as facetType (facetType.id)}
@@ -107,17 +133,25 @@
 
 				{#if coverage}
 					<p class="mode-hint coverage-hint">
-						Coverage facet — pick one stream to see which blocks include it. Blocks may carry
-						multiple streams; this shows only the stream you select.
+						Gaps vs primary stream — select up to {STREAM_COVERAGE_MAX} to highlight missing
+						coverage on the map. “Without primary” marks blocks that exist only in alternate
+						streams.
 					</p>
+					{#if streamCoverageComplete(facetType)}
+						<p class="mode-hint coverage-complete">All alternate streams fully cover primary.</p>
+					{/if}
 					<div class="facet-list">
 						{#each facetType.values as value (facetType.id + value.id)}
-							<label class="facet-item coverage-item" class:active={hasFilter(facetType.id, value.id)}>
+							<label
+								class="facet-item coverage-item"
+								class:active={hasFilter(facetType.id, value.id)}
+								class:disabled={coverageAtMax(facetType.id, value.id, value.count)}
+							>
 								<input
-									type="radio"
-									name="stream-coverage"
+									type="checkbox"
 									checked={hasFilter(facetType.id, value.id)}
-									onchange={() => selectCoverage(facetType.id, value.id)}
+									disabled={coverageAtMax(facetType.id, value.id, value.count)}
+									onchange={() => toggleCoverage(facetType.id, value.id, value.count)}
 								/>
 								<span
 									class="swatch small"
@@ -128,6 +162,19 @@
 							</label>
 						{/each}
 					</div>
+					<label
+						class="coverage-map-toggle"
+						class:disabled={!streamCoverageActive}
+						title={streamCoverageActive
+							? 'Hide containers with no matching gaps'
+							: 'Select a stream gap to filter containers'}
+					>
+						<Switch
+							bind:checked={hideContainersWithoutGaps}
+							disabled={!streamCoverageActive}
+						/>
+						<span class="toggle-label">Containers with gaps only</span>
+					</label>
 				{:else if mapActive}
 					<p class="mode-hint">
 						Every block is colored by {facetType.label.toLowerCase()}. Unmarked blocks stay dim.
@@ -247,6 +294,29 @@
 		font-style: italic;
 	}
 
+	.coverage-complete {
+		color: var(--text-secondary);
+	}
+
+	.coverage-map-toggle {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		margin-top: var(--space-3);
+		padding: 0.35rem;
+		cursor: pointer;
+	}
+
+	.coverage-map-toggle.disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.toggle-label {
+		font-size: 0.82rem;
+		color: var(--text-secondary);
+	}
+
 	.facet-list {
 		display: flex;
 		flex-direction: column;
@@ -270,6 +340,11 @@
 
 	.facet-item.active {
 		background: color-mix(in srgb, var(--action-primary) 12%, transparent);
+	}
+
+	.facet-item.disabled {
+		opacity: 0.45;
+		cursor: not-allowed;
 	}
 
 	.facet-item input[type='checkbox'],

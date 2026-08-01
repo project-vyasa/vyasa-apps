@@ -2,7 +2,6 @@
 	import { Button, ActivityBar, ActivityBarItem } from '@project-vyasa/vyasa-ui';
 	import { Library, BookOpen, Compass, Bug, Settings, Terminal } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
-	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import SettingsModal from './SettingsModal.svelte';
@@ -104,13 +103,6 @@
 						title="Explore (Select a publication first)"
 						disabled
 					/>
-				{/snippet}
-			</ActivityBarItem>
-		{/if}
-		{#if publicationId}
-			<ActivityBarItem>
-				{#snippet children()}
-					<CopyVyasaLinkButton vyasaUri={activePublication.vyasaUri} />
 				{/snippet}
 			</ActivityBarItem>
 		{/if}

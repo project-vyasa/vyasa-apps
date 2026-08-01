@@ -8,7 +8,6 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { brandIconSrc } from '$lib/brand';
-	import CopyVyasaLinkButton from '$lib/components/CopyVyasaLinkButton.svelte';
 
 	const themeContext = getContext<any>('theme');
 
@@ -125,7 +124,6 @@
 								<span class="debug-value" title={activePublication.vyasaUri}>
 									{activePublication.vyasaUri}
 								</span>
-								<CopyVyasaLinkButton vyasaUri={activePublication.vyasaUri} />
 							</span>
 							{#if activePublication.catalogUrl}
 								<span class="debug-item">

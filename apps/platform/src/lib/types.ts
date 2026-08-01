@@ -80,6 +80,10 @@ export interface Manifest {
 	streams_config?: string;
 	urn_hierarchy?: string;
 	urn_bit_layout?: string;
+	/** JSON array of block_attribute keys to index as explorer facets (graph annotate always ingested). */
+	facet_attributes?: string | string[];
+	/** JSON array of template variable keys resolved from graph annotate at weave time. */
+	template_context_keys?: string | string[];
 	[key: string]: any;
 }
 
@@ -115,4 +119,12 @@ export interface PackageData {
 	streamSeparators?: Record<string, string>;
 	vocabulary?: VocabularyEntry[];
 	annotations?: AnnotationEntry[];
+	/** Pre-merged block_attributes + graph weave context (built at load). */
+	weaveBlockAttributesByUrn?: Record<string, Record<string, string>>;
+	/** URN → annotations for reader gutter badges (built at load). */
+	annotationsByUrn?: Record<string, AnnotationEntry[]>;
+	/** WASM weave templates JSON (built once at load). */
+	templatesJson?: string;
+	/** Load-phase performance timings (ms). */
+	perfTimings?: Record<string, number>;
 }

@@ -8,6 +8,9 @@ import {
 	prepareDisplayContent
 } from '$lib/viewer/whitespace';
 import { getVocabularyLabel } from '$lib/viewer/vocabulary';
+import { entityAnnotateBinding } from '$lib/viewer/graph-annotate';
+import { buildTemplatesJson } from '$lib/viewer/templates-json';
+import { recordPerfPhase } from '$lib/viewer/perf-guard';
 
 function normalizeBlockContent(content: unknown): Uint8Array {
 	if (content instanceof Uint8Array) return content;
@@ -72,6 +75,7 @@ export async function renderUrn(
 	showReferenceGutter: boolean = true,
 	showAnnotationGutter: boolean = true
 ): Promise<RenderResult> {
+	const renderT0 = performance.now();
 	const isDocumentLayout =
 		packageData.manifest.layout === 'document' ||
 		(packageData.manifest as any).attributes?.layout === 'document';
@@ -155,26 +159,14 @@ export async function renderUrn(
 			: (allStreams[0] || '');
 	}
 
-	// 6. Build templates JSON from cached projections (no DB re-fetch)
-	const templates: { view_name: string; block_type: string; content: string }[] = [];
-	for (const [key, content] of Object.entries(packageData.projections)) {
-		// projections keys are `${view_name}_${block_type}`
-		const underscoreIdx = key.indexOf('_');
-		if (underscoreIdx !== -1) {
-			templates.push({
-				view_name: key.slice(0, underscoreIdx),
-				block_type: key.slice(underscoreIdx + 1),
-				content
-			});
-		}
-	}
-	const templatesJson = JSON.stringify(templates);
+	const templatesJson =
+		packageData.templatesJson ?? buildTemplatesJson(packageData.projections);
 
-	// 7. Weave view via WASM
+	// 7. Weave view via WASM (graph weave context pre-merged at load)
 	const optionsJson = buildWeaveOptionsJson(
 		currentActiveView,
 		definedStreamOrder,
-		packageData.blockAttributesByUrn,
+		packageData.weaveBlockAttributesByUrn ?? packageData.blockAttributesByUrn,
 		packageData.streamSeparators
 	);
 	let viewNodes: any[];
@@ -247,21 +239,44 @@ export async function renderUrn(
 		}
 
 		let annotationBadgesHtml = '';
-		if (packageData.annotations) {
-			const matchingAnns = packageData.annotations.filter(
-				(ann) =>
-					ann.urn === node.urn ||
-					ann.urn.endsWith(':' + node.urn) ||
-					node.urn.endsWith(':' + ann.urn)
-			);
+		const annIndex = packageData.annotationsByUrn;
+		const matchingAnns = annIndex
+			? [
+					...(annIndex[node.urn] ?? []),
+					...(annIndex[shortUrn] ?? [])
+				]
+			: (packageData.annotations ?? []).filter(
+					(ann) =>
+						ann.urn === node.urn ||
+						ann.urn.endsWith(':' + node.urn) ||
+						node.urn.endsWith(':' + ann.urn)
+				);
+		if (matchingAnns.length) {
+			const seen = new Set<string>();
 			for (const ann of matchingAnns) {
-				if (ann.label === 'Action' && ann.attributes) {
-					const speakerRaw = ann.attributes.speaker || ann.attributes.action || '';
-					if (speakerRaw) {
-						const speakerLoc = getVocabularyLabel(packageData.vocabulary, 'entities', speakerRaw, currentActiveStream, primaryStream) || speakerRaw;
-						const speakerLabelLoc = getVocabularyLabel(packageData.vocabulary, 'actions', 'speaker', currentActiveStream, primaryStream) || 'Speaker';
-						annotationBadgesHtml += `<span class="speaker-badge" title="${speakerLabelLoc}: ${speakerLoc}">🗣️ ${speakerLoc}</span>`;
-					}
+				const dedupeKey = `${ann.label}:${JSON.stringify(ann.attributes)}`;
+				if (seen.has(dedupeKey)) continue;
+				seen.add(dedupeKey);
+				const entityBinding = entityAnnotateBinding(ann);
+				if (entityBinding) {
+					const { facetAttr, entityId } = entityBinding;
+					const entityLoc =
+						getVocabularyLabel(
+							packageData.vocabulary,
+							'entities',
+							entityId,
+							currentActiveStream,
+							primaryStream
+						) || entityId;
+					const facetLabelLoc =
+						getVocabularyLabel(
+							packageData.vocabulary,
+							'facets',
+							facetAttr,
+							currentActiveStream,
+							primaryStream
+						) || facetAttr;
+					annotationBadgesHtml += `<span class="entity-badge" title="${facetLabelLoc}: ${entityLoc}">🏷️ ${entityLoc}</span>`;
 				} else if (ann.label === 'Note' && ann.attributes) {
 					const noteText =
 						ann.attributes.content ||
@@ -336,7 +351,7 @@ export async function renderUrn(
 	color: #000;
 }
 /* Neutral badge styling (no red borders!) */
-.speaker-badge, .note-badge {
+.entity-badge, .note-badge {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.25rem;
@@ -351,7 +366,7 @@ export async function renderUrn(
 	word-break: break-word;
 	max-width: 100%;
 }
-.speaker-badge:hover, .note-badge:hover {
+.entity-badge:hover, .note-badge:hover {
 	background: #e0e0e0;
 	color: #222;
 }
@@ -367,6 +382,12 @@ export async function renderUrn(
 			finalHtml += viewerChromeCss;
 		}
 	}
+
+	recordPerfPhase(
+		packageData.perfTimings ?? {},
+		'renderUrn',
+		performance.now() - renderT0
+	);
 
 	return {
 		srcdocContent: finalHtml,

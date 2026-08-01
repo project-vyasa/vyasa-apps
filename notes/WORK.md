@@ -1,6 +1,6 @@
 # Platform work queue
 
-> Last updated: 2026-07-31 — Catalog identity slice landed (routes, library, settings, metadata, share/copy, schema cutover).
+> Last updated: 2026-08-01 — Graph facets + weave landed; perf guards scaffolded; annotation syntax review queued.
 
 ## Context
 
@@ -20,14 +20,21 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 - [x] **Schema cutover (local)** — `registry.json` + `catalog.json` new shape; legacy shim retained until GH Pages deploy.
 - [~] **Reader / nav / layout polish** — in-flight; reader page decomposed.
 - [ ] **Decompose `[...urn]/+page.svelte`** — further extraction if page grows again.
-- [ ] **Cache templates at load time** — move `build_templates_query()` into `loadPublication()`.
-- [ ] **Explore leaf titles** — align Explore fallback labels with Reader sidebar.
+- [x] **Cache templates at load time** — `templatesJson` built once in `loadPublication()` (`publication-loader.ts`, `templates-json.ts`).
+- [x] **Explore graph facets** — graph ingest, manifest/vocab config; BG speaker on value-node `annotate` (no `Action` shim).
+- [x] **BG speaker migration** — `speakers.vy` + `vocabulary/facets.vy`; repacked (repack again after facets.vy if labels missing).
+- [x] **RV facets registry** — `vocabulary/facets.vy` (IDs) + `content/samhita/localization.vy` (देवता / ऋषि / छन्दस्); `enrich:rv` emits registry.
+- [ ] **RV viewer perf (DevTools)** — profile `[Vyasa perf]` timings; sukta switch ~2s suspect `renderUrn` / viewport SQL. See `vyasa/docs/PERFORMANCE_GUARDS.md`. *Paused for manual debugging.*
+- [ ] **Annotation syntax review** — linguist-friendly alternatives to `{ key=value }` maps. **Backlog:** [`annotation-syntax-review.md`](./annotation-syntax-review.md) · cross-repo entry `vyasa/notes/BACKLOG.md` §9.
 
 ## NEXT
 
+- [ ] **Bitmask facet index** — leaf ordinals + `Uint32Array` bitsets replacing `Map<string, Set<string>>`; speeds Explore today, prerequisite for Atlas.
+- [ ] **Facet palette collision** — `facetColor()` cycles every 8; ~80-value facets render duplicate colours. Top-N + neutral "Other".
+- [ ] **Atlas activity** — high-density spine + on-demand graph fidelity; design in [`atlas-activity-design.md`](./atlas-activity-design.md).
 - [ ] **Remove registry legacy shim** — after vyasa-docs GH Pages serves `catalogs[]` / `id: adi`.
 - [ ] **Book activity UX (RV)** — `default_view` manifest key; revisit document layout gutter.
-- [ ] **Manifest-driven vocabulary/localization** — blocked on vyasac pack changes.
+- [ ] **Manifest-driven vocabulary/localization** — explorer reads `vocabulary/facets` + `manifest.facet_attributes`; full pack-time merge still upstream in vyasac.
 - [ ] **Cross-publication links** — `CatalogLink` resolver, commentary → source verse.
 - [ ] **Catalog schema RFC** — `deliveries[]`, `webUrl` vs `homepage`, `type` enum in vyasa-docs.
 - [ ] **Diagnostics polish** — link catalog entries to library routes.
@@ -35,11 +42,13 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 
 ## Blocked / upstream
 
-See prior table in git history; compiler catalog-tree ranges, whitespace pack fixes, RV repack.
+- **vyasa-samples:** repack vyasa-bg after `vocabulary/facets.vy` + localization `facets` blocks (if explorer speaker *type* label still title-case).
+- **sa.wikisource.org:** repack rigveda after facets registry + samhita localization (`bun run build:rv`).
 
 ## Done (recent)
 
 - [x] Catalog identity WIP slice — routes, registry shim, library drill-down, visibility, metadata.
 - [x] vysamples richer `catalog.json` + `vyasac publish` catalog metadata.
 - [x] Reader page decomposition — `ReaderNavigationPanel`, `reader-navigation.ts`.
-- [x] Diagnostics catalog vocabulary cleanup.
+- [x] BG speaker value-node annotate + viewer shim removal.
+- [x] `vocabulary/facets.vy` pattern for vyasa-bg.

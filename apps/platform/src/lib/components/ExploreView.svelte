@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Switch, Select } from '@project-vyasa/vyasa-ui';
+	import { Button, Select } from '@project-vyasa/vyasa-ui';
 	import { BookOpen, Search, FilterX } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
@@ -10,7 +10,12 @@
 	import { onMount, getContext } from 'svelte';
 	import DataMap from './explore/DataMap.svelte';
 	import FacetSidebar from './explore/FacetSidebar.svelte';
-	import { buildFacetIndex, type FacetSelection } from '$lib/explore/facet-index';
+	import {
+		buildFacetIndex,
+		containerHasSelectedCoverageGaps,
+		defaultMapFacetTypeId,
+		type FacetSelection
+	} from '$lib/explore/facet-index';
 	import { catalogLeafIndices, isCatalogRangesNode } from '$lib/explore/urn-utils';
 	import { publicationReaderPath, catalogLinkToVyasaUri } from '$lib/catalog-ref';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
@@ -33,6 +38,7 @@
 	let activeFacets = $state<FacetSelection>({});
 	let mapFacetTypeId = $state<string | null>(null);
 	let userDismissedMap = $state(false);
+	let hideContainersWithoutGaps = $state(true);
 	let chromeStream = $state('');
 
 	const primaryStream = $derived(
@@ -154,24 +160,86 @@
 	const facetIndex = $derived(buildFacetIndex(packageData, labelStream));
 
 	$effect(() => {
-		if (
-			!userDismissedMap &&
-			mapFacetTypeId === null &&
-			facetIndex.types.some((t) => t.id === 'speaker')
-		) {
-			mapFacetTypeId = 'speaker';
+		if (!userDismissedMap && mapFacetTypeId === null) {
+			const defaultFacet = defaultMapFacetTypeId(facetIndex);
+			if (defaultFacet) mapFacetTypeId = defaultFacet;
 		}
 	});
+	function filterNodesByCoverageGaps(
+		nodes: MapNode[],
+		streamSelection: Set<string>,
+		index: typeof facetIndex
+	): MapNode[] {
+		const result: MapNode[] = [];
+		for (const node of nodes) {
+			if (node.type === 'leaf-container') {
+				if (
+					containerHasSelectedCoverageGaps(
+						node.id,
+						node.leafIndices,
+						streamSelection,
+						index
+					)
+				) {
+					result.push(node);
+				}
+			} else {
+				const children = filterNodesByCoverageGaps(node.children, streamSelection, index);
+				if (children.length > 0) {
+					result.push({ ...node, children });
+				}
+			}
+		}
+		return result;
+	}
+
+	function countContainers(nodes: MapNode[]): number {
+		let count = 0;
+		for (const node of nodes) {
+			if (node.type === 'leaf-container') count++;
+			else count += countContainers(node.children);
+		}
+		return count;
+	}
+
+	const streamCoverageSelection = $derived(activeFacets.stream);
+
 	const filteredNodes = $derived.by<MapNode[]>(() => {
 		let list = parsedNodes;
 		if (selectedBookFilter !== 'ALL') {
 			list = list.filter((n) => n.id === selectedBookFilter);
 		}
-		if (!searchQuery.trim()) return list;
-
-		const q = searchQuery.toLowerCase().trim();
-		return filterNodes(list, q);
+		if (searchQuery.trim()) {
+			const q = searchQuery.toLowerCase().trim();
+			list = filterNodes(list, q);
+		}
+		if (
+			hideContainersWithoutGaps &&
+			streamCoverageSelection &&
+			streamCoverageSelection.size > 0
+		) {
+			list = filterNodesByCoverageGaps(list, streamCoverageSelection, facetIndex);
+		}
+		return list;
 	});
+
+	const coverageContainerFilterActive = $derived(
+		!!(
+			hideContainersWithoutGaps &&
+			streamCoverageSelection &&
+			streamCoverageSelection.size > 0
+		)
+	);
+
+	const leafUnitLabel = $derived(
+		getVocabularyLabel(
+			packageData?.vocabulary,
+			'structure',
+			'verse',
+			labelStream || '',
+			primaryStream
+		) ?? 'verses'
+	);
 
 	// Total visible stats
 	function countLeaves(nodes: MapNode[]): number {
@@ -184,18 +252,18 @@
 	}
 
 	const totalVisibleVerses = $derived(countLeaves(filteredNodes));
+	const totalVisibleContainers = $derived(countContainers(filteredNodes));
 
-	const leafUnitLabel = $derived(
-		getVocabularyLabel(
-			packageData?.vocabulary,
-			'structure',
-			'verse',
-			labelStream || '',
-			primaryStream
-		) ?? 'verses'
-	);
-
-	const leafCountLabel = $derived(`${totalVisibleVerses} ${leafUnitLabel}`);
+	const leafCountLabel = $derived.by(() => {
+		const parts: string[] = [];
+		if (coverageContainerFilterActive) {
+			parts.push(
+				`${totalVisibleContainers} container${totalVisibleContainers === 1 ? '' : 's'} with gaps`
+			);
+		}
+		parts.push(`${totalVisibleVerses} ${leafUnitLabel}`);
+		return parts.join(' · ');
+	});
 
 	const selectionVyasaUri = $derived.by(() => {
 		if (!registryId || !catalogId || !publicationId) return '';
@@ -316,6 +384,7 @@
 			<FacetSidebar
 				bind:activeFacets
 				bind:mapFacetTypeId
+				bind:hideContainersWithoutGaps
 				{facetIndex}
 				onMapDismiss={() => (userDismissedMap = true)}
 			/>

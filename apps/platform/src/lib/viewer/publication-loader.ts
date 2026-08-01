@@ -13,7 +13,19 @@ import { shouldReuseResolvedCatalogUrl } from './catalog-url-cache';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
 import { collectLeafUrns, toRelativeUrn } from '$lib/explore/urn-utils';
+import { parseAnnotationRows } from '$lib/viewer/annotation-rows';
 import { parseStreamSeparators } from '$lib/viewer/whitespace';
+import {
+	enrichBlockAttributesForWeave,
+	indexAnnotationsByUrn
+} from '$lib/viewer/graph-weave-context';
+import { buildTemplatesJson } from '$lib/viewer/templates-json';
+import {
+	measurePerfPhaseSync,
+	recordPerfPhase,
+	warnManifestPerfStats,
+	type PerfTimings
+} from '$lib/viewer/perf-guard';
 
 export interface PublicationLoadResult {
 	packageData: PackageData;
@@ -29,6 +41,8 @@ export interface PublicationLoadResult {
 	manifestTimestamp?: string;
 	/** The first leaf URN to navigate to when arriving at 'root', or null if not applicable */
 	initialTargetUrn: string | null;
+	/** Phase timings (ms) for diagnostics / perf guards */
+	perfTimings?: PerfTimings;
 }
 
 /**
@@ -41,6 +55,8 @@ export async function loadPublication(
 	viewerDb: ViewerDb
 ): Promise<PublicationLoadResult> {
 	await initWasm();
+	const perfTimings: PerfTimings = {};
+	const loadT0 = performance.now();
 
 	const diagRegistryUrl = ref.registryId === ADI_REGISTRY_ID ? DEFAULT_REGISTRY_URL : ref.registryId;
 	const catalogUrl = shouldReuseResolvedCatalogUrl(
@@ -203,38 +219,51 @@ export async function loadPublication(
 	try {
 		const annotQuery = (VyasaViewerRuntime as any).build_annotations_query ? (VyasaViewerRuntime as any).build_annotations_query() : "SELECT e.target_id as urn_int, d.value as label, n.attributes as attributes FROM graph_edges e JOIN graph_nodes n ON e.source_id = n.id JOIN graph_dict d ON n.label_id = d.id WHERE d.value = 'Action' OR d.value = 'Note' OR d.value = 'Event' OR d.value = 'Attribute'";
 		const annotRows = await viewerDb.query(annotQuery);
-		for (const row of annotRows) {
-			const urnInt = BigInt(row[0] as number | string);
-			const urn = graphRuntime.get_urn(urnInt);
-			const label = row[1] as string;
-			const attrRaw = row[2];
-			let attributes: Record<string, any> = {};
-			try {
-				attributes = typeof attrRaw === 'string' ? JSON.parse(attrRaw) : (attrRaw || {});
-			} catch (err) {
-				// Fallback if JSON parse fails
-			}
-			annotations.push({ urn, label, attributes });
-		}
+		annotations.push(
+			...parseAnnotationRows(annotRows, (urnInt) => graphRuntime.get_urn(urnInt))
+		);
 	} catch (e) {
 		console.warn('Vyasa Load: Annotations extraction failed or table missing:', e);
 	}
 
 	const streamSeparators = parseStreamSeparators(manifest['stream_separators']);
+	warnManifestPerfStats(manifest);
+
+	const weaveBlockAttributesByUrn = measurePerfPhaseSync(
+		perfTimings,
+		'enrichBlockAttributesForWeave',
+		() =>
+			enrichBlockAttributesForWeave(
+				blockAttributesByUrn,
+				annotations,
+				vocabulary,
+				manifest as Manifest,
+				globalPrefix,
+				primaryStream
+			)
+	);
+	const annotationsByUrn = indexAnnotationsByUrn(annotations, globalPrefix);
+	const templatesJson = buildTemplatesJson(projections);
 
 	const packageData: PackageData = {
 		manifest: manifest as unknown as Manifest,
 		structure: { catalogTree: catalogTreeTemp },
 		projections,
+		templatesJson,
 		titles,
 		titlesByStream,
 		blockAttributesByUrn,
+		weaveBlockAttributesByUrn,
+		annotationsByUrn,
 		streamsByUrn,
 		streams,
 		streamSeparators,
 		vocabulary,
-		annotations
+		annotations,
+		perfTimings
 	};
+
+	recordPerfPhase(perfTimings, 'loadPublication', performance.now() - loadT0);
 
 	return {
 		packageData,
@@ -246,7 +275,8 @@ export async function loadPublication(
 		diagCatalog: catalogData,
 		catalogUpdated: publication.updated,
 		manifestTimestamp,
-		initialTargetUrn
+		initialTargetUrn,
+		perfTimings
 	};
 }
 

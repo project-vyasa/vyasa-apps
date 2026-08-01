@@ -15,7 +15,7 @@
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
-	import { catalogRefFromParams, publicationReaderPath } from '$lib/catalog-ref';
+	import { catalogRefFromParams, publicationReaderPath, catalogLinkToVyasaUri } from '$lib/catalog-ref';
 	import type { PackageData } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 
@@ -28,6 +28,15 @@
 		registryId && catalogId && publicationId
 			? catalogRefFromParams(registryId, catalogId, publicationId)
 			: null
+	);
+
+	const readerVyasaUri = $derived(
+		catalogRef
+			? catalogLinkToVyasaUri({
+					...catalogRef,
+					urn: urn && urn !== 'root' ? urn : undefined
+				})
+			: ''
 	);
 
 	const shell = getContext<{
@@ -255,6 +264,7 @@
 		{availableViews}
 		{availableStreams}
 		bind:customGridLayoutJson
+		vyasaUri={readerVyasaUri}
 		isDocumentLayout={(packageData?.manifest as { layout?: string })?.layout === 'document'}
 		onNavigatePrev={navigatePrev}
 		onNavigateNext={navigateNext}

@@ -4,10 +4,11 @@
 	import {
 		buildFacetValueColorMap,
 		cornerGradient,
-		isCoverageFacet,
+		facetValueLabel,
+		leafCoverageGapCornerColors,
 		leafFacetCornerColors,
+		leafMatchesCoverageGap,
 		leafMatchesFacetSelection,
-		paintLeafCoverageFacet,
 		paintLeafMapFacet
 	} from '$lib/explore/facet-index';
 	import { MAP_UNMATCHED_FILL } from '$lib/explore/facet-colors';
@@ -37,19 +38,10 @@
 	);
 
 	const coverageSelection = $derived.by(() => {
-		for (const [typeId, values] of Object.entries(activeFacets)) {
-			if (isCoverageFacet(typeId) && values.size === 1) {
-				return { typeId, valueId: [...values][0] };
-			}
-		}
-		return null;
+		const values = activeFacets.stream;
+		if (!values || values.size === 0) return null;
+		return [...values];
 	});
-
-	const coverageColorMap = $derived(
-		coverageSelection && facetIndex
-			? buildFacetValueColorMap(facetIndex, coverageSelection.typeId)
-			: new Map<string, string>()
-	);
 
 	const highlightMode = $derived(!!mapFacetTypeId || !!coverageSelection);
 
@@ -92,16 +84,15 @@
 			let mapLabel: string | undefined;
 
 			if (coverageSelection && facetIndex) {
-				const painted = paintLeafCoverageFacet(
-					urn,
-					coverageSelection.typeId,
-					coverageSelection.valueId,
-					facetIndex,
-					coverageColorMap
-				);
-				fill = painted.fill;
-				facetMatch = painted.valueId !== undefined;
-				mapLabel = painted.label;
+				const cornerColors = leafCoverageGapCornerColors(urn, coverageSelection, facetIndex);
+				facetMatch = cornerColors.length > 0;
+				fill = cornerGradient(cornerColors) ?? fill;
+				if (facetMatch) {
+					mapLabel = coverageSelection
+						.filter((valueId) => leafMatchesCoverageGap(urn, valueId, facetIndex))
+						.map((valueId) => facetValueLabel(facetIndex, 'stream', valueId))
+						.join(', ');
+				}
 			} else if (mapFacetTypeId && facetIndex) {
 				const painted = paintLeafMapFacet(urn, mapFacetTypeId, facetIndex, mapColorMap);
 				fill = painted.fill;

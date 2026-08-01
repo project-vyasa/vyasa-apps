@@ -2,6 +2,7 @@
 	import { Button, Input, Select } from '@project-vyasa/vyasa-ui';
 	import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Sliders, X } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 
 	interface Props {
 		urn: string;
@@ -13,6 +14,7 @@
 		availableStreams?: string[];
 		customGridLayoutJson?: string;
 		isDocumentLayout?: boolean;
+		vyasaUri?: string;
 		onNavigatePrev: () => void;
 		onNavigateNext: () => void;
 		onNavigateUrn: () => void;
@@ -29,6 +31,7 @@
 		availableStreams = [],
 		customGridLayoutJson = $bindable(),
 		isDocumentLayout = false,
+		vyasaUri = '',
 		onNavigatePrev,
 		onNavigateNext,
 		onNavigateUrn,
@@ -175,6 +178,9 @@
 	<div
 		style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); padding-right: var(--space-2);"
 	>
+		{#if vyasaUri}
+			<CopyVyasaLinkButton vyasaUri={vyasaUri} title="Copy link to this page" />
+		{/if}
 		<Button
 			variant="ghost"
 			size="icon"

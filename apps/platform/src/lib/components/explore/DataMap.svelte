@@ -81,7 +81,11 @@
 <div class="data-map-container">
 	<SelectionMarquee onSelectionComplete={handleMarqueeSelection}>
 		<div class="map-content">
-			{@render renderNodes(nodes)}
+			{#if nodes.length === 0}
+				<div class="map-empty">No containers match the current filters.</div>
+			{:else}
+				{@render renderNodes(nodes)}
+			{/if}
 		</div>
 	</SelectionMarquee>
 </div>
@@ -134,5 +138,12 @@
 		display: flex;
 		flex-direction: column;
 		gap: calc(var(--space-8) * 1.5);
+	}
+
+	.map-empty {
+		padding: var(--space-8);
+		text-align: center;
+		color: var(--text-tertiary);
+		font-size: 0.9rem;
 	}
 </style>
