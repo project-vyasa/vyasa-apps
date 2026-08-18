@@ -125,12 +125,15 @@
 	});
 
 	$effect(() => {
+		if (!graphRuntime || !packageData) return;
 		const currentUrn = urn;
-		const r = graphRuntime;
-		const p = packageData;
-		if (r && p) {
-			untrack(() => handleRenderUrn(currentUrn));
-		}
+		// Re-weave when view, layout, stream, or gutter options change — not only on URN navigation.
+		activeView;
+		customGridLayoutJson;
+		chromeStream;
+		showReferenceGutter;
+		showAnnotationGutter;
+		untrack(() => handleRenderUrn(currentUrn));
 	});
 
 	onDestroy(() => viewerDb.close());
@@ -255,22 +258,24 @@
 </script>
 
 {#snippet sidebarTopContent()}
-	<ViewerNavBar
-		{urn}
-		{urnComponents}
-		bind:currentUrnParts
-		bind:isFullWidth
-		bind:activeView
-		{availableViews}
-		{availableStreams}
-		bind:customGridLayoutJson
-		vyasaUri={readerVyasaUri}
-		isDocumentLayout={(packageData?.manifest as { layout?: string })?.layout === 'document'}
-		onNavigatePrev={navigatePrev}
-		onNavigateNext={navigateNext}
-		onNavigateUrn={navigateUrn}
-		onToggleFullWidth={() => (isFullWidth = !isFullWidth)}
-	/>
+	{#key `${registryId}/${catalogId}/${publicationId}`}
+		<ViewerNavBar
+			{urn}
+			{urnComponents}
+			bind:currentUrnParts
+			bind:isFullWidth
+			bind:activeView
+			{availableViews}
+			{availableStreams}
+			bind:customGridLayoutJson
+			vyasaUri={readerVyasaUri}
+			isDocumentLayout={(packageData?.manifest as { layout?: string })?.layout === 'document'}
+			onNavigatePrev={navigatePrev}
+			onNavigateNext={navigateNext}
+			onNavigateUrn={navigateUrn}
+			onToggleFullWidth={() => (isFullWidth = !isFullWidth)}
+		/>
+	{/key}
 {/snippet}
 
 {#snippet sidebarLeftContent()}

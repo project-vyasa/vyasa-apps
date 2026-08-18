@@ -2,6 +2,7 @@
 	import { Button, Input, Select } from '@project-vyasa/vyasa-ui';
 	import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Sliders, X } from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import { defaultGridTextFromStreams } from '$lib/viewer/grid-default-layout';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 
 	interface Props {
@@ -42,29 +43,20 @@
 	let customGridText = $state('');
 	let customColumnCount = $state<number>(0);
 	let textareaEl = $state<HTMLTextAreaElement | null>(null);
+	let lastStreamsKey = $state('');
+
+	function defaultGridTextForStreams(streams: string[]): string {
+		return defaultGridTextFromStreams(streams);
+	}
 
 	$effect(() => {
 		const streams = availableStreams || [];
+		const streamsKey = streams.join('|');
+		if (streams.length === 0 || streamsKey === lastStreamsKey) return;
+		lastStreamsKey = streamsKey;
 		untrack(() => {
-			if (streams.length > 0 && !customGridText) {
-				const preferredTop = ['iast', 'mula', 'devanagari', 'sanskrit'];
-				const top: string[] = [];
-				const bottom: string[] = [];
-				for (const pref of preferredTop) {
-					if (streams.includes(pref) && top.length < 2) top.push(pref);
-				}
-				for (const s of streams) {
-					if (!top.includes(s)) {
-						if (top.length < 2 && streams.length <= 2) top.push(s);
-						else bottom.push(s);
-					}
-				}
-				const lines = [];
-				if (top.length > 0) lines.push(top.join(', '));
-				for (const b of bottom) lines.push(b);
-				customGridText = lines.join('\n');
-				parseCustomGridText();
-			}
+			customGridText = defaultGridTextForStreams(streams);
+			customColumnCount = 0;
 		});
 	});
 

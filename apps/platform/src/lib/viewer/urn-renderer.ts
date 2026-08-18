@@ -11,6 +11,10 @@ import { getVocabularyLabel } from '$lib/viewer/vocabulary';
 import { entityAnnotateBinding } from '$lib/viewer/graph-annotate';
 import { buildTemplatesJson } from '$lib/viewer/templates-json';
 import { recordPerfPhase } from '$lib/viewer/perf-guard';
+import {
+	buildDefaultGridLayoutJson,
+	resolveManifestStreamOrder
+} from '$lib/viewer/grid-default-layout';
 
 function normalizeBlockContent(content: unknown): Uint8Array {
 	if (content instanceof Uint8Array) return content;
@@ -130,6 +134,11 @@ export async function renderUrn(
 	}
 
 	const allStreams = Array.from(new Set(rowsJson.map((r) => String(r.stream))));
+	const orderedStreams = resolveManifestStreamOrder(
+		definedStreamOrder,
+		allStreams,
+		packageData.manifest as Manifest
+	);
 
 	// 5. Populate available views on first render (avoid re-querying on every navigation)
 	let currentAvailableViews = availableViews;
@@ -176,30 +185,7 @@ export async function renderUrn(
 			packageData.projections?.['grid_layout_json'] ||
 			(packageData.manifest as any)?.layout_json;
 		if (!layoutJson) {
-			// Construct default side-by-side grid layout from available streams
-			const preferredTop = ['iast', 'mula', 'devanagari', 'sanskrit'];
-			const topRow: { block: string }[] = [];
-			const bottomRows: { block: string; span: number }[] = [];
-
-			for (const pref of preferredTop) {
-				if (allStreams.includes(pref) && topRow.length < 2) {
-					topRow.push({ block: pref });
-				}
-			}
-			for (const s of allStreams) {
-				if (!topRow.some((col) => col.block === s)) {
-					if (topRow.length < 2 && allStreams.length <= 2) {
-						topRow.push({ block: s });
-					} else {
-						bottomRows.push({ block: s, span: 2 });
-					}
-				}
-			}
-
-			const rows = [];
-			if (topRow.length > 0) rows.push(topRow);
-			for (const brow of bottomRows) rows.push([brow]);
-			layoutJson = JSON.stringify({ rows });
+			layoutJson = buildDefaultGridLayoutJson(orderedStreams);
 		}
 		viewNodes = graphRuntime.weave_layout(rowsJson, layoutJson, optionsJson);
 	} else {
@@ -394,7 +380,7 @@ export async function renderUrn(
 		activeUrns: matchingUrns,
 		availableViews: currentAvailableViews,
 		activeView: currentActiveView,
-		availableStreams: allStreams,
+		availableStreams: orderedStreams,
 		activeStream: currentActiveStream
 	};
 }
