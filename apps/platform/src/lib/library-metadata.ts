@@ -29,7 +29,9 @@ export function publicationDescriptionLine(item: PublicationEntry): string {
 }
 
 /** Up to two muted badges for publication rows (type + language). */
-export function publicationDisplayBadges(item: PublicationEntry): string[] {
+export function publicationDisplayBadges(
+	item: Pick<PublicationEntry, 'type' | 'language'>
+): string[] {
 	const badges: string[] = [];
 	if (item.type?.trim()) badges.push(item.type.trim());
 	if (item.language?.trim()) badges.push(item.language.trim());
