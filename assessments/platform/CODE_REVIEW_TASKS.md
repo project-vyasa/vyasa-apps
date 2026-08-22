@@ -1,9 +1,16 @@
 # Platform Code Review Action Items
 
-Generated from: `assessments/platform/CODE_REVIEW.md` — 2026-07-20
+Generated from: `assessments/platform/CODE_REVIEW.md` — 2026-07-20  
+Updated: 2026-08-18 — publication-heuristic audit
 
 ## 🔴 High Priority
 
+- [ ] **Audit publication-specific viewer heuristics** — per [`.agent/workflows/code-review.md`](../../.agent/workflows/code-review.md) §3b and [`notes/explicit-workspace-design.md`](../../notes/explicit-workspace-design.md)
+  - [ ] `explore/facet-index.ts` — `resolvePrimaryStream()` must use `manifest.primary_stream` only; remove `mula` preference
+  - [ ] `ViewerNavBar.svelte` — neutral grid customizer placeholder (not `mula, devanagari / purport`)
+  - [ ] Grep runtime paths for `mula|iast|devanagari|sanskrit|preferredTop`; tests/fixtures exempt
+  - [ ] Confirm no implicit stream-order sources remain after `streams_config` / `primary_stream` simplification
+- [ ] **Grid stream presentation** — viewer must not set `white-space` on woven HTML. Publisher `theme.vy`: `.vyasa-block-{stream}` + inner tags (`.verse`, `.rik`). Repack vyasa-bg + rigveda. Viewer spacing only: `.urn-row` padding `0.75rem`, WASM grid `gap: 0.5rem`.
 - [ ] **Decompose `+page.svelte`** (664 LOC → target < 300 LOC)
   - [ ] Extract `loadPublication()` to `src/lib/viewer/publication-loader.ts`
   - [ ] Extract `renderCurrentUrn()` to `src/lib/viewer/urn-renderer.ts`

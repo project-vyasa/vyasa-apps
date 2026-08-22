@@ -3,6 +3,13 @@
 	import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Sliders, X } from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { defaultGridTextFromStreams } from '$lib/viewer/grid-default-layout';
+	import {
+		CONTENT_TEXT_SIZE_OPTIONS,
+		CONTENT_THEME_OPTIONS,
+		type ContentTextSize,
+		type ContentThemeId
+	} from '$lib/viewer/content-presentation';
+	import { viewerSettings } from '$lib/settings.svelte';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 
 	interface Props {
@@ -115,10 +122,15 @@
 		style="flex: 1; display: flex; justify-content: flex-start; align-items: center; gap: var(--space-2); padding-left: var(--space-2);"
 	>
 		{#if availableViews && availableViews.length > 1 && !isDocumentLayout}
-			<div style="width: 160px;">
+			<div style="width: 11.5rem;">
 				<Select
 					options={availableViews.map((v) => ({
-						label: v === 'grid' ? 'Grid (Columns)' : v.charAt(0).toUpperCase() + v.slice(1),
+						label:
+							v === 'grid'
+								? 'Grid (columns)'
+								: v === 'reading'
+									? 'Reading (stacked)'
+									: v.charAt(0).toUpperCase() + v.slice(1),
 						value: v
 					}))}
 					bind:value={activeView}
@@ -166,10 +178,30 @@
 		<Button variant="ghost" size="icon" icon={ChevronRight} title="Next" onclick={onNavigateNext} />
 	</div>
 
-	<!-- Right-aligned Maximize Button -->
+	<!-- Right-aligned presentation + maximize -->
 	<div
 		style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); padding-right: var(--space-2);"
 	>
+		<div class="content-presets" title="Publication paper and text (not app chrome)">
+			<div class="content-preset">
+				<Select
+					options={CONTENT_THEME_OPTIONS}
+					bind:value={
+						() => viewerSettings.contentTheme,
+						(v) => (viewerSettings.contentTheme = v as ContentThemeId)
+					}
+				/>
+			</div>
+			<div class="content-preset">
+				<Select
+					options={CONTENT_TEXT_SIZE_OPTIONS}
+					bind:value={
+						() => viewerSettings.contentTextSize,
+						(v) => (viewerSettings.contentTextSize = v as ContentTextSize)
+					}
+				/>
+			</div>
+		</div>
 		{#if vyasaUri}
 			<CopyVyasaLinkButton vyasaUri={vyasaUri} title="Copy link to this page" />
 		{/if}
@@ -274,6 +306,15 @@
 		font-size: var(--text-sm);
 		min-width: 60px;
 		text-align: center;
+	}
+	.content-presets {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2);
+		flex-shrink: 0;
+	}
+	.content-preset {
+		width: 7.75rem;
 	}
 
 	/* Customizer Popover Styles */

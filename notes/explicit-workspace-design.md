@@ -62,6 +62,35 @@ The packer resolves `` `localization { extend = "…" } `` at pack time and writ
 
 ---
 
+## Grid view stream styling (publisher theme)
+
+**Grid** does not apply `context.vy` stream command templates (`mula`, `samhita`, …). `weave_layout` injects **raw packed `html_blocks` HTML** into WASM columns:
+
+| WASM class | Owner | Publisher may style? |
+|------------|-------|----------------------|
+| `.vyasa-layout-grid` | vyasav (row/column gap) | No — layout geometry only |
+| `.vyasa-layout-col` | vyasav (column wrapper) | No — do not hijack viewer chrome |
+| `.vyasa-block-{stream}` | vyasav (`{stream}` = layout JSON block id) | **Yes** — primary styling hook |
+| `.urn-row`, `.urn-text`, `.urn-gutter` | platform viewer chrome | **No** — never override in publisher theme |
+
+Declare grid stream typography and `white-space` in **`templates/html/views/theme.vy`** (packed as `theme_layout`), scoped to `.vyasa-block-{stream}` and inner packed tags (`.verse`, `.rik`, `.bhashya`):
+
+```css
+/* vyasa-bg example */
+.vyasa-block-mula .verse { white-space: pre-line; overflow-wrap: break-word; }
+
+/* rigveda example */
+.vyasa-block-primary .rik { white-space: pre-line; overflow-wrap: break-word; }
+```
+
+The **viewer must not set `white-space`** on woven content. Segment breaks (`\x1f` → join char at weave) and packed newlines are publisher presentation concerns.
+
+Reading view still uses stream templates + view-specific CSS (`reading_layout`); grid uses `theme_layout` + `.vyasa-block-*` rules.
+
+Publisher guide (draft): [`docs/guides/view-templates-guide.md`](../../docs/guides/view-templates-guide.md) → vyasa-docs.
+
+---
+
 ## Allowed “magic” in the viewer
 
 Acceptable without publisher declaration:
@@ -75,6 +104,8 @@ Not acceptable:
 - Fallback lists of stream names or label languages
 - Assuming Devanagari/IAST/English conventions
 - Silently substituting structure terms (`verse` → `śloka`) without manifest data
+- Setting `white-space` (or other stream typography) on `.urn-text`, `.vyasa-layout-col`, or woven body HTML
+- Publisher themes overriding viewer chrome (`.urn-row`, `.urn-gutter`, …) instead of `.vyasa-block-{stream}`
 
 ---
 
@@ -86,6 +117,7 @@ Not acceptable:
 | Load `primary_stream` from manifest | `publication-loader.ts` | |
 | Use merged localization table only | `urn-renderer.ts`, explore/nav labels | |
 | Pack-time localization merge | `vyasa/vyasac` | See compiler backlog |
+| Grid stream `white-space` / typography | Publisher `theme.vy` → `.vyasa-block-{stream}` | Viewer must not set `white-space` on woven content |
 
 Queue: [`notes/WORK.md`](./WORK.md) · samples: [`vyasa-samples/notes/WORK.md`](../../vyasa-samples/notes/WORK.md)
 

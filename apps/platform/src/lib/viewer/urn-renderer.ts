@@ -11,6 +11,7 @@ import { getVocabularyLabel } from '$lib/viewer/vocabulary';
 import { entityAnnotateBinding } from '$lib/viewer/graph-annotate';
 import { buildTemplatesJson } from '$lib/viewer/templates-json';
 import { recordPerfPhase } from '$lib/viewer/perf-guard';
+import { applyLayoutShells } from '$lib/viewer/layout-shells';
 import {
 	buildDefaultGridLayoutJson,
 	resolveManifestStreamOrder
@@ -197,11 +198,7 @@ export async function renderUrn(
 		);
 	}
 
-	// 8. Apply layout template
-	const layoutTpl =
-		packageData.projections[`${currentActiveView}_layout`] ||
-		packageData.projections['theme_layout'] ||
-		'{{ body }}';
+	// 8. Theme shell wraps all views; craft `{view}_layout` wraps items first.
 	const prefix = (packageData.manifest as any)?.prefix || (packageData.manifest as any)?.global_prefix || '';
 	let itemsHtml = '';
 	for (const node of viewNodes) {
@@ -288,7 +285,11 @@ export async function renderUrn(
 		}
 	}
 
-	let finalHtml = layoutTpl.replace('{{ body }}', itemsHtml);
+	let finalHtml = applyLayoutShells(
+		itemsHtml,
+		currentActiveView,
+		packageData.projections
+	);
 	if (!isDocumentLayout) {
 		const viewerChromeCss = `<style>
 /* Core Viewer Chrome & Gutters (Decoupled from Publisher) */
@@ -296,7 +297,7 @@ export async function renderUrn(
 	display: flex;
 	align-items: flex-start;
 	gap: ${showReferenceGutter || showAnnotationGutter ? '1.25rem' : '0'};
-	padding: 1.5rem 0;
+	padding: 0.75rem 0;
 	border-bottom: 1px solid #eee;
 	width: 100%;
 }
@@ -356,11 +357,7 @@ export async function renderUrn(
 	background: #e0e0e0;
 	color: #222;
 }
-/* pre-wrap preserves publisher blank lines; pre-line collapses them and fights preserve-whitespace pubs */
-.vyasa-layout-col, .urn-text, .urn-content-doc {
-	white-space: pre-wrap;
-	line-height: 1.6;
-}
+/* Stream typography and white-space: publisher theme via .vyasa-block-{stream} (see theme_layout). */
 </style>`;
 		if (finalHtml.includes('</head>')) {
 			finalHtml = finalHtml.replace('</head>', `${viewerChromeCss}</head>`);

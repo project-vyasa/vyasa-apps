@@ -10,6 +10,8 @@ export class ViewerSettings {
 	/** Stream id used for chrome labels (speaker badges, structure terms). Shared with Explorer. */
 	private _chromeStream = $state<string | null>(null);
 	private _showAnnotationGutter = $state(true);
+	private _contentTheme = $state<'light' | 'dark'>('light');
+	private _contentTextSize = $state<'small' | 'medium' | 'large'>('medium');
 
 	constructor() {
 		if (browser) {
@@ -36,6 +38,14 @@ export class ViewerSettings {
 					this._chromeStream = parsed.chromeStream;
 				if (typeof parsed.showAnnotationGutter === 'boolean')
 					this._showAnnotationGutter = parsed.showAnnotationGutter;
+				if (parsed.contentTheme === 'light' || parsed.contentTheme === 'dark')
+					this._contentTheme = parsed.contentTheme;
+				if (
+					parsed.contentTextSize === 'small' ||
+					parsed.contentTextSize === 'medium' ||
+					parsed.contentTextSize === 'large'
+				)
+					this._contentTextSize = parsed.contentTextSize;
 
 				if (hadLegacyFormat) {
 					this.save();
@@ -54,7 +64,9 @@ export class ViewerSettings {
 					localSources: this._localSources,
 					debugMode: this._debugMode,
 					chromeStream: this._chromeStream,
-					showAnnotationGutter: this._showAnnotationGutter
+					showAnnotationGutter: this._showAnnotationGutter,
+					contentTheme: this._contentTheme,
+					contentTextSize: this._contentTextSize
 				})
 			);
 		}
@@ -98,6 +110,22 @@ export class ViewerSettings {
 	}
 	set showAnnotationGutter(val: boolean) {
 		this._showAnnotationGutter = val;
+		this.save();
+	}
+
+	get contentTheme() {
+		return this._contentTheme;
+	}
+	set contentTheme(val: 'light' | 'dark') {
+		this._contentTheme = val;
+		this.save();
+	}
+
+	get contentTextSize() {
+		return this._contentTextSize;
+	}
+	set contentTextSize(val: 'small' | 'medium' | 'large') {
+		this._contentTextSize = val;
 		this.save();
 	}
 }

@@ -40,6 +40,32 @@ Check for proper usage of:
 - Scan `apps/` for domain-specific terminology (e.g., `"uvacha"`, `"purport"`, `"devanagari"`, `"verse"`, `"speaker"`).
 - If terms like these are found, they must be flagged as a **High Priority** violation. Formatting and domain-specific display logic should be handled by CSS or the `stdlib.vy`/`context.vy` layer, never hardcoded in Svelte components.
 
+### 3b. Hunt Publication-Specific Heuristics
+
+> **Invariant:** The viewer must not encode conventions from one packed publication (e.g. vyasa-bg, rigveda) as global runtime defaults. See [`notes/explicit-workspace-design.md`](../../notes/explicit-workspace-design.md).
+
+Schema-neutrality scans catch *domain words*; this step catches *publication families* baked into TypeScript fallbacks.
+
+```bash
+# Hardcoded stream ids / layout assumptions (runtime paths only — tests may use fixtures)
+rg -n "mula|iast|devanagari|sanskrit|samhita|purport|preferredTop" apps/platform/src \
+  --glob '*.{ts,svelte}' --glob '!**/*.test.ts'
+
+# Primary-stream inference that bypasses manifest.primary_stream
+rg -n "primary_stream|resolvePrimaryStream|packageStreams" apps/platform/src --glob '*.ts'
+
+# UI copy that implies a specific publication shape
+rg -n "placeholder=.*mula|devanagari" apps/platform/src --glob '*.svelte'
+```
+
+Flag as **High Priority** when found in non-test runtime code:
+
+- Fallback lists of stream names used for layout, label lookup, or explore primary resolution
+- Grid/reading defaults that assume BG-style two-column streams (`mula` + `iast`)
+- Silent substitution when manifest fields are missing (prefer missing label / pack fix over guessing)
+
+**Known offenders (audit queue):** `explore/facet-index.ts` (`resolvePrimaryStream` prefers `mula`), `ViewerNavBar.svelte` (grid customizer placeholder copy). **Do not** add viewer `white-space` for grid/reading — use publisher `theme.vy` `.vyasa-block-{stream}` (see `notes/explicit-workspace-design.md`).
+
 ### 4. Cross-Repo Integration Checks
 
 The `vyasa-apps` layer connects the `vyasa` (WASM) and `vyasa-ui` (Design System) repositories.
@@ -80,6 +106,9 @@ Brief overview of codebase health and key risks.
 
 ### Schema Neutrality
 - List any hardcoded domain terms found
+
+### Publication-Specific Heuristics
+- List hardcoded stream/layout fallbacks and files that bypass manifest fields
 
 ### Integration & WASM Contract
 - Assessment of WASM API usage and Design System integration

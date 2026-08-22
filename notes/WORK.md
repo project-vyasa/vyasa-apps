@@ -1,17 +1,20 @@
 # Platform work queue
 
-> Last updated: 2026-08-01 — Graph facets + weave landed; perf guards scaffolded; annotation syntax review queued.
+> Last updated: 2026-08-18 — grid order simplification + heuristic audit
 
 ## Context
 
 This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diagnostics UI. It consumes `@vyasa/viewer-wasm` from the **`vyasa`** toolchain.
 
-**Sibling repos:** compiler `vyasa` · samples `vyasa-samples` · docs `vyasa-docs`.
+**Sibling repos:** compiler `vyasa` · samples `vyasa-samples` · docs `vyasa-docs` · ui `vyasa-ui`.
 
 **Design principles:** [`explicit-workspace-design.md`](./explicit-workspace-design.md) · catalog vocabulary [`catalog-identity.md`](./catalog-identity.md).
 
+**Library browser FR (ui done — integrate here):** [`vyasa-ui/svelte/notes/feature-request-library-browser.md`](../../vyasa-ui/svelte/notes/feature-request-library-browser.md) § *Handoff: LibraryView integration*
+
 ## NOW
 
+- [x] **LibraryView collection primitives** — `SearchInput`, `SummaryRow`, `SegmentedControl`, `CardGrid`, global search (`library-publication-hits.ts`). See [FR handoff](../../vyasa-ui/svelte/notes/feature-request-library-browser.md).
 - [x] **Catalog identity routing** — `{registry}/{catalog}/{publication}`, `CatalogRef`, `vyasa://`, `/link?uri=…` resolver.
 - [x] **Settings: dual sources** — Adi always on; optional local URL with autodetect.
 - [x] **Library: catalog visibility toggles** — per-catalog hide/show (localStorage).
@@ -19,6 +22,11 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 - [x] **Vyasa URI share/copy** — activity bar + debug header + explore selection.
 - [x] **Schema cutover (local)** — `registry.json` + `catalog.json` new shape; legacy shim retained until GH Pages deploy.
 - [~] **Reader / nav / layout polish** — in-flight; reader page decomposed.
+- [ ] **Audit publication-specific viewer heuristics** — code-review §3b; see [`CODE_REVIEW_TASKS.md`](../assessments/platform/CODE_REVIEW_TASKS.md). Known: `facet-index.ts` `mula` fallback, `ViewerNavBar` placeholder copy.
+- [ ] **RV grid vertical whitespace** — viewer spacing only: `.urn-row` padding `0.75rem 0`, WASM grid `gap: 0.5rem`. Stream typography/`white-space` in publisher `theme.vy` (`.vyasa-block-{stream}`). Repack vyasa-bg + rigveda after theme updates.
+- [x] **View templates Phase A–B (vyasa-bg)** — `theme.vy` + packed `reading.vy` (stacked); `theme_layout` wraps craft layouts. Verify Grid vs Reading in the view picker.
+- [x] **Content themes (reader class)** — Settings sets `html.theme-light` / `theme-dark` on iframe; persist localStorage. Manifest `content_themes[]` still pending vyasac.
+- [x] **Content text size** — 3 steps (S/M/L) → `--vyasa-text-scale` on iframe; separate from chrome density.
 - [ ] **Decompose `[...urn]/+page.svelte`** — further extraction if page grows again.
 - [x] **Cache templates at load time** — `templatesJson` built once in `loadPublication()` (`publication-loader.ts`, `templates-json.ts`).
 - [x] **Explore graph facets** — graph ingest, manifest/vocab config; BG speaker on value-node `annotate` (no `Action` shim).
@@ -44,11 +52,15 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 
 - **vyasa-samples:** repack vyasa-bg after `vocabulary/facets.vy` + localization `facets` blocks (if explorer speaker *type* label still title-case).
 - **sa.wikisource.org:** repack rigveda after facets registry + samhita localization (`bun run build:rv`).
+- **vyasac:** emit `content_themes` in manifest. **TODO:** deprecate per-file `default.html` SSG for platform-targeted pubs.
 
 ## Done (recent)
+
+- [x] **CSS files (HTML target)** — samples pack `publisher_css` / `css` (vyasa-bg + vedabase-bg share `styles/indic-verse.css`; intimate-note `styles/prose.css`; bible self-contained `theme.css`).
 
 - [x] Catalog identity WIP slice — routes, registry shim, library drill-down, visibility, metadata.
 - [x] vysamples richer `catalog.json` + `vyasac publish` catalog metadata.
 - [x] Reader page decomposition — `ReaderNavigationPanel`, `reader-navigation.ts`.
 - [x] BG speaker value-node annotate + viewer shim removal.
 - [x] `vocabulary/facets.vy` pattern for vyasa-bg.
+- [x] LibraryView vyasa-ui integration — SummaryRow hidden catalogs, global search, CardGrid/list toggle.

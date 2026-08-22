@@ -7,6 +7,7 @@
 	import { ViewerDb } from '$lib/ViewerDb';
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { renderUrn } from '$lib/viewer/urn-renderer';
+	import { applyContentPresentation } from '$lib/viewer/content-presentation';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
 	import { navigateReaderNext, navigateReaderPrev, readerNavUrl } from '$lib/viewer/reader-navigation';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
@@ -133,6 +134,8 @@
 		chromeStream;
 		showReferenceGutter;
 		showAnnotationGutter;
+		viewerSettings.contentTheme;
+		viewerSettings.contentTextSize;
 		untrack(() => handleRenderUrn(currentUrn));
 	});
 
@@ -224,7 +227,10 @@
 			availableViews = result.availableViews;
 			availableStreams = result.availableStreams;
 			if (activeView !== result.activeView) activeView = result.activeView;
-			srcdocContent = result.srcdocContent;
+			srcdocContent = applyContentPresentation(result.srcdocContent, {
+				theme: viewerSettings.contentTheme,
+				textSize: viewerSettings.contentTextSize
+			});
 		} catch (e: unknown) {
 			if (generation !== renderGeneration) return;
 			console.error('Render failed', e);

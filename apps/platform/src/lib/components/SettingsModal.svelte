@@ -41,6 +41,18 @@
 		},
 		set density(val) {
 			if (themeContext) themeContext.density = val as any;
+		},
+		get contentTheme() {
+			return viewerSettings.contentTheme;
+		},
+		set contentTheme(val) {
+			viewerSettings.contentTheme = val as 'light' | 'dark';
+		},
+		get contentTextSize() {
+			return viewerSettings.contentTextSize;
+		},
+		set contentTextSize(val) {
+			viewerSettings.contentTextSize = val as 'small' | 'medium' | 'large';
 		}
 	};
 
@@ -56,8 +68,8 @@
 						{
 							id: 'theme',
 							type: 'select',
-							label: 'Theme',
-							description: 'Application color theme',
+							label: 'App theme',
+							description: 'Chrome (shell, library, sidebars) — not publication paper',
 							options: [
 								{ label: 'Light', value: 'light' },
 								{ label: 'Dark', value: 'dark' },
@@ -73,6 +85,27 @@
 								{ label: 'Compact', value: 'compact' },
 								{ label: 'Standard', value: 'standard' },
 								{ label: 'Comfortable', value: 'comfortable' }
+							]
+						},
+						{
+							id: 'contentTheme',
+							type: 'select',
+							label: 'Content theme',
+							description: 'Paper and ink inside the reader (publisher styles)',
+							options: [
+								{ label: 'Light', value: 'light' },
+								{ label: 'Dark', value: 'dark' }
+							]
+						},
+						{
+							id: 'contentTextSize',
+							type: 'select',
+							label: 'Content text size',
+							description: 'Scales publication text; separate from app density',
+							options: [
+								{ label: 'Small', value: 'small' },
+								{ label: 'Medium', value: 'medium' },
+								{ label: 'Large', value: 'large' }
 							]
 						}
 					]
