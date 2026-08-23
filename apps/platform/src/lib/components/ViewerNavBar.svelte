@@ -1,14 +1,23 @@
 <script lang="ts">
-	import { Button, Input, Select } from '@project-vyasa/vyasa-ui';
-	import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Sliders, X } from 'lucide-svelte';
+	import { Button, Input } from '@project-vyasa/vyasa-ui';
+	import {
+		ALargeSmall,
+		ChevronLeft,
+		ChevronRight,
+		Columns2,
+		Hash,
+		Layers,
+		Maximize2,
+		Minimize2,
+		Moon,
+		Rows2,
+		Sliders,
+		Sun,
+		X
+	} from 'lucide-svelte';
 	import { untrack } from 'svelte';
 	import { defaultGridTextFromStreams } from '$lib/viewer/grid-default-layout';
-	import {
-		CONTENT_TEXT_SIZE_OPTIONS,
-		CONTENT_THEME_OPTIONS,
-		type ContentTextSize,
-		type ContentThemeId
-	} from '$lib/viewer/content-presentation';
+	import { cycleContentTextSize, cycleContentTheme } from '$lib/viewer/content-presentation';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 
@@ -23,6 +32,7 @@
 		customGridLayoutJson?: string;
 		isDocumentLayout?: boolean;
 		vyasaUri?: string;
+		showReferenceGutter?: boolean;
 		onNavigatePrev: () => void;
 		onNavigateNext: () => void;
 		onNavigateUrn: () => void;
@@ -40,6 +50,7 @@
 		customGridLayoutJson = $bindable(),
 		isDocumentLayout = false,
 		vyasaUri = '',
+		showReferenceGutter = $bindable(true),
 		onNavigatePrev,
 		onNavigateNext,
 		onNavigateUrn,
@@ -114,43 +125,60 @@
 		if (customColumnCount > 0) layoutObj.columns = customColumnCount;
 		customGridLayoutJson = JSON.stringify(layoutObj);
 	}
+
+	function cycleTypeSize() {
+		viewerSettings.contentTextSize = cycleContentTextSize(viewerSettings.contentTextSize);
+	}
+
+	function cyclePaperTheme() {
+		viewerSettings.contentTheme = cycleContentTheme(viewerSettings.contentTheme);
+	}
+
+	function viewLabel(view: string): string {
+		if (view === 'grid') return 'Grid (columns)';
+		if (view === 'reading') return 'Reading (stacked)';
+		return view.charAt(0).toUpperCase() + view.slice(1);
+	}
+
+	function cycleView() {
+		const views = availableViews;
+		if (views.length < 2) return;
+		const current = activeView ?? views[0];
+		const i = views.indexOf(current);
+		activeView = views[(i < 0 ? 0 : i + 1) % views.length];
+	}
+
+	const typeSizeTitle = $derived(
+		`Content text size: ${viewerSettings.contentTextSize} (click to cycle)`
+	);
+	const currentView = $derived(activeView ?? availableViews[0] ?? 'grid');
+	const viewIcon = $derived(
+		currentView === 'grid' ? Columns2 : currentView === 'reading' ? Rows2 : Layers
+	);
+	const viewTitle = $derived(`View: ${viewLabel(currentView)} (click to cycle)`);
 </script>
 
 <div class="nav-bar-container">
-	<!-- Left spacer / View Selector -->
-	<div
-		style="flex: 1; display: flex; justify-content: flex-start; align-items: center; gap: var(--space-2); padding-left: var(--space-2);"
-	>
+	<div class="nav-cluster nav-cluster-start">
 		{#if availableViews && availableViews.length > 1 && !isDocumentLayout}
-			<div style="width: 11.5rem;">
-				<Select
-					options={availableViews.map((v) => ({
-						label:
-							v === 'grid'
-								? 'Grid (columns)'
-								: v === 'reading'
-									? 'Reading (stacked)'
-									: v.charAt(0).toUpperCase() + v.slice(1),
-						value: v
-					}))}
-					bind:value={activeView}
-				/>
-			</div>
-		{/if}
-		{#if activeView === 'grid' && availableStreams && availableStreams.length > 0 && !isDocumentLayout}
 			<Button
-				variant="outline"
-				size="sm"
-				icon={Sliders}
-				title="Customize Grid Layout Columns & Rows"
-				onclick={() => (showCustomizer = !showCustomizer)}
-			>
-				Customize
-			</Button>
+				variant="ghost"
+				size="icon"
+				icon={viewIcon}
+				title={viewTitle}
+				onclick={cycleView}
+			/>
 		{/if}
+		<Button
+			variant="ghost"
+			size="icon"
+			class="type-size-btn"
+			icon={ALargeSmall}
+			title={typeSizeTitle}
+			onclick={cycleTypeSize}
+		/>
 	</div>
 
-	<!-- Centered URN Navigation -->
 	<div class="nav-bar-inner">
 		<Button
 			variant="ghost"
@@ -178,30 +206,7 @@
 		<Button variant="ghost" size="icon" icon={ChevronRight} title="Next" onclick={onNavigateNext} />
 	</div>
 
-	<!-- Right-aligned presentation + maximize -->
-	<div
-		style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); padding-right: var(--space-2);"
-	>
-		<div class="content-presets" title="Publication paper and text (not app chrome)">
-			<div class="content-preset">
-				<Select
-					options={CONTENT_THEME_OPTIONS}
-					bind:value={
-						() => viewerSettings.contentTheme,
-						(v) => (viewerSettings.contentTheme = v as ContentThemeId)
-					}
-				/>
-			</div>
-			<div class="content-preset">
-				<Select
-					options={CONTENT_TEXT_SIZE_OPTIONS}
-					bind:value={
-						() => viewerSettings.contentTextSize,
-						(v) => (viewerSettings.contentTextSize = v as ContentTextSize)
-					}
-				/>
-			</div>
-		</div>
+	<div class="nav-cluster nav-cluster-end">
 		{#if vyasaUri}
 			<CopyVyasaLinkButton vyasaUri={vyasaUri} title="Copy link to this page" />
 		{/if}
@@ -212,6 +217,31 @@
 			title="Toggle Full Width"
 			onclick={onToggleFullWidth}
 		/>
+		<Button
+			variant="ghost"
+			size="icon"
+			icon={viewerSettings.contentTheme === 'dark' ? Moon : Sun}
+			title="Content theme: {viewerSettings.contentTheme} (click to toggle paper)"
+			onclick={cyclePaperTheme}
+		/>
+		{#if !isDocumentLayout}
+			<Button
+				variant={showReferenceGutter ? 'secondary' : 'ghost'}
+				size="icon"
+				icon={Hash}
+				title={showReferenceGutter ? 'Hide verse gutter' : 'Show verse gutter'}
+				onclick={() => (showReferenceGutter = !showReferenceGutter)}
+			/>
+		{/if}
+		{#if activeView === 'grid' && availableStreams && availableStreams.length > 0 && !isDocumentLayout}
+			<Button
+				variant="outline"
+				size="icon"
+				icon={Sliders}
+				title="Customize grid layout"
+				onclick={() => (showCustomizer = !showCustomizer)}
+			/>
+		{/if}
 	</div>
 
 	<!-- Floating Grid Customizer Popover -->
@@ -307,27 +337,40 @@
 		min-width: 60px;
 		text-align: center;
 	}
-	.content-presets {
+	.nav-cluster {
+		flex: 1;
 		display: flex;
 		align-items: center;
-		gap: var(--space-2);
-		flex-shrink: 0;
+		gap: var(--space-1);
+		min-width: 0;
 	}
-	.content-preset {
-		width: 7.75rem;
+	.nav-cluster-start {
+		justify-content: flex-start;
+		padding-left: var(--space-1);
+	}
+	.nav-cluster-end {
+		justify-content: flex-end;
+		padding-right: var(--space-1);
+	}
+	/* Lucide ALargeSmall uses ~40% of the 24×24 box (shared baseline). Other
+	   toolbar icons use ~75%. Scale so the letters match Hash/Sun optically. */
+	.nav-bar-container :global(.type-size-btn.btn svg) {
+		width: calc(1.9rem * var(--density));
+		height: calc(1.9rem * var(--density));
 	}
 
 	/* Customizer Popover Styles */
 	.customizer-popover {
 		position: absolute;
 		top: calc(100% + 6px);
-		left: var(--space-2);
+		right: var(--space-2);
+		left: auto;
 		z-index: 100;
 		background-color: var(--bg-surface);
 		border: 1px solid var(--border-strong);
 		border-radius: var(--radius-md);
 		box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-		width: 440px;
+		width: min(440px, calc(100% - 2 * var(--space-2)));
 		padding: var(--space-3);
 		display: flex;
 		flex-direction: column;

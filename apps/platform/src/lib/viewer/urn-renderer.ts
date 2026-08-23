@@ -12,6 +12,7 @@ import { entityAnnotateBinding } from '$lib/viewer/graph-annotate';
 import { buildTemplatesJson } from '$lib/viewer/templates-json';
 import { recordPerfPhase } from '$lib/viewer/perf-guard';
 import { applyLayoutShells } from '$lib/viewer/layout-shells';
+import { viewerGutterChromeCss } from '$lib/viewer/viewer-gutter-chrome';
 import {
 	buildDefaultGridLayoutJson,
 	resolveManifestStreamOrder
@@ -293,37 +294,7 @@ export async function renderUrn(
 	if (!isDocumentLayout) {
 		const viewerChromeCss = `<style>
 /* Core Viewer Chrome & Gutters (Decoupled from Publisher) */
-.urn-row {
-	display: flex;
-	align-items: flex-start;
-	gap: ${showReferenceGutter || showAnnotationGutter ? '1.25rem' : '0'};
-	padding: 0.75rem 0;
-	border-bottom: 1px solid #eee;
-	width: 100%;
-}
-.left-gutter {
-	display: ${showReferenceGutter || showAnnotationGutter ? 'flex' : 'none'};
-	flex-direction: column;
-	gap: 0.5rem;
-	flex: 0 0 ${showAnnotationGutter ? '120px' : '50px'};
-	position: sticky;
-	top: 1rem;
-	font-family: monospace;
-	font-size: 0.85rem;
-}
-.urn-badge-wrapper {
-	display: ${showReferenceGutter ? 'block' : 'none'};
-}
-.urn-content {
-	flex: 1 1 0%;
-	min-width: 0;
-}
-.gutter-annotations {
-	display: ${showAnnotationGutter ? 'flex' : 'none'};
-	flex-direction: column;
-	gap: 0.35rem;
-	align-items: flex-start;
-}
+${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 .urn-badge {
 	display: inline-block;
 	padding: 0.2rem 0.5rem;

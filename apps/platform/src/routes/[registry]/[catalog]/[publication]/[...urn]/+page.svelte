@@ -280,6 +280,7 @@
 			onNavigateNext={navigateNext}
 			onNavigateUrn={navigateUrn}
 			onToggleFullWidth={() => (isFullWidth = !isFullWidth)}
+			bind:showReferenceGutter
 		/>
 	{/key}
 {/snippet}

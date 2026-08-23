@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
+	import { getContext } from 'svelte';
 	import SettingsModal from './SettingsModal.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
@@ -27,12 +28,22 @@
 
 	const publicationId = $derived(page.params.publication || activePublication.publicationId);
 
+	const shell = getContext<{ toggleLeft: () => void }>('shellState');
+
 	const active = $derived.by(() => {
 		if (page.url.pathname.includes('/diagnostics')) return 'diagnostics';
 		if (page.url.pathname.includes('/explore')) return 'explore';
 		if (page.params.publication) return 'reader';
 		return 'library';
 	});
+
+	function activateOrToggle(id: 'library' | 'reader' | 'explore', href: string) {
+		if (active === id) {
+			shell?.toggleLeft();
+			return;
+		}
+		goto(href);
+	}
 </script>
 
 <ActivityBar>
@@ -45,9 +56,7 @@
 					class="activity-item"
 					icon={Library}
 					title="Library"
-					onclick={() => {
-						goto(base || '/');
-					}}
+					onclick={() => activateOrToggle('library', base || '/')}
 				/>
 			{/snippet}
 		</ActivityBarItem>
@@ -60,9 +69,7 @@
 						class="activity-item"
 						icon={BookOpen}
 						title="Reader"
-						onclick={() => {
-							if (active !== 'reader') goto(activePublication.readerUrl);
-						}}
+						onclick={() => activateOrToggle('reader', activePublication.readerUrl)}
 					/>
 				{/snippet}
 			</ActivityBarItem>
@@ -74,9 +81,7 @@
 						class="activity-item"
 						icon={Compass}
 						title="Explore"
-						onclick={() => {
-							if (active !== 'explore') goto(activePublication.exploreUrl);
-						}}
+						onclick={() => activateOrToggle('explore', activePublication.exploreUrl)}
 					/>
 				{/snippet}
 			</ActivityBarItem>

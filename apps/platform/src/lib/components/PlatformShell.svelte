@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { AppShell, AppHeader } from '@project-vyasa/vyasa-ui';
 	import { setContext, getContext, type Snippet } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import ViewerActivityBar from '$lib/components/ViewerActivityBar.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
@@ -27,6 +28,14 @@
 	let topVisible = $state(true);
 	let bottomVisible = $state(false);
 	let leftWidth = $state(320);
+
+	const handsetQuery = new MediaQuery('max-width: 48rem');
+	let wasHandset = $state(false);
+	$effect(() => {
+		const now = handsetQuery.current;
+		if (now && !wasHandset) leftVisible = false;
+		wasHandset = now;
+	});
 
 	setContext('shellState', {
 		setSidebarLeft: (s: Snippet | undefined) => (sidebarLeft = s),
@@ -84,12 +93,12 @@
 	{sidebarRight}
 	{sidebarTop}
 	{panelBottom}
-	{leftVisible}
-	{rightVisible}
 	{topVisible}
 	{bottomVisible}
 	{leftWidth}
 	topHeight={48}
+	bind:leftVisible
+	bind:rightVisible
 >
 	{#snippet header()}
 		<AppHeader

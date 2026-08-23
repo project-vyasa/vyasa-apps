@@ -18,6 +18,17 @@ export const CONTENT_TEXT_SIZE_OPTIONS: { label: string; value: ContentTextSize 
 	{ label: 'Large', value: 'large' }
 ];
 
+const TEXT_SIZE_CYCLE: ContentTextSize[] = ['small', 'medium', 'large'];
+
+export function cycleContentTextSize(current: ContentTextSize): ContentTextSize {
+	const i = TEXT_SIZE_CYCLE.indexOf(current);
+	return TEXT_SIZE_CYCLE[(i < 0 ? 0 : i + 1) % TEXT_SIZE_CYCLE.length];
+}
+
+export function cycleContentTheme(current: ContentThemeId): ContentThemeId {
+	return current === 'light' ? 'dark' : 'light';
+}
+
 const THEME_CLASS_RE = /\btheme-[a-z0-9-]+\b/gi;
 
 /** Stamp publication presentation onto iframe srcdoc (not app chrome). */

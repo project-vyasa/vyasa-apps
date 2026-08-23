@@ -35,6 +35,20 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 - [ ] **RV viewer perf (DevTools)** — profile `[Vyasa perf]` timings; sukta switch ~2s suspect `renderUrn` / viewport SQL. See `vyasa/docs/PERFORMANCE_GUARDS.md`. *Paused for manual debugging.*
 - [ ] **Annotation syntax review** — linguist-friendly alternatives to `{ key=value }` maps. **Backlog:** [`annotation-syntax-review.md`](./annotation-syntax-review.md) · cross-repo entry `vyasa/notes/BACKLOG.md` §9.
 
+## Deferred — handset morph (one app, not a second)
+
+> 2026-08-22. One app. **UI agent:** [`vyasa-ui/svelte/notes/feature-request-appshell-compact.md`](../../vyasa-ui/svelte/notes/feature-request-appshell-compact.md).
+
+**Verified in apps:** re-click active activity toggles left.
+
+**Done in apps (gutter chrome):** Hash icon (not `PanelLeft`); navbar toggles `showReferenceGutter` and hides the whole `.left-gutter`. Sidebar **Annotations** switch still only hides badges inside a visible URN column.
+
+**Inherit after ui compact shell (do not block ui):**
+- 02a tuck `sidebarTop` into bottom bar or Settings once shell morphs.
+- 02b AppHeader fade — **wait**.
+
+**Still deferred:** chapter go-to (`book01:`) / viewer search guide.
+
 ## NEXT
 
 - [ ] **Bitmask facet index** — leaf ordinals + `Uint32Array` bitsets replacing `Map<string, Set<string>>`; speeds Explore today, prerequisite for Atlas.
