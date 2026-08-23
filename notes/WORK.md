@@ -43,11 +43,13 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 
 **Done in apps (gutter chrome):** Hash icon (not `PanelLeft`); navbar toggles `showReferenceGutter` and hides the whole `.left-gutter`. Sidebar **Annotations** switch still only hides badges inside a visible URN column.
 
-**Inherit after ui compact shell (do not block ui):**
-- 02a tuck `sidebarTop` into bottom bar or Settings once shell morphs.
-- 02b AppHeader fade — **wait**.
+**Inherit after ui compact shell:**
+- 02a tuck `sidebarTop` into bottom bar or Settings.
+- 02b immersive chrome — **done**: AppShell `chromeHidden`; reader tap toggles all three strips; scroll-up reveals. Compact leaf swipe (left = next, right = prev) replaces navbar chevrons. Handset defaults: gutter off; prefer non-grid view.
 
 **Still deferred:** chapter go-to (`book01:`) / viewer search guide.
+
+- [x] **Compact URN entry** — Handset top bar accepts a full URN (`1:0:5`); last 8 typed/sidebar jumps remembered per publication. Desktop still uses the leaf field. Recents open on field focus (no History button).
 
 ## NEXT
 

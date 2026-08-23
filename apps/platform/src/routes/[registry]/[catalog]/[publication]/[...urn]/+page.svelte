@@ -4,19 +4,36 @@
 	import { Panel } from '@project-vyasa/vyasa-ui';
 	import { goto } from '$app/navigation';
 	import { onDestroy, getContext, untrack, type Snippet } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import { ViewerDb } from '$lib/ViewerDb';
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { renderUrn } from '$lib/viewer/urn-renderer';
+	import { attachShellChromeGestures } from '$lib/viewer/shell-chrome-gestures';
 	import { applyContentPresentation } from '$lib/viewer/content-presentation';
+	import {
+		listUrnRecents,
+		normalizeUrnInput,
+		publicationUrnKey,
+		rememberUrnRecent
+	} from '$lib/viewer/urn-recents';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
-	import { navigateReaderNext, navigateReaderPrev, readerNavUrl } from '$lib/viewer/reader-navigation';
+	import {
+		navigateReaderNext,
+		navigateReaderPrev,
+		readerNavUrl
+	} from '$lib/viewer/reader-navigation';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
 	import ReaderNavigationPanel from '$lib/components/ReaderNavigationPanel.svelte';
 	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
-	import { catalogRefFromParams, publicationReaderPath, catalogLinkToVyasaUri } from '$lib/catalog-ref';
+	import {
+		catalogRefFromParams,
+		publicationReaderPath,
+		catalogLinkToVyasaUri
+	} from '$lib/catalog-ref';
+	import { defaultReferenceGutterVisible } from '$lib/viewer/view-defaults';
 	import type { PackageData } from '$lib/types';
 	import type { VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 
@@ -45,8 +62,28 @@
 		setSidebarRight: (s: Snippet | undefined) => void;
 		setSidebarTop: (s: Snippet | undefined) => void;
 		setPanelBottom: (s: Snippet | undefined) => void;
+		toggleChrome?: () => void;
+		revealChrome?: () => void;
 	}>('shellState');
 
+	let viewerFrame = $state<HTMLIFrameElement | null>(null);
+	let detachChromeGestures: (() => void) | undefined;
+
+	function bindChromeGestures() {
+		detachChromeGestures?.();
+		const doc = viewerFrame?.contentDocument;
+		if (!doc || !shell.toggleChrome || !shell.revealChrome) return;
+		detachChromeGestures = attachShellChromeGestures(doc, {
+			toggle: () => shell.toggleChrome?.(),
+			reveal: () => shell.revealChrome?.(),
+			swipeLeft: () => navigateNext(),
+			swipeRight: () => navigatePrev()
+		});
+	}
+
+	onDestroy(() => detachChromeGestures?.());
+
+	const handsetQuery = new MediaQuery('max-width: 48rem');
 	let isFullWidth = $state(false);
 	let srcdocContent = $state('');
 	let errorMessage = $state<string | null>(null);
@@ -60,7 +97,24 @@
 	let urnComponents = $state<string[]>([]);
 	let currentUrnParts = $state<string[]>([]);
 	let showReferenceGutter = $state(true);
+	let handsetGutterDefaultApplied = false;
+	$effect(() => {
+		const handset = handsetQuery.current;
+		untrack(() => {
+			if (handsetGutterDefaultApplied) return;
+			handsetGutterDefaultApplied = true;
+			showReferenceGutter = defaultReferenceGutterVisible(handset);
+		});
+	});
 	let renderGeneration = 0;
+	const urnRecentKey = $derived(publicationUrnKey(registryId, catalogId, publicationId));
+	let urnRecents = $state<string[]>([]);
+	$effect(() => {
+		const key = urnRecentKey;
+		untrack(() => {
+			urnRecents = listUrnRecents(key);
+		});
+	});
 
 	let chromeStream = $state('');
 	let showAnnotationGutter = $state(viewerSettings.showAnnotationGutter);
@@ -178,8 +232,7 @@
 			activeView = undefined;
 			customGridLayoutJson = undefined;
 
-			const primary =
-				(result.packageData.manifest as { primary_stream?: string })?.primary_stream;
+			const primary = (result.packageData.manifest as { primary_stream?: string })?.primary_stream;
 			const labelStreams = chromeStreamsFromVocabulary(result.packageData.vocabulary, primary);
 			const preferred = viewerSettings.chromeStream;
 			chromeStream =
@@ -220,7 +273,8 @@
 				chromeStream,
 				customGridLayoutJson,
 				showReferenceGutter,
-				showAnnotationGutter
+				showAnnotationGutter,
+				handsetQuery.current
 			);
 			if (generation !== renderGeneration) return;
 			activeUrns = result.activeUrns;
@@ -246,12 +300,18 @@
 	}
 
 	function onNavigate(target: string) {
-		if (target) goto(navUrl(target));
+		goToUrn(target);
+	}
+
+	function goToUrn(target: string) {
+		const next = normalizeUrnInput(target);
+		if (!next) return;
+		urnRecents = rememberUrnRecent(urnRecentKey, next);
+		goto(navUrl(next));
 	}
 
 	function navigateUrn() {
-		const target = currentUrnParts.filter((p) => p.trim() !== '').join(':');
-		onNavigate(target);
+		goToUrn(currentUrnParts.filter((p) => p.trim() !== '').join(':'));
 	}
 
 	function navigateNext() {
@@ -279,6 +339,8 @@
 			onNavigatePrev={navigatePrev}
 			onNavigateNext={navigateNext}
 			onNavigateUrn={navigateUrn}
+			onGoToUrn={goToUrn}
+			{urnRecents}
 			onToggleFullWidth={() => (isFullWidth = !isFullWidth)}
 			bind:showReferenceGutter
 		/>
@@ -292,7 +354,7 @@
 		{chromeStreams}
 		bind:chromeStream
 		bind:showAnnotationGutter
-		onNavigate={onNavigate}
+		{onNavigate}
 	/>
 {/snippet}
 
@@ -311,10 +373,12 @@
 		<LoadingBrand message="Loading {publicationId}…" />
 	{:else}
 		<iframe
+			bind:this={viewerFrame}
 			srcdoc={srcdocContent}
 			title="Vyasa Content"
 			class="viewer-iframe"
 			class:full-width={isFullWidth}
+			onload={bindChromeGestures}
 		></iframe>
 	{/if}
 </div>

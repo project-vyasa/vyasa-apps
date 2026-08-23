@@ -28,13 +28,22 @@
 	let topVisible = $state(true);
 	let bottomVisible = $state(false);
 	let leftWidth = $state(320);
+	let chromeHidden = $state(false);
 
 	const handsetQuery = new MediaQuery('max-width: 48rem');
 	let wasHandset = $state(false);
+	const isReaderSurface = $derived(
+		Boolean(page.params.publication) &&
+			!page.url.pathname.includes('/explore') &&
+			!page.url.pathname.includes('/diagnostics')
+	);
 	$effect(() => {
 		const now = handsetQuery.current;
 		if (now && !wasHandset) leftVisible = false;
 		wasHandset = now;
+	});
+	$effect(() => {
+		if (!handsetQuery.current || !isReaderSurface) chromeHidden = false;
 	});
 
 	setContext('shellState', {
@@ -46,7 +55,14 @@
 		toggleLeft: () => (leftVisible = !leftVisible),
 		toggleRight: () => (rightVisible = !rightVisible),
 		toggleTop: () => (topVisible = !topVisible),
-		toggleBottom: () => (bottomVisible = !bottomVisible)
+		toggleBottom: () => (bottomVisible = !bottomVisible),
+		toggleChrome: () => {
+			if (!handsetQuery.current) return;
+			chromeHidden = !chromeHidden;
+		},
+		revealChrome: () => {
+			chromeHidden = false;
+		}
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -99,6 +115,7 @@
 	topHeight={48}
 	bind:leftVisible
 	bind:rightVisible
+	bind:chromeHidden
 >
 	{#snippet header()}
 		<AppHeader
@@ -165,7 +182,8 @@
 							{#if activePublication.timestamp}
 								<span class="debug-item">
 									<span class="debug-label">packed</span>
-									<span class="debug-value">{formatEpoch(Number(activePublication.timestamp))}</span>
+									<span class="debug-value">{formatEpoch(Number(activePublication.timestamp))}</span
+									>
 								</span>
 							{/if}
 						</div>

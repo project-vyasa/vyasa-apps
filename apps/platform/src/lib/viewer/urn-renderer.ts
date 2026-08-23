@@ -17,6 +17,7 @@ import {
 	buildDefaultGridLayoutJson,
 	resolveManifestStreamOrder
 } from '$lib/viewer/grid-default-layout';
+import { pickInitialActiveView } from '$lib/viewer/view-defaults';
 
 function normalizeBlockContent(content: unknown): Uint8Array {
 	if (content instanceof Uint8Array) return content;
@@ -28,10 +29,7 @@ function normalizeBlockContent(content: unknown): Uint8Array {
 const BUILTIN_VIEWS = new Set(['grid']);
 
 /** Views that only supply a layout shell are stylesheet infrastructure, not reading modes. */
-function getSelectableViews(
-	viewsFromDb: string[],
-	projections: Record<string, string>
-): string[] {
+function getSelectableViews(viewsFromDb: string[], projections: Record<string, string>): string[] {
 	const viewsWithWeaveTemplate = new Set<string>();
 	for (const key of Object.keys(projections)) {
 		const idx = key.indexOf('_');
@@ -79,7 +77,8 @@ export async function renderUrn(
 	activeStream: string | undefined,
 	customGridLayoutJson?: string,
 	showReferenceGutter: boolean = true,
-	showAnnotationGutter: boolean = true
+	showAnnotationGutter: boolean = true,
+	preferNonGrid: boolean = false
 ): Promise<RenderResult> {
 	const renderT0 = performance.now();
 	const isDocumentLayout =
@@ -153,25 +152,20 @@ export async function renderUrn(
 		);
 	}
 	if (!currentActiveView) {
-		if (isDocumentLayout && currentAvailableViews.includes('reading')) {
-			currentActiveView = 'reading';
-		} else if (currentAvailableViews.includes('grid')) {
-			currentActiveView = 'grid';
-		} else {
-			currentActiveView = currentAvailableViews[0] || 'grid';
-		}
+		currentActiveView = pickInitialActiveView(currentAvailableViews, {
+			isDocumentLayout,
+			preferNonGrid
+		});
 	}
 
 	let currentActiveStream = activeStream;
 	const primaryStream = (packageData.manifest as Manifest)?.primary_stream;
 	if (!currentActiveStream) {
-		currentActiveStream = primaryStream && allStreams.includes(primaryStream)
-			? primaryStream
-			: (allStreams[0] || '');
+		currentActiveStream =
+			primaryStream && allStreams.includes(primaryStream) ? primaryStream : allStreams[0] || '';
 	}
 
-	const templatesJson =
-		packageData.templatesJson ?? buildTemplatesJson(packageData.projections);
+	const templatesJson = packageData.templatesJson ?? buildTemplatesJson(packageData.projections);
 
 	// 7. Weave view via WASM (graph weave context pre-merged at load)
 	const optionsJson = buildWeaveOptionsJson(
@@ -191,24 +185,16 @@ export async function renderUrn(
 		}
 		viewNodes = graphRuntime.weave_layout(rowsJson, layoutJson, optionsJson);
 	} else {
-		viewNodes = graphRuntime.weave_view(
-			rowsJson,
-			templatesJson,
-			currentActiveView,
-			optionsJson
-		);
+		viewNodes = graphRuntime.weave_view(rowsJson, templatesJson, currentActiveView, optionsJson);
 	}
 
 	// 8. Theme shell wraps all views; craft `{view}_layout` wraps items first.
-	const prefix = (packageData.manifest as any)?.prefix || (packageData.manifest as any)?.global_prefix || '';
+	const prefix =
+		(packageData.manifest as any)?.prefix || (packageData.manifest as any)?.global_prefix || '';
 	let itemsHtml = '';
 	for (const node of viewNodes) {
 		// Filter out container placeholder rows (e.g. 1:0 or ending in :0 / .0 or empty content)
-		if (
-			node.urn.endsWith(':0') ||
-			node.urn.endsWith('.0') ||
-			isPlaceholderContent(node.content)
-		) {
+		if (node.urn.endsWith(':0') || node.urn.endsWith('.0') || isPlaceholderContent(node.content)) {
 			continue;
 		}
 
@@ -225,10 +211,7 @@ export async function renderUrn(
 		let annotationBadgesHtml = '';
 		const annIndex = packageData.annotationsByUrn;
 		const matchingAnns = annIndex
-			? [
-					...(annIndex[node.urn] ?? []),
-					...(annIndex[shortUrn] ?? [])
-				]
+			? [...(annIndex[node.urn] ?? []), ...(annIndex[shortUrn] ?? [])]
 			: (packageData.annotations ?? []).filter(
 					(ann) =>
 						ann.urn === node.urn ||
@@ -267,7 +250,14 @@ export async function renderUrn(
 						ann.attributes.text ||
 						ann.attributes.value ||
 						'Editorial Note';
-					const noteLabelLoc = getVocabularyLabel(packageData.vocabulary, 'actions', 'note', currentActiveStream, primaryStream) || 'Note';
+					const noteLabelLoc =
+						getVocabularyLabel(
+							packageData.vocabulary,
+							'actions',
+							'note',
+							currentActiveStream,
+							primaryStream
+						) || 'Note';
 					annotationBadgesHtml += `<span class="note-badge" title="${noteLabelLoc}: ${noteText}">📝</span>`;
 				}
 			}
@@ -278,7 +268,9 @@ export async function renderUrn(
 		if (isDocumentLayout) {
 			itemsHtml += `<div id="${node.urn}" class="urn-content-doc">${displayContent}</div>`;
 		} else {
-			const badgesBlock = annotationBadgesHtml ? `<div class="gutter-annotations">${annotationBadgesHtml}</div>` : '';
+			const badgesBlock = annotationBadgesHtml
+				? `<div class="gutter-annotations">${annotationBadgesHtml}</div>`
+				: '';
 			itemsHtml += `<div id="${node.urn}" class="urn-row">
 	<div class="urn-gutter left-gutter"><div class="urn-badge-wrapper"><span class="urn-badge">${shortUrn}</span></div>${badgesBlock}</div>
 	<div class="urn-content"><div class="urn-text">${displayContent}</div></div>
@@ -286,11 +278,7 @@ export async function renderUrn(
 		}
 	}
 
-	let finalHtml = applyLayoutShells(
-		itemsHtml,
-		currentActiveView,
-		packageData.projections
-	);
+	let finalHtml = applyLayoutShells(itemsHtml, currentActiveView, packageData.projections);
 	if (!isDocumentLayout) {
 		const viewerChromeCss = `<style>
 /* Core Viewer Chrome & Gutters (Decoupled from Publisher) */
@@ -337,11 +325,7 @@ ${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 		}
 	}
 
-	recordPerfPhase(
-		packageData.perfTimings ?? {},
-		'renderUrn',
-		performance.now() - renderT0
-	);
+	recordPerfPhase(packageData.perfTimings ?? {}, 'renderUrn', performance.now() - renderT0);
 
 	return {
 		srcdocContent: finalHtml,

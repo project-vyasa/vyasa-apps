@@ -16,6 +16,7 @@
 		X
 	} from 'lucide-svelte';
 	import { untrack } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import { defaultGridTextFromStreams } from '$lib/viewer/grid-default-layout';
 	import { cycleContentTextSize, cycleContentTheme } from '$lib/viewer/content-presentation';
 	import { viewerSettings } from '$lib/settings.svelte';
@@ -33,9 +34,11 @@
 		isDocumentLayout?: boolean;
 		vyasaUri?: string;
 		showReferenceGutter?: boolean;
+		urnRecents?: string[];
 		onNavigatePrev: () => void;
 		onNavigateNext: () => void;
 		onNavigateUrn: () => void;
+		onGoToUrn: (target: string) => void;
 		onToggleFullWidth: () => void;
 	}
 
@@ -51,9 +54,11 @@
 		isDocumentLayout = false,
 		vyasaUri = '',
 		showReferenceGutter = $bindable(true),
+		urnRecents = [],
 		onNavigatePrev,
 		onNavigateNext,
 		onNavigateUrn,
+		onGoToUrn,
 		onToggleFullWidth
 	}: Props = $props();
 
@@ -145,7 +150,9 @@
 		if (views.length < 2) return;
 		const current = activeView ?? views[0];
 		const i = views.indexOf(current);
-		activeView = views[(i < 0 ? 0 : i + 1) % views.length];
+		const next = views[(i < 0 ? 0 : i + 1) % views.length];
+		if (next !== 'grid') showCustomizer = false;
+		activeView = next;
 	}
 
 	const typeSizeTitle = $derived(
@@ -156,19 +163,31 @@
 		currentView === 'grid' ? Columns2 : currentView === 'reading' ? Rows2 : Layers
 	);
 	const viewTitle = $derived(`View: ${viewLabel(currentView)} (click to cycle)`);
+	const compact = new MediaQuery('max-width: 48rem');
+	let draftUrn = $state('');
+	let showRecents = $state(false);
+
+	$effect(() => {
+		const routeUrn = urn;
+		untrack(() => {
+			if (routeUrn && routeUrn !== 'root') draftUrn = routeUrn;
+		});
+	});
+
+	function submitFullUrn() {
+		showRecents = false;
+		onGoToUrn(draftUrn);
+	}
+
+	function pickRecent(item: string) {
+		draftUrn = item;
+		showRecents = false;
+		onGoToUrn(item);
+	}
 </script>
 
-<div class="nav-bar-container">
+<div class="nav-bar-container" class:pack-start={compact.current}>
 	<div class="nav-cluster nav-cluster-start">
-		{#if availableViews && availableViews.length > 1 && !isDocumentLayout}
-			<Button
-				variant="ghost"
-				size="icon"
-				icon={viewIcon}
-				title={viewTitle}
-				onclick={cycleView}
-			/>
-		{/if}
 		<Button
 			variant="ghost"
 			size="icon"
@@ -177,23 +196,59 @@
 			title={typeSizeTitle}
 			onclick={cycleTypeSize}
 		/>
+		{#if !isDocumentLayout}
+			<Button
+				variant={showReferenceGutter ? 'secondary' : 'ghost'}
+				size="icon"
+				icon={Hash}
+				title={showReferenceGutter ? 'Hide verse gutter' : 'Show verse gutter'}
+				onclick={() => (showReferenceGutter = !showReferenceGutter)}
+			/>
+		{/if}
+		{#if availableViews && availableViews.length > 1 && !isDocumentLayout}
+			<Button variant="ghost" size="icon" icon={viewIcon} title={viewTitle} onclick={cycleView} />
+		{/if}
+		{#if activeView === 'grid' && availableStreams && availableStreams.length > 0 && !isDocumentLayout}
+			<Button
+				variant="outline"
+				size="icon"
+				icon={Sliders}
+				title="Customize grid layout"
+				onclick={() => (showCustomizer = !showCustomizer)}
+			/>
+		{/if}
 	</div>
 
 	<div class="nav-bar-inner">
-		<Button
-			variant="ghost"
-			size="icon"
-			icon={ChevronLeft}
-			title="Previous"
-			onclick={onNavigatePrev}
-		/>
-		<div class="nav-bar-inputs">
-			{#if urnComponents.length > 0}
+		{#if !compact.current}
+			<Button
+				variant="ghost"
+				size="icon"
+				icon={ChevronLeft}
+				title="Previous"
+				onclick={onNavigatePrev}
+			/>
+		{/if}
+		<div class="nav-bar-inputs" class:urn-field-only={compact.current}>
+			{#if compact.current}
+				<div class="urn-input-wrapper urn-input-full">
+					<Input
+						bind:value={draftUrn}
+						onkeydown={(e) => e.key === 'Enter' && submitFullUrn()}
+						onfocus={() => (showRecents = urnRecents.length > 0)}
+						onblur={() => (showRecents = false)}
+						placeholder={urnComponents.length ? urnComponents.join(':') : 'URN'}
+						title="Go to URN. Swipe the text left for next, right for previous."
+						style="text-align: center; font-family: var(--font-mono); font-size: small;"
+					/>
+				</div>
+			{:else if urnComponents.length > 0}
 				{@const lastIdx = urnComponents.length - 1}
 				<div class="urn-input-wrapper">
 					<Input
 						bind:value={currentUrnParts[lastIdx]}
 						onkeydown={(e) => e.key === 'Enter' && onNavigateUrn()}
+						onfocus={() => (showRecents = urnRecents.length > 0)}
 						onblur={onNavigateUrn}
 						placeholder={urnComponents[lastIdx]}
 						style="text-align: center; font-family: var(--font-mono); font-size: small;"
@@ -203,12 +258,37 @@
 				<div class="urn-readonly">{urn}</div>
 			{/if}
 		</div>
-		<Button variant="ghost" size="icon" icon={ChevronRight} title="Next" onclick={onNavigateNext} />
+		{#if !compact.current}
+			<Button
+				variant="ghost"
+				size="icon"
+				icon={ChevronRight}
+				title="Next"
+				onclick={onNavigateNext}
+			/>
+		{/if}
 	</div>
+
+	{#if showRecents && urnRecents.length > 0}
+		<ul class="urn-recents">
+			{#each urnRecents as item (item)}
+				<li>
+					<button
+						type="button"
+						class="urn-recent-item"
+						onmousedown={(e) => e.preventDefault()}
+						onclick={() => pickRecent(item)}
+					>
+						{item}
+					</button>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 
 	<div class="nav-cluster nav-cluster-end">
 		{#if vyasaUri}
-			<CopyVyasaLinkButton vyasaUri={vyasaUri} title="Copy link to this page" />
+			<CopyVyasaLinkButton {vyasaUri} title="Copy link to this page" />
 		{/if}
 		<Button
 			variant="ghost"
@@ -224,24 +304,6 @@
 			title="Content theme: {viewerSettings.contentTheme} (click to toggle paper)"
 			onclick={cyclePaperTheme}
 		/>
-		{#if !isDocumentLayout}
-			<Button
-				variant={showReferenceGutter ? 'secondary' : 'ghost'}
-				size="icon"
-				icon={Hash}
-				title={showReferenceGutter ? 'Hide verse gutter' : 'Show verse gutter'}
-				onclick={() => (showReferenceGutter = !showReferenceGutter)}
-			/>
-		{/if}
-		{#if activeView === 'grid' && availableStreams && availableStreams.length > 0 && !isDocumentLayout}
-			<Button
-				variant="outline"
-				size="icon"
-				icon={Sliders}
-				title="Customize grid layout"
-				onclick={() => (showCustomizer = !showCustomizer)}
-			/>
-		{/if}
 	</div>
 
 	<!-- Floating Grid Customizer Popover -->
@@ -315,6 +377,8 @@
 	}
 	.nav-bar-inner {
 		display: flex;
+		flex-wrap: nowrap;
+		flex-shrink: 0;
 		align-items: center;
 		gap: 0;
 		background-color: var(--bg-surface-alt);
@@ -324,12 +388,55 @@
 	.nav-bar-inputs {
 		display: flex;
 		align-items: center;
-		padding: 0 var(--space-3);
+		padding: 0 var(--space-2);
 		border-left: 1px solid var(--border-base);
 		border-right: 1px solid var(--border-base);
+		gap: 2px;
+	}
+	.nav-bar-inputs.urn-field-only {
+		padding: 0 2px;
+		border-left: none;
+		border-right: none;
 	}
 	.urn-input-wrapper {
 		width: calc(3.5rem * var(--density, 1));
+	}
+	.urn-input-full {
+		width: 5rem;
+	}
+	.urn-input-full :global(.input-wrapper) {
+		padding-inline: 0.25rem;
+	}
+	.urn-recents {
+		position: absolute;
+		top: calc(100% - 4px);
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 80;
+		margin: 0;
+		padding: var(--space-1);
+		list-style: none;
+		min-width: 10rem;
+		background: var(--bg-surface);
+		border: 1px solid var(--border-strong);
+		border-radius: var(--radius-md);
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+	}
+	.urn-recent-item {
+		display: block;
+		width: 100%;
+		padding: 0.35rem 0.6rem;
+		border: none;
+		background: transparent;
+		color: var(--text-primary);
+		font-family: var(--font-mono);
+		font-size: var(--text-sm);
+		text-align: left;
+		cursor: pointer;
+		border-radius: var(--radius-sm);
+	}
+	.urn-recent-item:hover {
+		background: var(--bg-surface-alt);
 	}
 	.urn-readonly {
 		font-family: var(--font-mono);
@@ -351,6 +458,12 @@
 	.nav-cluster-end {
 		justify-content: flex-end;
 		padding-right: var(--space-1);
+	}
+	.nav-bar-container.pack-start .nav-cluster-start {
+		flex: 0 0 auto;
+	}
+	.nav-bar-container.pack-start .nav-cluster-end {
+		min-width: 0;
 	}
 	/* Lucide ALargeSmall uses ~40% of the 24×24 box (shared baseline). Other
 	   toolbar icons use ~75%. Scale so the letters match Hash/Sun optically. */
