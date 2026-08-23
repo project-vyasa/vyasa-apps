@@ -1,0 +1,1 @@
+import{U as e,dt as t,ft as n,st as r}from"../chunks/B40K7U_8.js";import"../chunks/xihTtKlq.js";import{t as i}from"../chunks/CTfnSwIB.js";import{t as a}from"../chunks/Dn6VpUmU.js";function o(o,s){n(s,!0);let c=r(()=>a.params.registry||``);i(o,{get registryId(){return e(c)}}),t()}export{o as component};
