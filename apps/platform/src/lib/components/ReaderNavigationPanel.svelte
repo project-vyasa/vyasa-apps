@@ -1,51 +1,43 @@
 <script lang="ts">
-	import { Panel, ListView, Select, Switch } from '@project-vyasa/vyasa-ui';
+	import { Panel, ListView, Select } from '@project-vyasa/vyasa-ui';
 	import { BookOpen } from 'lucide-svelte';
-	import type { PackageData } from '$lib/types';
 	import type { SidebarState } from '$lib/viewer/sidebar.svelte';
 
 	interface Props {
 		sidebar: SidebarState;
-		packageData: PackageData | null;
 		chromeStreams: string[];
 		chromeStream: string;
-		showAnnotationGutter: boolean;
 		onNavigate: (urn: string) => void;
 	}
 
 	let {
 		sidebar,
-		packageData,
 		chromeStreams,
 		chromeStream = $bindable(),
-		showAnnotationGutter = $bindable(),
 		onNavigate
 	}: Props = $props();
 </script>
 
 <Panel title="Navigation" icon={BookOpen}>
-	{#if chromeStreams.length > 0 || packageData?.annotations?.length}
+	{#if chromeStreams.length > 0}
 		<div class="nav-display-controls">
-			{#if chromeStreams.length > 0}
-				<div class="nav-control-row">
-					<span class="nav-control-label">Labels</span>
-					<div class="nav-control-field">
-						<Select
-							options={chromeStreams.map((s) => ({
-								label: s,
-								value: s
-							}))}
-							bind:value={chromeStream}
-						/>
-					</div>
+			<div class="nav-control-row">
+				<span
+					class="nav-control-label"
+					title="Language for titles, facet values, and navigation"
+				>
+					Language
+				</span>
+				<div class="nav-control-field">
+					<Select
+						options={chromeStreams.map((s) => ({
+							label: s,
+							value: s
+						}))}
+						bind:value={chromeStream}
+					/>
 				</div>
-			{/if}
-			{#if packageData?.annotations?.length}
-				<div class="nav-control-row">
-					<span class="nav-control-label">Annotations</span>
-					<Switch bind:checked={showAnnotationGutter} />
-				</div>
-			{/if}
+			</div>
 		</div>
 	{/if}
 	{#if sidebar.items.length > 0}

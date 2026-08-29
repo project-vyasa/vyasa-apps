@@ -344,8 +344,10 @@
 			/>
 		</div>
 		{#if chromeStreams.length > 0}
-			<div class="labels-control">
-				<span class="labels-label">Labels</span>
+			<div
+				class="labels-control"
+				title="Language for titles, facet values, and navigation"
+			>
 				<Select
 					options={chromeStreams.map((s) => ({ value: s, label: s }))}
 					bind:value={chromeStream}
@@ -354,10 +356,12 @@
 		{/if}
 		{#if selectionVyasaUri}
 			<div class="link-control">
-				<span class="labels-label" title={selectionVyasaUri}>
-					{manualSelections.length > 0 ? 'Selection link' : 'Publication link'}
-				</span>
-				<CopyVyasaLinkButton vyasaUri={selectionVyasaUri} />
+				<CopyVyasaLinkButton
+					vyasaUri={selectionVyasaUri}
+					title={manualSelections.length > 0
+						? 'Copy shareable link to this selection'
+						: 'Copy shareable link to this publication'}
+				/>
 			</div>
 		{/if}
 	</div>
@@ -457,32 +461,6 @@
 		align-items: center;
 		gap: var(--space-2);
 		margin-left: auto;
-	}
-
-	.labels-label {
-		font-size: 0.8rem;
-		color: var(--text-secondary);
-		font-weight: 500;
-		white-space: nowrap;
-	}
-
-	.top-controls {
-		display: flex;
-		align-items: center;
-		gap: var(--space-6);
-	}
-
-	.multi-select-toggle {
-		display: flex;
-		align-items: center;
-		gap: var(--space-3);
-		cursor: pointer;
-	}
-
-	.label-text {
-		font-size: 0.85rem;
-		color: var(--text-secondary);
-		font-weight: 500;
 	}
 
 	/* Left Sidebar */

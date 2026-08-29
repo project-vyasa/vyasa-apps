@@ -118,7 +118,7 @@ export async function loadPublication(
 	// 8. Build WASM graph runtime
 	const graphRuntime = new VyasaViewerRuntime(hierarchyJson, bitLayoutJson, globalPrefix);
 
-	// 8b. Load block attributes (titles) per stream — Labels chrome selects which set to show
+	// 8b. Load block attributes (titles) per stream — Language chrome selects which set to show
 	const attrRows = await viewerDb.query(
 		'SELECT s.name, ba.sequence_id, ba.attributes FROM block_attributes ba JOIN streams s ON ba.stream_id = s.id'
 	);

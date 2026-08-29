@@ -1,12 +1,14 @@
 <script lang="ts">
 	import LeafMatrix from './LeafMatrix.svelte';
+	import { BookOpen } from 'lucide-svelte';
 	import type { MapNode } from '../ExploreView.svelte';
 	import type { FacetIndex, FacetSelection } from '$lib/explore/facet-index';
+	import { flattenMapTiles } from '$lib/explore/map-tiles';
 	import SelectionMarquee from './SelectionMarquee.svelte';
 
 	interface Props {
 		nodes: MapNode[];
-		manualSelections: Array<{startUrn: string, endUrn: string}>;
+		manualSelections: Array<{ startUrn: string; endUrn: string }>;
 		activeFacets?: FacetSelection;
 		facetIndex?: FacetIndex;
 		mapFacetTypeId?: string | null;
@@ -21,6 +23,8 @@
 		mapFacetTypeId = null,
 		onMarqueeSelection
 	}: Props = $props();
+
+	const tiles = $derived(flattenMapTiles(nodes));
 
 	function handleMarqueeSelection(rect: DOMRect) {
 		const intersectingUrns: string[] = [];
@@ -47,44 +51,32 @@
 	}
 </script>
 
-{#snippet renderNodes(nodeList: MapNode[])}
-	{@const leaves = nodeList.filter(n => n.type === 'leaf-container')}
-	{@const branches = nodeList.filter(n => n.type === 'branch')}
-
-	{#if leaves.length > 0}
-		<div class="leaf-grid-wrapper">
-			{#each leaves as leaf}
-				<LeafMatrix
-					containerData={leaf}
-					{manualSelections}
-					{activeFacets}
-					{facetIndex}
-					{mapFacetTypeId}
-					blocksPerRow={10}
-				/>
-			{/each}
-		</div>
-	{/if}
-
-	{#if branches.length > 0}
-		{#each branches as branch}
-			<div class="branch-section">
-				<h3 class="branch-heading">{branch.title}</h3>
-				<div class="branch-children">
-					{@render renderNodes(branch.children)}
-				</div>
-			</div>
-		{/each}
-	{/if}
-{/snippet}
-
 <div class="data-map-container">
 	<SelectionMarquee onSelectionComplete={handleMarqueeSelection}>
 		<div class="map-content">
-			{#if nodes.length === 0}
+			{#if tiles.length === 0}
 				<div class="map-empty">No containers match the current filters.</div>
 			{:else}
-				{@render renderNodes(nodes)}
+				<div class="leaf-grid-wrapper">
+					{#each tiles as tile (tile.kind === 'book' ? `book:${tile.id}` : tile.node.id)}
+						{#if tile.kind === 'book'}
+							<section class="book-marker" aria-label={`Book ${tile.title}`}>
+								<BookOpen size={14} class="book-marker-icon" aria-hidden="true" />
+								<h3>{tile.title}</h3>
+								<span class="book-id">{tile.id}</span>
+							</section>
+						{:else}
+							<LeafMatrix
+								containerData={tile.node}
+								{manualSelections}
+								{activeFacets}
+								{facetIndex}
+								{mapFacetTypeId}
+								blocksPerRow={10}
+							/>
+						{/if}
+					{/each}
+				</div>
 			{/if}
 		</div>
 	</SelectionMarquee>
@@ -95,49 +87,66 @@
 		flex: 1;
 		background: var(--bg-body);
 		overflow-y: auto;
-		padding: var(--space-8);
+		padding: var(--space-4);
+		--leaf-cell: 8px;
+		--leaf-gap: 1px;
+		--leaf-cols: 10;
+		--chapter-width: calc(
+			var(--leaf-cols) * var(--leaf-cell) + (var(--leaf-cols) - 1) * var(--leaf-gap)
+		);
 	}
 
 	.map-content {
 		display: flex;
 		flex-direction: column;
-		gap: calc(var(--space-8) * 1.5);
+		gap: var(--space-4);
 		max-width: 1400px;
 		margin: 0 auto;
 	}
 
-	.branch-section {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-6);
-		padding-top: var(--space-8);
-		border-top: 1px solid var(--border-base);
-	}
-
-	.branch-section:first-child {
-		border-top: none;
-		padding-top: 0;
-	}
-
-	.branch-heading {
-		font-family: var(--font-heading);
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: var(--text-primary);
-		margin: 0;
-	}
-
 	.leaf-grid-wrapper {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: calc(var(--space-8) * 1.5) var(--space-8);
+		grid-template-columns: repeat(auto-fill, var(--chapter-width));
+		justify-content: start;
+		gap: var(--space-4) var(--space-3);
 		align-items: start;
 	}
 
-	.branch-children {
+	.book-marker {
+		box-sizing: border-box;
+		width: var(--chapter-width);
+		min-height: var(--chapter-width);
 		display: flex;
 		flex-direction: column;
-		gap: calc(var(--space-8) * 1.5);
+		justify-content: flex-end;
+		gap: 2px;
+		padding: var(--space-2);
+		border: 1px dashed color-mix(in srgb, var(--border-strong) 65%, transparent);
+		border-radius: var(--radius-md);
+		background: color-mix(in srgb, var(--bg-surface-alt) 80%, transparent);
+		color: var(--text-secondary);
+	}
+
+	.book-marker :global(.book-marker-icon) {
+		margin-bottom: auto;
+		opacity: 0.7;
+	}
+
+	.book-marker h3 {
+		margin: 0;
+		font-size: 0.6875rem;
+		font-weight: 400;
+		line-height: 1.2;
+		color: var(--text-primary);
+		overflow-wrap: anywhere;
+	}
+
+	.book-marker .book-id {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.625rem;
+		font-weight: 400;
+		white-space: nowrap;
+		color: var(--text-secondary);
 	}
 
 	.map-empty {

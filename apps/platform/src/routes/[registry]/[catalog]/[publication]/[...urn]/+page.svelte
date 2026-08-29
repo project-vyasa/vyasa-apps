@@ -117,7 +117,6 @@
 	});
 
 	let chromeStream = $state('');
-	let showAnnotationGutter = $state(viewerSettings.showAnnotationGutter);
 	const chromeStreams = $derived(
 		chromeStreamsFromVocabulary(
 			packageData?.vocabulary,
@@ -128,10 +127,6 @@
 	$effect(() => {
 		const stream = chromeStream;
 		if (stream) untrack(() => (viewerSettings.chromeStream = stream));
-	});
-	$effect(() => {
-		const show = showAnnotationGutter;
-		untrack(() => (viewerSettings.showAnnotationGutter = show));
 	});
 
 	let lastLoadedRegistryId = '';
@@ -187,7 +182,6 @@
 		customGridLayoutJson;
 		chromeStream;
 		showReferenceGutter;
-		showAnnotationGutter;
 		viewerSettings.contentTheme;
 		viewerSettings.contentTextSize;
 		untrack(() => handleRenderUrn(currentUrn));
@@ -241,7 +235,6 @@
 					: primary && labelStreams.includes(primary)
 						? primary
 						: labelStreams[0] || '';
-			showAnnotationGutter = viewerSettings.showAnnotationGutter;
 
 			packageData = result.packageData;
 
@@ -273,7 +266,7 @@
 				chromeStream,
 				customGridLayoutJson,
 				showReferenceGutter,
-				showAnnotationGutter,
+				true,
 				handsetQuery.current
 			);
 			if (generation !== renderGeneration) return;
@@ -350,10 +343,8 @@
 {#snippet sidebarLeftContent()}
 	<ReaderNavigationPanel
 		{sidebar}
-		{packageData}
 		{chromeStreams}
 		bind:chromeStream
-		bind:showAnnotationGutter
 		{onNavigate}
 	/>
 {/snippet}

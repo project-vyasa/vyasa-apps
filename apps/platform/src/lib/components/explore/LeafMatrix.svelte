@@ -47,9 +47,10 @@
 
 	const urnRangeLabel = $derived.by(() => {
 		const indices = containerData.leafIndices;
-		if (indices.length === 0) return containerData.id;
-		if (indices.length === 1) return `${containerData.id}:${indices[0]}`;
-		return `${containerData.id}:${indices[0]} – ${containerData.id}:${indices[indices.length - 1]}`;
+		const id = containerData.id;
+		if (indices.length === 0) return id;
+		if (indices.length === 1) return `${id}:${indices[0]}`;
+		return `${id}:${indices[0]}–${indices[indices.length - 1]}`;
 	});
 
 	function parseUrn(urn: string) {
@@ -69,9 +70,7 @@
 		return false;
 	}
 
-	const hasFilterSelection = $derived(
-		!highlightMode && Object.keys(activeFacets).length > 0
-	);
+	const hasFilterSelection = $derived(!highlightMode && Object.keys(activeFacets).length > 0);
 
 	const leaves = $derived.by(() => {
 		const list = [];
@@ -124,8 +123,8 @@
 
 <div class="leaf-matrix-wrapper" class:map-mode={highlightMode}>
 	<div class="matrix-header">
-		<h4>{containerData.title}</h4>
-		<span class="count">{urnRangeLabel}</span>
+		<p class="matrix-title">{containerData.title}</p>
+		<span class="count" title={urnRangeLabel}>{urnRangeLabel}</span>
 	</div>
 
 	<div
@@ -151,8 +150,8 @@
 	.leaf-matrix-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-2);
-		width: max-content;
+		gap: var(--space-1);
+		width: var(--chapter-width, max-content);
 	}
 
 	.matrix-header {
@@ -161,35 +160,41 @@
 		gap: 2px;
 	}
 
-	.matrix-header h4 {
+	.matrix-header .matrix-title {
 		margin: 0;
-		font-size: 0.85rem;
-		font-weight: 600;
+		font-size: 0.6875rem;
+		font-weight: 400;
 		color: var(--text-primary);
 		line-height: 1.2;
+		overflow-wrap: anywhere;
 	}
 
 	.matrix-header .count {
-		font-size: 0.75rem;
-		color: var(--text-tertiary);
+		font-size: 0.625rem;
+		line-height: 1.2;
+		color: var(--text-secondary);
 		font-family: var(--font-mono, ui-monospace, monospace);
+		font-weight: 400;
+		white-space: nowrap;
 	}
 
 	.leaf-grid {
 		display: grid;
-		grid-template-columns: repeat(var(--cols), 14px);
-		gap: 2px;
+		grid-template-columns: repeat(var(--cols), var(--leaf-cell, 8px));
+		gap: var(--leaf-gap, 1px);
 	}
 
 	.leaf-cell {
-		width: 14px;
-		height: 14px;
+		width: var(--leaf-cell, 8px);
+		height: var(--leaf-cell, 8px);
 		border-radius: 2px;
 		background: #475569;
 		border: 1px solid color-mix(in srgb, var(--border-base) 70%, transparent);
 		display: block;
 		cursor: pointer;
-		transition: transform 0.08s ease, box-shadow 0.08s ease;
+		transition:
+			transform 0.08s ease,
+			box-shadow 0.08s ease;
 		-webkit-user-drag: none;
 		user-select: none;
 	}
@@ -214,6 +219,8 @@
 	}
 
 	.leaf-cell.facet-match.range-selected {
-		box-shadow: inset 0 0 0 2px #38bdf8, 0 0 0 1px color-mix(in srgb, var(--text-primary) 25%, transparent);
+		box-shadow:
+			inset 0 0 0 2px #38bdf8,
+			0 0 0 1px color-mix(in srgb, var(--text-primary) 25%, transparent);
 	}
 </style>

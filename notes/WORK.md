@@ -41,7 +41,7 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 
 **Verified in apps:** re-click active activity toggles left.
 
-**Done in apps (gutter chrome):** Hash icon (not `PanelLeft`); navbar toggles `showReferenceGutter` and hides the whole `.left-gutter`. Sidebar **Annotations** switch still only hides badges inside a visible URN column.
+**Done in apps (gutter chrome):** Hash icon (not `PanelLeft`); navbar toggles `showReferenceGutter` and hides the whole `.left-gutter` (URN + annotation badges).
 
 **Inherit after ui compact shell:**
 - 02a tuck `sidebarTop` into bottom bar or Settings.
@@ -50,9 +50,11 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 **Still deferred:** chapter go-to (`book01:`) / viewer search guide.
 
 - [x] **Compact URN entry** — Handset top bar accepts a full URN (`1:0:5`); last 8 typed/sidebar jumps remembered per publication. Desktop still uses the leaf field. Recents open on field focus (no History button).
+- [x] **Explore map density** — chapter tiles are 10-cell wide (titles wrap); 8px cells; book-level markers in the same grid.
 
 ## NEXT
 
+- [ ] **App locale vs publication language** — shell `en-US` vs work `sa` (BG → `mula`, not English). Chrome stream is not BCP 47. Design: [`locale-and-publication-language.md`](./locale-and-publication-language.md).
 - [ ] **Bitmask facet index** — leaf ordinals + `Uint32Array` bitsets replacing `Map<string, Set<string>>`; speeds Explore today, prerequisite for Atlas.
 - [ ] **Facet palette collision** — `facetColor()` cycles every 8; ~80-value facets render duplicate colours. Top-N + neutral "Other".
 - [ ] **Atlas activity** — high-density spine + on-demand graph fidelity; design in [`atlas-activity-design.md`](./atlas-activity-design.md).
