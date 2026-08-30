@@ -12,6 +12,7 @@
 		Moon,
 		Rows2,
 		Sliders,
+		Star,
 		Sun,
 		X
 	} from 'lucide-svelte';
@@ -19,13 +20,13 @@
 	import { MediaQuery } from 'svelte/reactivity';
 	import { defaultGridTextFromStreams } from '$lib/viewer/grid-default-layout';
 	import { cycleContentTextSize, cycleContentTheme } from '$lib/viewer/content-presentation';
+	import { formatUrnDisplay } from '$lib/viewer/urn-recents';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 
 	interface Props {
 		urn: string;
 		urnComponents: string[];
-		currentUrnParts: string[];
 		isFullWidth: boolean;
 		activeView?: string;
 		availableViews?: string[];
@@ -35,17 +36,17 @@
 		vyasaUri?: string;
 		showReferenceGutter?: boolean;
 		urnRecents?: string[];
+		urnFavorites?: string[];
 		onNavigatePrev: () => void;
 		onNavigateNext: () => void;
-		onNavigateUrn: () => void;
 		onGoToUrn: (target: string) => void;
+		onToggleUrnFavorite: (target?: string) => void;
 		onToggleFullWidth: () => void;
 	}
 
 	let {
 		urn,
 		urnComponents,
-		currentUrnParts = $bindable(),
 		isFullWidth = $bindable(),
 		activeView = $bindable(),
 		availableViews = [],
@@ -55,10 +56,11 @@
 		vyasaUri = '',
 		showReferenceGutter = $bindable(true),
 		urnRecents = [],
+		urnFavorites = [],
 		onNavigatePrev,
 		onNavigateNext,
-		onNavigateUrn,
 		onGoToUrn,
+		onToggleUrnFavorite,
 		onToggleFullWidth
 	}: Props = $props();
 
@@ -165,7 +167,10 @@
 	const viewTitle = $derived(`View: ${viewLabel(currentView)} (click to cycle)`);
 	const compact = new MediaQuery('max-width: 48rem');
 	let draftUrn = $state('');
-	let showRecents = $state(false);
+	let showJumpList = $state(false);
+	const starred = $derived(Boolean(urn) && urn !== 'root' && urnFavorites.includes(urn));
+	const recentOnly = $derived(urnRecents.filter((item) => !urnFavorites.includes(item)));
+	const hasJumpList = $derived(urnFavorites.length > 0 || recentOnly.length > 0);
 
 	$effect(() => {
 		const routeUrn = urn;
@@ -175,14 +180,18 @@
 	});
 
 	function submitFullUrn() {
-		showRecents = false;
+		showJumpList = false;
 		onGoToUrn(draftUrn);
 	}
 
-	function pickRecent(item: string) {
+	function pickJump(item: string) {
 		draftUrn = item;
-		showRecents = false;
+		showJumpList = false;
 		onGoToUrn(item);
+	}
+
+	function unstarJump(item: string) {
+		onToggleUrnFavorite(item);
 	}
 </script>
 
@@ -230,33 +239,28 @@
 			/>
 		{/if}
 		<div class="nav-bar-inputs" class:urn-field-only={compact.current}>
-			{#if compact.current}
-				<div class="urn-input-wrapper urn-input-full">
-					<Input
-						bind:value={draftUrn}
-						onkeydown={(e) => e.key === 'Enter' && submitFullUrn()}
-						onfocus={() => (showRecents = urnRecents.length > 0)}
-						onblur={() => (showRecents = false)}
-						placeholder={urnComponents.length ? urnComponents.join(':') : 'URN'}
-						title="Go to URN. Swipe the text left for next, right for previous."
-						style="text-align: center; font-family: var(--font-mono); font-size: small;"
-					/>
-				</div>
-			{:else if urnComponents.length > 0}
-				{@const lastIdx = urnComponents.length - 1}
-				<div class="urn-input-wrapper">
-					<Input
-						bind:value={currentUrnParts[lastIdx]}
-						onkeydown={(e) => e.key === 'Enter' && onNavigateUrn()}
-						onfocus={() => (showRecents = urnRecents.length > 0)}
-						onblur={onNavigateUrn}
-						placeholder={urnComponents[lastIdx]}
-						style="text-align: center; font-family: var(--font-mono); font-size: small;"
-					/>
-				</div>
-			{:else}
-				<div class="urn-readonly">{urn}</div>
-			{/if}
+			<div class="urn-input-wrapper" class:urn-input-full={compact.current}>
+				<Input
+					bind:value={draftUrn}
+					onkeydown={(e) => e.key === 'Enter' && submitFullUrn()}
+					onfocus={() => (showJumpList = hasJumpList)}
+					onblur={() => (showJumpList = false)}
+					placeholder={urnComponents.length ? urnComponents.join(':') : 'URN'}
+					title={compact.current
+						? 'Go to URN. Swipe the text left for next, right for previous.'
+						: 'Go to URN'}
+					style="text-align: center; font-family: var(--font-mono); font-size: small;"
+				/>
+			</div>
+			<Button
+				variant={starred ? 'secondary' : 'ghost'}
+				size="icon"
+				icon={Star}
+				class={starred ? 'urn-star-btn starred' : 'urn-star-btn'}
+				title={starred ? 'Unstar this URN' : 'Star this URN'}
+				disabled={!urn || urn === 'root'}
+				onclick={() => onToggleUrnFavorite()}
+			/>
 		</div>
 		{#if !compact.current}
 			<Button
@@ -269,34 +273,67 @@
 		{/if}
 	</div>
 
-	{#if showRecents && urnRecents.length > 0}
-		<ul class="urn-recents">
-			{#each urnRecents as item (item)}
-				<li>
-					<button
-						type="button"
-						class="urn-recent-item"
-						onmousedown={(e) => e.preventDefault()}
-						onclick={() => pickRecent(item)}
-					>
-						{item}
-					</button>
-				</li>
-			{/each}
-		</ul>
+	{#if showJumpList && hasJumpList}
+		<div class="urn-jump-list">
+			{#if urnFavorites.length > 0}
+				<div class="urn-jump-heading">Saved</div>
+				<ul class="urn-jump-items">
+					{#each urnFavorites as item (item)}
+						<li class="urn-jump-row">
+							<button
+								type="button"
+								class="urn-recent-item"
+								onmousedown={(e) => e.preventDefault()}
+								onclick={() => pickJump(item)}
+							>
+								{formatUrnDisplay(item)}
+							</button>
+							<button
+								type="button"
+								class="urn-unstar"
+								title="Unstar {formatUrnDisplay(item)}"
+								onmousedown={(e) => e.preventDefault()}
+								onclick={() => unstarJump(item)}
+							>
+								<Star size={14} />
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			{#if recentOnly.length > 0}
+				<div class="urn-jump-heading">Recent</div>
+				<ul class="urn-jump-items">
+					{#each recentOnly as item (item)}
+						<li>
+							<button
+								type="button"
+								class="urn-recent-item"
+								onmousedown={(e) => e.preventDefault()}
+								onclick={() => pickJump(item)}
+							>
+								{formatUrnDisplay(item)}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
 	{/if}
 
 	<div class="nav-cluster nav-cluster-end">
 		{#if vyasaUri}
 			<CopyVyasaLinkButton {vyasaUri} title="Copy link to this page" />
 		{/if}
-		<Button
-			variant="ghost"
-			size="icon"
-			icon={isFullWidth ? Minimize2 : Maximize2}
-			title="Toggle Full Width"
-			onclick={onToggleFullWidth}
-		/>
+		{#if !compact.current}
+			<Button
+				variant="ghost"
+				size="icon"
+				icon={isFullWidth ? Minimize2 : Maximize2}
+				title={isFullWidth ? 'Constrain content width' : 'Use full width'}
+				onclick={onToggleFullWidth}
+			/>
+		{/if}
 		<Button
 			variant="ghost"
 			size="icon"
@@ -399,7 +436,7 @@
 		border-right: none;
 	}
 	.urn-input-wrapper {
-		width: calc(3.5rem * var(--density, 1));
+		width: calc(8.5rem * var(--density, 1));
 	}
 	.urn-input-full {
 		width: 5rem;
@@ -407,7 +444,7 @@
 	.urn-input-full :global(.input-wrapper) {
 		padding-inline: 0.25rem;
 	}
-	.urn-recents {
+	.urn-jump-list {
 		position: absolute;
 		top: calc(100% - 4px);
 		left: 50%;
@@ -415,12 +452,57 @@
 		z-index: 80;
 		margin: 0;
 		padding: var(--space-1);
-		list-style: none;
 		min-width: 10rem;
 		background: var(--bg-surface);
 		border: 1px solid var(--border-strong);
 		border-radius: var(--radius-md);
 		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+	}
+	.urn-jump-heading {
+		padding: 0.2rem 0.6rem 0.1rem;
+		font-size: var(--text-xs);
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--text-secondary);
+	}
+	.urn-jump-items {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.urn-jump-row {
+		display: flex;
+		align-items: center;
+		gap: 2px;
+	}
+	.urn-jump-row .urn-recent-item {
+		flex: 1;
+		min-width: 0;
+	}
+	.urn-unstar {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+		width: 1.6rem;
+		height: 1.6rem;
+		padding: 0;
+		border: none;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+	.urn-unstar :global(svg) {
+		fill: currentColor;
+	}
+	.urn-unstar:hover {
+		color: var(--text-primary);
+		background: var(--bg-surface-alt);
+	}
+	.nav-bar-container :global(.urn-star-btn.starred svg) {
+		fill: currentColor;
 	}
 	.urn-recent-item {
 		display: block;
@@ -437,12 +519,6 @@
 	}
 	.urn-recent-item:hover {
 		background: var(--bg-surface-alt);
-	}
-	.urn-readonly {
-		font-family: var(--font-mono);
-		font-size: var(--text-sm);
-		min-width: 60px;
-		text-align: center;
 	}
 	.nav-cluster {
 		flex: 1;

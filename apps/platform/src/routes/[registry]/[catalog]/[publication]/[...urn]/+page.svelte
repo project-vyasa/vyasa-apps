@@ -9,18 +9,15 @@
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { renderUrn } from '$lib/viewer/urn-renderer';
 	import { attachShellChromeGestures } from '$lib/viewer/shell-chrome-gestures';
-	import { applyContentPresentation } from '$lib/viewer/content-presentation';
-	import {
-		listUrnRecents,
-		normalizeUrnInput,
-		publicationUrnKey,
-		rememberUrnRecent
-	} from '$lib/viewer/urn-recents';
+	import { applyContentPresentation, setReaderFullWidth } from '$lib/viewer/content-presentation';
+	import { listUrnRecents, publicationUrnKey, rememberUrnRecent } from '$lib/viewer/urn-recents';
+	import { listUrnFavorites, toggleUrnFavorite } from '$lib/viewer/urn-favorites';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
 	import {
 		navigateReaderNext,
 		navigateReaderPrev,
-		readerNavUrl
+		readerNavUrl,
+		resolveReaderAddress
 	} from '$lib/viewer/reader-navigation';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
 	import ReaderNavigationPanel from '$lib/components/ReaderNavigationPanel.svelte';
@@ -69,10 +66,16 @@
 	let viewerFrame = $state<HTMLIFrameElement | null>(null);
 	let detachChromeGestures: (() => void) | undefined;
 
+	function syncIframeFullWidth() {
+		setReaderFullWidth(viewerFrame?.contentDocument, isFullWidth);
+	}
+
 	function bindChromeGestures() {
 		detachChromeGestures?.();
 		const doc = viewerFrame?.contentDocument;
-		if (!doc || !shell.toggleChrome || !shell.revealChrome) return;
+		if (!doc) return;
+		syncIframeFullWidth();
+		if (!shell.toggleChrome || !shell.revealChrome) return;
 		detachChromeGestures = attachShellChromeGestures(doc, {
 			toggle: () => shell.toggleChrome?.(),
 			reveal: () => shell.revealChrome?.(),
@@ -85,6 +88,10 @@
 
 	const handsetQuery = new MediaQuery('max-width: 48rem');
 	let isFullWidth = $state(false);
+	$effect(() => {
+		isFullWidth;
+		untrack(() => syncIframeFullWidth());
+	});
 	let srcdocContent = $state('');
 	let errorMessage = $state<string | null>(null);
 	let activeView = $state<string | undefined>(undefined);
@@ -95,7 +102,6 @@
 	let packageData = $state<PackageData | null>(null);
 	let graphRuntime = $state<VyasaViewerRuntime | null>(null);
 	let urnComponents = $state<string[]>([]);
-	let currentUrnParts = $state<string[]>([]);
 	let showReferenceGutter = $state(true);
 	let handsetGutterDefaultApplied = false;
 	$effect(() => {
@@ -109,10 +115,12 @@
 	let renderGeneration = 0;
 	const urnRecentKey = $derived(publicationUrnKey(registryId, catalogId, publicationId));
 	let urnRecents = $state<string[]>([]);
+	let urnFavorites = $state<string[]>([]);
 	$effect(() => {
 		const key = urnRecentKey;
 		untrack(() => {
 			urnRecents = listUrnRecents(key);
+			urnFavorites = listUrnFavorites(key);
 		});
 	});
 
@@ -152,19 +160,6 @@
 				shell.setSidebarRight(undefined);
 			};
 		}
-	});
-
-	$effect(() => {
-		const u = urn;
-		const l = urnComponents.length;
-		untrack(() => {
-			if (l > 0) {
-				const parts = u ? u.split(':') : [];
-				currentUrnParts = Array.from({ length: l }, (_, i) => parts[i] || '');
-			} else {
-				currentUrnParts = [];
-			}
-		});
 	});
 
 	$effect(() => {
@@ -253,6 +248,14 @@
 
 	async function handleRenderUrn(targetUrn: string) {
 		if (!graphRuntime || !packageData) return;
+		const canonical = resolveReaderAddress(targetUrn, sidebar.flatUrns, urnComponents.length);
+		if (canonical && canonical.urn !== targetUrn) {
+			const ref = catalogRef;
+			if (ref) {
+				goto(readerNavUrl(ref, canonical.urn, base), { replaceState: true });
+			}
+			return;
+		}
 		const generation = ++renderGeneration;
 		try {
 			const result = await renderUrn(
@@ -297,22 +300,25 @@
 	}
 
 	function goToUrn(target: string) {
-		const next = normalizeUrnInput(target);
-		if (!next) return;
-		urnRecents = rememberUrnRecent(urnRecentKey, next);
-		goto(navUrl(next));
+		const resolved = resolveReaderAddress(target, sidebar.flatUrns, urnComponents.length);
+		if (!resolved) return;
+		urnRecents = rememberUrnRecent(urnRecentKey, resolved.urn);
+		goto(navUrl(resolved.urn));
 	}
 
-	function navigateUrn() {
-		goToUrn(currentUrnParts.filter((p) => p.trim() !== '').join(':'));
+	function toggleFavorite(target?: string) {
+		const raw = target ?? urn;
+		const resolved = resolveReaderAddress(raw, sidebar.flatUrns, urnComponents.length);
+		const pin = resolved?.urn ?? raw;
+		urnFavorites = toggleUrnFavorite(urnRecentKey, pin);
 	}
 
 	function navigateNext() {
-		navigateReaderNext(sidebar.flatUrns, activeUrns, goto, navUrl);
+		navigateReaderNext(sidebar.flatUrns, urn, urnComponents.length, goto, navUrl);
 	}
 
 	function navigatePrev() {
-		navigateReaderPrev(sidebar.flatUrns, activeUrns, urn, goto, navUrl);
+		navigateReaderPrev(sidebar.flatUrns, urn, urnComponents.length, goto, navUrl);
 	}
 </script>
 
@@ -321,7 +327,6 @@
 		<ViewerNavBar
 			{urn}
 			{urnComponents}
-			bind:currentUrnParts
 			bind:isFullWidth
 			bind:activeView
 			{availableViews}
@@ -331,9 +336,10 @@
 			isDocumentLayout={(packageData?.manifest as { layout?: string })?.layout === 'document'}
 			onNavigatePrev={navigatePrev}
 			onNavigateNext={navigateNext}
-			onNavigateUrn={navigateUrn}
 			onGoToUrn={goToUrn}
 			{urnRecents}
+			{urnFavorites}
+			onToggleUrnFavorite={toggleFavorite}
 			onToggleFullWidth={() => (isFullWidth = !isFullWidth)}
 			bind:showReferenceGutter
 		/>

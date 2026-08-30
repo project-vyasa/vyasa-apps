@@ -37,7 +37,10 @@
 		return 'library';
 	});
 
-	function activateOrToggle(id: 'library' | 'reader' | 'explore', href: string) {
+	function activateOrToggle(
+		id: 'library' | 'reader' | 'explore' | 'diagnostics',
+		href: string
+	) {
 		if (active === id) {
 			shell?.toggleLeft();
 			return;
@@ -136,15 +139,9 @@
 					class="activity-item"
 					icon={Bug}
 					title="Diagnostics (Click or Ctrl+U to toggle)"
-					onclick={() => {
-						if (active !== 'diagnostics') {
-							goto(activePublication.diagnosticsUrl);
-						} else if (activePublication.publicationId) {
-							goto(activePublication.readerUrl);
-						} else {
-							goto(base || '/');
-						}
-					}}
+					onclick={() =>
+						activateOrToggle('diagnostics', activePublication.diagnosticsUrl)
+					}
 				/>
 			{/snippet}
 		</ActivityBarItem>

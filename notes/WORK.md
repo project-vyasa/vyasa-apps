@@ -49,6 +49,9 @@ This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diag
 
 **Still deferred:** chapter go-to (`book01:`) / viewer search guide.
 
+- [x] **Settings compact** — UI shipped; consume local `vyasa-ui/svelte/dist` (`prepack`, not npm). Verify activity-bar Settings at ~400px.
+- [x] **Diagnostics uses AppShell left** — Tree in `setSidebarLeft` (`Panel` + `Tree`); handset re-click bug icon toggles the overlay.
+
 - [x] **Compact URN entry** — Handset top bar accepts a full URN (`1:0:5`); last 8 typed/sidebar jumps remembered per publication. Desktop still uses the leaf field. Recents open on field focus (no History button).
 - [x] **Explore map density** — chapter tiles are 10-cell wide (titles wrap); 8px cells; book-level markers in the same grid.
 

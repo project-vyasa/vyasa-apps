@@ -1,5 +1,7 @@
-const STORAGE_KEY = 'vyasa_urn_recents';
-export const URN_RECENTS_LIMIT = 8;
+import { normalizeUrnInput } from '$lib/viewer/urn-recents';
+
+const STORAGE_KEY = 'vyasa_urn_favorites';
+export const URN_FAVORITES_LIMIT = 8;
 
 const memoryStore = new Map<string, string>();
 
@@ -24,28 +26,6 @@ function writeItem(value: string) {
 	memoryStore.set(STORAGE_KEY, value);
 }
 
-export function normalizeUrnInput(raw: string): string {
-	return raw
-		.trim()
-		.replace(/\s+/g, '')
-		.replace(/[./]/g, ':')
-		.replace(/:+/g, ':')
-		.replace(/^:|:$/g, '');
-}
-
-/** Display form for jump lists (RV `1.185`). Storage stays colon-separated. */
-export function formatUrnDisplay(urn: string): string {
-	return urn.replace(/:/g, '.');
-}
-
-export function publicationUrnKey(
-	registryId: string,
-	catalogId: string,
-	publicationId: string
-): string {
-	return `${registryId}/${catalogId}/${publicationId}`;
-}
-
 function readAll(): Record<string, string[]> {
 	try {
 		const raw = readItem();
@@ -66,30 +46,36 @@ function readAll(): Record<string, string[]> {
 	}
 }
 
-export function clearUrnRecents() {
-	writeItem('{}');
-}
-
 function writeAll(map: Record<string, string[]>) {
 	writeItem(JSON.stringify(map));
 }
 
-export function listUrnRecents(publicationKey: string): string[] {
+export function clearUrnFavorites() {
+	writeItem('{}');
+}
+
+export function listUrnFavorites(publicationKey: string): string[] {
 	return readAll()[publicationKey] ?? [];
 }
 
-export function rememberUrnRecent(
+export function isUrnFavorite(publicationKey: string, urn: string): boolean {
+	const next = normalizeUrnInput(urn);
+	return Boolean(next) && listUrnFavorites(publicationKey).includes(next);
+}
+
+/** Pin or unpin. Newest pin first; overflow drops the oldest. */
+export function toggleUrnFavorite(
 	publicationKey: string,
 	urn: string,
-	limit = URN_RECENTS_LIMIT
+	limit = URN_FAVORITES_LIMIT
 ): string[] {
 	const next = normalizeUrnInput(urn);
-	if (!next || next === 'root') return listUrnRecents(publicationKey);
+	if (!next || next === 'root') return listUrnFavorites(publicationKey);
 	const map = readAll();
-	const list = [next, ...(map[publicationKey] ?? []).filter((item) => item !== next)].slice(
-		0,
-		limit
-	);
+	const current = map[publicationKey] ?? [];
+	const list = current.includes(next)
+		? current.filter((item) => item !== next)
+		: [next, ...current.filter((item) => item !== next)].slice(0, limit);
 	map[publicationKey] = list;
 	writeAll(map);
 	return list;

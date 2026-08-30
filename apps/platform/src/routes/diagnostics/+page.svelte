@@ -5,7 +5,8 @@
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { ViewerDb } from '$lib/ViewerDb';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, getContext, type Snippet } from 'svelte';
+	import { MediaQuery } from 'svelte/reactivity';
 	import type { Registry, Catalog, PackageData } from '$lib/types';
 	import { Panel, Badge, Alert, Tree, type TreeNode } from '@project-vyasa/vyasa-ui';
 	import { Globe, Server, Database, FileCode } from 'lucide-svelte';
@@ -41,6 +42,18 @@
 	let expandedIds = $state<Set<string>>(new Set(['global-reg', 'local-regs-group', 'local-cats-group']));
 
 	const viewerDb = new ViewerDb();
+
+	const compact = new MediaQuery('max-width: 48rem');
+	const shell = getContext<{
+		setSidebarLeft: (s: Snippet | undefined) => void;
+		setLeftWidth?: (w: number) => void;
+		closeLeft?: () => void;
+	}>('shellState');
+
+	function selectTarget(node: TreeNode) {
+		selectedId = node.id;
+		if (compact.current) shell?.closeLeft?.();
+	}
 
 	onMount(async () => {
 		// 1. Fetch Adi (global) registry and its catalogs
@@ -274,127 +287,134 @@
 	}
 
 	let selectedNode = $derived(findNode(treeData, selectedId));
+
+	$effect(() => {
+		if (!shell) return;
+		shell.setSidebarLeft(targetsSidebar);
+		shell.setLeftWidth?.(320);
+		return () => {
+			shell.setSidebarLeft(undefined);
+			shell.setLeftWidth?.(320);
+		};
+	});
 </script>
 
+{#snippet targetsSidebar()}
+	<div class="diag-sidebar">
+		<Panel title="Inspection Targets" icon={Server}>
+			<div class="diag-tree">
+				<Tree
+					data={treeData}
+					bind:selectedId
+					bind:expandedIds
+					onSelect={selectTarget}
+				/>
+			</div>
+		</Panel>
+	</div>
+{/snippet}
+
 <div class="diagnostics-container">
-	<div class="diagnostics-header">
-		<h1 class="diagnostics-title">System Diagnostics</h1>
-		<p class="diagnostics-desc">Registry indexes, catalog documents, and active manifest inspection</p>
-	</div>
+	{#if selectedNode}
+		<Panel title={selectedNode.label} icon={selectedNode.icon || Globe}>
+			{#snippet actions()}
+				{#if selectedNode.status}
+					<Badge
+						variant={selectedNode.status === 'success'
+							? 'success'
+							: selectedNode.status === 'error'
+								? 'danger'
+								: 'warning'}
+					>
+						{selectedNode.status.toUpperCase()}
+					</Badge>
+				{/if}
+			{/snippet}
 
-	<div class="diagnostics-layout">
-		<!-- Sidebar Tree -->
-		<div class="sidebar-pane">
-			<Panel title="Inspection Targets" icon={Server}>
-				<div class="sidebar-tree-wrapper">
-					<Tree data={treeData} bind:selectedId bind:expandedIds onSelect={(node) => (selectedId = node.id)} />
-				</div>
-			</Panel>
-		</div>
-
-		<!-- Content Editor Pane -->
-		<div class="content-pane">
-			{#if selectedNode}
-				<Panel title={selectedNode.label} icon={selectedNode.icon || Globe}>
-					{#snippet actions()}
-						{#if selectedNode.status}
-							<Badge variant={selectedNode.status === 'success' ? 'success' : selectedNode.status === 'error' ? 'danger' : 'warning'}>
-								{selectedNode.status.toUpperCase()}
-							</Badge>
-						{/if}
-					{/snippet}
-
-					<div class="panel-body">
-						{#if selectedNode.url}
-							<div class="url-bar">
-								<span class="url-label">URL:</span>
-								<code class="url-value">{selectedNode.url}</code>
-							</div>
-						{/if}
-
-						{#if selectedNode.error}
-							<Alert variant="danger" title="Inspection Error">{selectedNode.error}</Alert>
-						{:else if selectedNode.data}
-							<div class="json-view">
-								<pre class="json-pre"><code>{JSON.stringify(selectedNode.data, null, 2)}</code></pre>
-							</div>
-						{:else if selectedNode.status === 'loading'}
-							<Alert variant="info" title="Loading">Fetching target data...</Alert>
-						{:else}
-							<Alert variant="info" title="Group Folder">Select a specific registry or catalog from the sidebar tree to inspect its JSON data.</Alert>
-						{/if}
+			<div class="panel-body">
+				{#if selectedNode.url}
+					<div class="url-bar">
+						<span class="url-label">URL:</span>
+						<code class="url-value">{selectedNode.url}</code>
 					</div>
-				</Panel>
-			{:else}
-				<Panel title="No Target Selected">
-					<div class="panel-body">
-						<Alert variant="info" title="Select Target">Select a registry, catalog, or publication manifest from the sidebar tree on the left to inspect its contents.</Alert>
+				{/if}
+
+				{#if selectedNode.error}
+					<Alert variant="danger" title="Inspection Error">{selectedNode.error}</Alert>
+				{:else if selectedNode.data}
+					<div class="json-view">
+						<pre class="json-pre"><code>{JSON.stringify(selectedNode.data, null, 2)}</code></pre>
 					</div>
-				</Panel>
-			{/if}
-		</div>
-	</div>
+				{:else if selectedNode.status === 'loading'}
+					<Alert variant="info" title="Loading">Fetching target data...</Alert>
+				{:else}
+					<Alert variant="info" title="Group Folder"
+						>Select a registry or catalog in Inspection Targets.</Alert
+					>
+				{/if}
+			</div>
+		</Panel>
+	{:else}
+		<Panel title="No Target Selected">
+			<div class="panel-body">
+				<Alert variant="info" title="Select Target"
+					>Open Inspection Targets and choose a registry, catalog, or publication manifest.</Alert
+				>
+			</div>
+		</Panel>
+	{/if}
 </div>
 
 <style>
 	.diagnostics-container {
 		width: 100%;
-		max-width: 1600px;
-		margin: 0 auto;
-		padding: var(--space-6);
+		height: 100%;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
 		background-color: var(--bg-surface);
-		min-height: calc(100vh - 4rem);
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-6);
+		padding: var(--space-3);
 	}
 
-	.diagnostics-header {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-
-	.diagnostics-title {
-		font-size: 1.8rem;
-		font-weight: 700;
-		margin: 0;
-		color: var(--text-primary);
-	}
-
-	.diagnostics-desc {
-		color: var(--text-secondary);
-		font-size: 1rem;
-		margin: 0;
-	}
-
-	.diagnostics-layout {
-		display: flex;
-		gap: var(--space-6);
-		align-items: stretch;
+	.diagnostics-container :global(.panel) {
 		flex: 1;
-		min-height: 600px;
-	}
-
-	.sidebar-pane {
-		width: 320px;
-		min-width: 280px;
-		max-width: 400px;
+		min-height: 0;
 		display: flex;
 		flex-direction: column;
 	}
 
-	.sidebar-tree-wrapper {
-		padding: var(--space-2) 0;
+	.diagnostics-container :global(.panel-content) {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.diag-sidebar {
+		height: 100%;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.diag-sidebar :global(.panel) {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.diag-sidebar :global(.panel-content) {
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.diag-tree {
+		height: 100%;
 		overflow-y: auto;
-		max-height: calc(100vh - 220px);
-	}
-
-	.content-pane {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
+		padding: var(--space-2) 0;
 	}
 
 	.panel-body {
@@ -403,12 +423,12 @@
 		gap: var(--space-4);
 		padding: var(--space-4);
 		flex: 1;
+		min-height: 0;
 	}
 
 	.json-view {
 		flex: 1;
-		min-height: 480px;
-		height: calc(100vh - 260px);
+		min-height: 0;
 		width: 100%;
 		overflow: auto;
 		border: 1px solid var(--border-base);
@@ -434,7 +454,7 @@
 
 	.url-bar {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: var(--space-2);
 		padding: var(--space-3) var(--space-4);
 		background-color: var(--bg-surface-alt);
@@ -446,6 +466,7 @@
 	.url-label {
 		font-weight: 600;
 		color: var(--text-secondary);
+		flex-shrink: 0;
 	}
 
 	.url-value {

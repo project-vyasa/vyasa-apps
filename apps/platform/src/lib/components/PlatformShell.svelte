@@ -53,6 +53,7 @@
 		setSidebarTop: (s: Snippet | undefined) => (sidebarTop = s),
 		setPanelBottom: (s: Snippet | undefined) => (panelBottom = s),
 		toggleLeft: () => (leftVisible = !leftVisible),
+		closeLeft: () => (leftVisible = false),
 		toggleRight: () => (rightVisible = !rightVisible),
 		toggleTop: () => (topVisible = !topVisible),
 		toggleBottom: () => (bottomVisible = !bottomVisible),

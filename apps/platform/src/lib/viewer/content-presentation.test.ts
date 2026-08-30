@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	applyContentPresentation,
 	cycleContentTextSize,
-	cycleContentTheme
+	cycleContentTheme,
+	setReaderFullWidth
 } from './content-presentation';
 
 describe('applyContentPresentation', () => {
@@ -11,6 +12,8 @@ describe('applyContentPresentation', () => {
 		const out = applyContentPresentation(html, { theme: 'dark', textSize: 'large' });
 		expect(out).toContain('class="theme-dark"');
 		expect(out).toContain('--vyasa-text-scale:1.15');
+		expect(out).toContain('reader-full-width');
+		expect(out).toContain('--vyasa-content-max-width:none');
 		expect(out).toContain('</style></head>');
 	});
 
@@ -32,5 +35,26 @@ describe('cycle presentation', () => {
 	it('toggles content theme', () => {
 		expect(cycleContentTheme('light')).toBe('dark');
 		expect(cycleContentTheme('dark')).toBe('light');
+	});
+
+	it('toggles the live iframe class without rewriting srcdoc', () => {
+		const classes = new Set<string>();
+		const doc = {
+			documentElement: {
+				classList: {
+					toggle(name: string, force?: boolean) {
+						if (force) classes.add(name);
+						else classes.delete(name);
+					},
+					contains(name: string) {
+						return classes.has(name);
+					}
+				}
+			}
+		} as unknown as Document;
+		setReaderFullWidth(doc, true);
+		expect(doc.documentElement.classList.contains('reader-full-width')).toBe(true);
+		setReaderFullWidth(doc, false);
+		expect(doc.documentElement.classList.contains('reader-full-width')).toBe(false);
 	});
 });

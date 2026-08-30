@@ -1,23 +1,68 @@
 import { describe, expect, it } from 'vitest';
-import { navigateReaderNext, navigateReaderPrev, readerNavUrl } from './reader-navigation';
+import {
+	navigateReaderNext,
+	navigateReaderPrev,
+	readerNavUrl,
+	resolveReaderAddress
+} from './reader-navigation';
 
 describe('reader-navigation', () => {
 	const ref = { registryId: 'adi', catalogId: 'vysamples', publicationId: 'vyasa-bg' };
-	const flat = ['1:1', '1:2', '1:3'];
+	const bgLeaves = ['1:1', '1:2', '1:3', '2:1', '2:2'];
+	const rvLeaves = ['1:1:1', '1:1:2', '1:2:1', '2:1:1', '2:1:2'];
 
 	it('builds reader paths', () => {
 		expect(readerNavUrl(ref, '2:47', '/vyasa-apps')).toBe('/vyasa-apps/adi/vysamples/vyasa-bg/2:47');
 	});
 
-	it('navigates to next urn', () => {
+	it('resolves RV mandala to the first sukta', () => {
+		expect(resolveReaderAddress('1', rvLeaves, 3)).toEqual({ urn: '1:1', mode: 'container' });
+		expect(resolveReaderAddress('1:2', rvLeaves, 3)).toEqual({ urn: '1:2', mode: 'container' });
+		expect(resolveReaderAddress('1:1:2', rvLeaves, 3)).toEqual({ urn: '1:1:2', mode: 'leaf' });
+	});
+
+	it('treats a BG chapter as a leaf-container', () => {
+		expect(resolveReaderAddress('2', bgLeaves, 2)).toEqual({ urn: '2', mode: 'container' });
+		expect(resolveReaderAddress('2:1', bgLeaves, 2)).toEqual({ urn: '2:1', mode: 'leaf' });
+	});
+
+	it('returns null when the prefix matches nothing', () => {
+		expect(resolveReaderAddress('9', rvLeaves, 3)).toBeNull();
+	});
+
+	it('steps by leaf when the address is a leaf', () => {
 		const visited: string[] = [];
-		navigateReaderNext(flat, ['1:1'], (url) => visited.push(url), (urn) => urn);
+		navigateReaderNext(bgLeaves, '1:1', 2, (url) => visited.push(url), (urn) => urn);
+		expect(visited).toEqual(['1:2']);
+		visited.length = 0;
+		navigateReaderPrev(bgLeaves, '1:2', 2, (url) => visited.push(url), (urn) => urn);
+		expect(visited).toEqual(['1:1']);
+	});
+
+	it('steps by sukta when the address is a container', () => {
+		const visited: string[] = [];
+		navigateReaderNext(rvLeaves, '1:1', 3, (url) => visited.push(url), (urn) => urn);
+		expect(visited).toEqual(['1:2']);
+		visited.length = 0;
+		navigateReaderPrev(rvLeaves, '1:2', 3, (url) => visited.push(url), (urn) => urn);
+		expect(visited).toEqual(['1:1']);
+	});
+
+	it('steps to the next mandala first sukta from the last sukta', () => {
+		const visited: string[] = [];
+		navigateReaderNext(rvLeaves, '1:2', 3, (url) => visited.push(url), (urn) => urn);
+		expect(visited).toEqual(['2:1']);
+	});
+
+	it('expands a typed mandala then steps by sukta', () => {
+		const visited: string[] = [];
+		navigateReaderNext(rvLeaves, '1', 3, (url) => visited.push(url), (urn) => urn);
 		expect(visited).toEqual(['1:2']);
 	});
 
-	it('navigates to previous urn', () => {
+	it('steps RV rik by leaf', () => {
 		const visited: string[] = [];
-		navigateReaderPrev(flat, ['1:2'], '1:2', (url) => visited.push(url), (urn) => urn);
-		expect(visited).toEqual(['1:1']);
+		navigateReaderNext(rvLeaves, '1:1:1', 3, (url) => visited.push(url), (urn) => urn);
+		expect(visited).toEqual(['1:1:2']);
 	});
 });

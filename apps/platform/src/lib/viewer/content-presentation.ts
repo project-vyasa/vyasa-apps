@@ -31,6 +31,17 @@ export function cycleContentTheme(current: ContentThemeId): ContentThemeId {
 
 const THEME_CLASS_RE = /\btheme-[a-z0-9-]+\b/gi;
 
+export const READER_FULL_WIDTH_CLASS = 'reader-full-width';
+
+/** Lift publisher measure (`.content`, `body`, `.reading-body`) when the reader iframe is full-bleed. */
+export function readerFullWidthCss(): string {
+	return `html.${READER_FULL_WIDTH_CLASS}{--vyasa-content-max-width:none;}html.${READER_FULL_WIDTH_CLASS} body,html.${READER_FULL_WIDTH_CLASS} .content,html.${READER_FULL_WIDTH_CLASS} .reading-body{max-width:none;width:100%;}`;
+}
+
+export function setReaderFullWidth(doc: Document | null | undefined, full: boolean): void {
+	doc?.documentElement.classList.toggle(READER_FULL_WIDTH_CLASS, full);
+}
+
 /** Stamp publication presentation onto iframe srcdoc (not app chrome). */
 export function applyContentPresentation(
 	html: string,
@@ -38,7 +49,7 @@ export function applyContentPresentation(
 ): string {
 	const scale = CONTENT_TEXT_SCALES[opts.textSize];
 	const themeClass = `theme-${opts.theme}`;
-	const inject = `<style>html{--vyasa-text-scale:${scale};font-size:calc(1rem * var(--vyasa-text-scale, 1));}</style>`;
+	const inject = `<style>html{--vyasa-text-scale:${scale};font-size:calc(1rem * var(--vyasa-text-scale, 1));}${readerFullWidthCss()}</style>`;
 
 	let out = html.replace(/<html([^>]*)>/i, (_m, attrs: string) => {
 		let next = attrs;
