@@ -1,0 +1,19 @@
+{
+	"name": "@project-vyasa/sanskrit",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"svelte": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./sanskrit.css": "./src/sanskrit.css"
+	},
+	"sideEffects": ["**/*.css"],
+	"devDependencies": {
+		"@project-vyasa/vyasa-ui": "file:../../../vyasa-ui/svelte",
+		"svelte": "^5.56.1"
+	}
+}

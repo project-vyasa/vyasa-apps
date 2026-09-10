@@ -3,6 +3,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { GH_PAGES_SITE } from '../../scripts/gh-pages-apps.mjs';
 
 const workspaceRoot = path.resolve(__dirname, '../../..');
 const vyasaUiDist = path.join(workspaceRoot, 'vyasa-ui/svelte/dist');
@@ -66,7 +67,7 @@ export default defineConfig({
 			},
 			adapter: adapter({ fallback: '404.html' }),
 			paths: {
-				base: process.argv.includes('dev') ? '' : '/vyasa-apps'
+				base: process.argv.includes('dev') ? '' : GH_PAGES_SITE
 			}
 		})
 	],

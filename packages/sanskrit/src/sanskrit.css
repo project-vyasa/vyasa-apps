@@ -1,0 +1,19 @@
+:root {
+	/* Host apps must load these Noto families (see sanskrit-studio app.html). */
+	--font-sanskrit:
+		'Noto Sans Devanagari', 'Noto Sans Telugu', 'Noto Sans Kannada', 'Noto Serif Grantha',
+		'Noto Sans Malayalam', 'Noto Sans Bengali', 'Malayalam MN', 'Malayalam Sangam MN',
+		'Bangla MN', 'Kohinoor Bangla', 'Kannada MN', 'Kannada Sangam MN', 'Telugu MN',
+		'Telugu Sangam MN', 'Noto Sans', 'Charis SIL';
+	--font-sans: 'Inter', var(--font-sanskrit), system-ui, -apple-system, sans-serif;
+}
+
+.font-sanskrit {
+	font-family: var(--font-sanskrit), sans-serif;
+	font-feature-settings: 'kern' 1, 'liga' 1;
+}
+
+.font-sanskrit-mono {
+	font-family: Menlo, Monaco, 'Courier New', 'Noto Sans Mono', monospace;
+	font-feature-settings: 'kern' 1;
+}

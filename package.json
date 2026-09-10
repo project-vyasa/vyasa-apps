@@ -2,11 +2,16 @@
   "name": "vyasa-apps",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "build:vyasa-ui": "node scripts/ensure-vyasa-ui.mjs",
     "build:platform": "bun run --cwd apps/platform build",
-    "deploy:platform": "bun run --cwd apps/platform deploy"
+    "deploy:platform": "node scripts/deploy-gh-pages.mjs",
+    "dev:sanskrit-studio": "bun run --cwd apps/sanskrit-studio dev",
+    "build:sanskrit-studio": "bun run --cwd apps/sanskrit-studio build",
+    "assemble:pages": "node scripts/assemble-gh-pages.mjs",
+    "deploy:pages": "node scripts/deploy-gh-pages.mjs"
   }
 }

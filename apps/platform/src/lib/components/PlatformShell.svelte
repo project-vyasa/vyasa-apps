@@ -9,6 +9,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { brandIconSrc } from '$lib/brand';
+	import { sanskritStudioHref } from '$lib/pages-apps';
 
 	const themeContext = getContext<any>('theme');
 
@@ -128,6 +129,9 @@
 			bind:rightVisible
 			{themeContext}
 		>
+			{#snippet headerRight()}
+				<a class="sibling-app" href={sanskritStudioHref()} data-sveltekit-reload>Sanskrit Studio</a>
+			{/snippet}
 			{#if activePublication.publicationId}
 				{@const displayTitle = activePublication.title || activePublication.publicationId}
 				<div class="header-center-info">
@@ -260,6 +264,19 @@
 	}
 	.debug-link {
 		color: inherit;
+		text-decoration: underline;
+	}
+
+	.sibling-app {
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		text-decoration: none;
+		white-space: nowrap;
+		margin-right: var(--space-2);
+	}
+
+	.sibling-app:hover {
+		color: var(--text-primary);
 		text-decoration: underline;
 	}
 </style>

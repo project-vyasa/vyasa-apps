@@ -5,7 +5,7 @@ export const LOCAL_REGISTRY_ID = 'local';
 export const ADI_REGISTRY_ID = 'adi';
 
 /** Registry ids reserved for platform semantics — not valid catalog or publication ids. */
-export const RESERVED_REGISTRY_IDS = new Set(['adi', 'local', 'global']);
+export const RESERVED_REGISTRY_IDS = new Set(['adi', 'local', 'global', 'apps']);
 
 /** Unique catalog identity for opening a publication in the viewer. */
 export interface CatalogRef {

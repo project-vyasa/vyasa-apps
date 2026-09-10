@@ -10,6 +10,7 @@ Coordination space for **frontend / platform work** in this repo.
 | **vyasa** (compiler) | `/Users/anand/Projects/project-vyasa/vyasa` | Rust toolchain: `vyasac`, viewer WASM runtime, language/schema |
 | **vyasa-samples** | `/Users/anand/Projects/project-vyasa/vyasa-samples` | Customer-style repo — validate end-to-end from a publisher/user POV (`vyasac pack`, catalogs) |
 | **vyasa-docs** | `/Users/anand/Projects/project-vyasa/vyasa-docs` | Astro Starlight docs; hosts an **earlier frozen** viewer and playarea — **do not replace WASM builds here** |
+| **vyutils** | `/Users/anand/Projects/project-vyasa/vyutils` | Sanskrit WASM/CLI (`vyasa-lipi`, `vyasa-patha`, …) and Starlight docs at `/vyutils/` |
 
 ## Boundary
 
@@ -32,6 +33,7 @@ Design context: [`vyasa/notes/design-notes/vyasa-apps-architecture.md`](../../vy
 | [`explicit-workspace-design.md`](./explicit-workspace-design.md) | **Viewer obligations** — manifest-driven labels, no domain fallbacks (companion to samples doc) |
 | [`TEMPLATE.md`](./TEMPLATE.md) | Blank template — copy or reset from this |
 | [`WORK.md`](./WORK.md) | Live queue — edit together (NOW / NEXT / LATER) |
+| [`vyutils/notes/indic-fonts.md`](../../vyutils/notes/indic-fonts.md) | Indic webfonts — Studio tofu, Google Fonts slicing, Starlight docs |
 
 ## Conventions
 
