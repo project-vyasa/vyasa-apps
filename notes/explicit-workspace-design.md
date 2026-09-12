@@ -113,7 +113,7 @@ Not acceptable:
 
 | Item | Location | Notes |
 |------|----------|-------|
-| Remove hardcoded vocabulary stream fallbacks | `apps/platform/src/lib/viewer/urn-renderer.ts` | Blocked on manifest fields from vyasac |
+| Remove hardcoded vocabulary stream fallbacks | `apps/viewer/src/lib/viewer/urn-renderer.ts` | Blocked on manifest fields from vyasac |
 | Load `primary_stream` from manifest | `publication-loader.ts` | |
 | Use merged localization table only | `urn-renderer.ts`, explore/nav labels | |
 | Pack-time localization merge | `vyasa/vyasac` | See compiler backlog |

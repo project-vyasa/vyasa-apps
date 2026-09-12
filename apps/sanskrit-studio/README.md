@@ -17,10 +17,9 @@ Until `pkg/` exists, Vite aliases the engine to a stub. Lipi/Pāṭha/Phonetics 
 
 ## GitHub Pages
 
-This is its own SvelteKit app (own router), nested on the same project site as the viewer:
+Own SvelteKit app (own router), nested on the same project site as the viewer:
 
 - Dev: http://localhost:5374/ (no base path)
-- Prod: https://project-vyasa.github.io/vyasa-apps/apps/sanskrit-studio/
+- Prod: https://project-vyasa.github.io/vyasa-apps/sanskrit/
 
-Studio is a single-route SPA. The nested Pages dest must include `index.html` (assemble copies the Kit fallback if the build only emitted `404.html`). GitHub Pages would otherwise serve the viewer 404 at this path.
-
+From the repo root: `bun run deploy`. The nested dest must include `index.html` (assemble copies the Kit fallback if the build only emitted `404.html`).

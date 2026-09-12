@@ -6,3 +6,5 @@ export * from './wasm';
 export * from './insert-text';
 export * from './patha-patterns';
 export * from './phonetic-sets';
+export * from './chrome-script';
+export { chromeLabels } from './chrome-script.svelte.ts';

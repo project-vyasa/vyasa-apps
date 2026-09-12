@@ -4,8 +4,8 @@ export const LOCAL_REGISTRY_ID = 'local';
 /** Default id for the Adi global registry (`vyasa-docs/registry.json`). */
 export const ADI_REGISTRY_ID = 'adi';
 
-/** Registry ids reserved for platform semantics — not valid catalog or publication ids. */
-export const RESERVED_REGISTRY_IDS = new Set(['adi', 'local', 'global', 'apps']);
+/** First path segments reserved for sibling Kit apps and platform semantics — not catalog ids. */
+export const RESERVED_REGISTRY_IDS = new Set(['adi', 'local', 'global', 'sanskrit', 'studio']);
 
 /** Unique catalog identity for opening a publication in the viewer. */
 export interface CatalogRef {

@@ -42,8 +42,8 @@ export const PATHA_PATTERNS: PathaPattern[] = [
 		family: 'vikriti',
 		name: 'Jaṭā',
 		formula: '1-2, 2-1, 1-2',
-		help: 'Vikṛti on Krama pairs: forward, reverse, forward. Not generated yet.',
-		available: false
+		help: 'Vikṛti on Krama pairs: forward, reverse, forward (1-2, 2-1, 1-2). Parigraha still uses इति.',
+		available: true
 	},
 	{
 		id: 'mala',

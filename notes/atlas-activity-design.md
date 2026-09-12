@@ -382,7 +382,7 @@ independently of whether Atlas gets built.
 
 ### 8.1 Facet palette collides above 8 values
 
-```13:15:apps/platform/src/lib/explore/facet-colors.ts
+```13:15:apps/viewer/src/lib/explore/facet-colors.ts
 export function facetColor(index: number): string {
 	return FACET_PALETTE[index % FACET_PALETTE.length];
 }

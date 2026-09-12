@@ -7,7 +7,7 @@ export const BRAND = {
 } as const;
 
 /**
- * Self-contained assets in `apps/platform/static/`:
+ * Self-contained assets in `apps/viewer/static/`:
  * - vyasa-logo.png — master mark (1024², library + loading)
  * - vyasa-icon.png — header/UI icon (256², derived from logo)
  * - favicon.png — browser tab (32²)

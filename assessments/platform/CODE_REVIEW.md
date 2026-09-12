@@ -2,7 +2,7 @@
 
 ## Summary
 
-The `apps/platform` codebase is **in good health overall**. It is fully Svelte 5-compliant with no deprecated patterns, completely schema-neutral, and correctly delegates all data processing to the WASM/SQLite layer. The primary concern is a single severely bloated component (`+page.svelte` at 664 LOC) that is actively causing fragility — this is the root cause of the "disappearing titles" bug experienced this session. Secondary concerns are a no-op `$effect`, a hardcoded registry URL in two places, and a missing deduplication step in the publisher list.
+The `apps/viewer` codebase is **in good health overall**. It is fully Svelte 5-compliant with no deprecated patterns, completely schema-neutral, and correctly delegates all data processing to the WASM/SQLite layer. The primary concern is a single severely bloated component (`+page.svelte` at 664 LOC) that is actively causing fragility — this is the root cause of the "disappearing titles" bug experienced this session. Secondary concerns are a no-op `$effect`, a hardcoded registry URL in two places, and a missing deduplication step in the publisher list.
 
 ---
 

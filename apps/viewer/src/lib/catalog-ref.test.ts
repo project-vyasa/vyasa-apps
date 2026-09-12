@@ -8,7 +8,8 @@ import {
 	parseVyasaCatalogLink,
 	catalogLibraryPath,
 	registryLibraryPath,
-	catalogListingKey
+	catalogListingKey,
+	RESERVED_REGISTRY_IDS
 } from './catalog-ref';
 
 describe('catalog-ref', () => {
@@ -47,5 +48,11 @@ describe('catalog-ref', () => {
 
 	it('keys catalog refs', () => {
 		expect(catalogRefKey(ref)).toBe('adi/vysamples/vyasa-bg');
+	});
+
+	it('reserves sibling app path segments', () => {
+		expect(RESERVED_REGISTRY_IDS.has('sanskrit')).toBe(true);
+		expect(RESERVED_REGISTRY_IDS.has('studio')).toBe(true);
+		expect(RESERVED_REGISTRY_IDS.has('apps')).toBe(false);
 	});
 });

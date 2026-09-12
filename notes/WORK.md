@@ -4,7 +4,7 @@
 
 ## Context
 
-This repo owns **`@project-vyasa/platform`**: viewer, explore, library, and diagnostics UI. It consumes `@vyasa/viewer-wasm` from the **`vyasa`** toolchain.
+This repo owns **`@project-vyasa/viewer`**: viewer, explore, library, and diagnostics UI. It consumes `@vyasa/viewer-wasm` from the **`vyasa`** toolchain.
 
 **Sibling repos:** compiler `vyasa` · samples `vyasa-samples` · docs `vyasa-docs` · ui `vyasa-ui`.
 

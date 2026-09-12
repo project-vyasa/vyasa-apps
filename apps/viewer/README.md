@@ -15,7 +15,7 @@ To recreate this project with the same configuration:
 
 ```sh
 # recreate this project
-npx sv@0.16.1 create --template minimal --types ts --add sveltekit-adapter="adapter:static" prettier eslint --no-install apps/platform
+npx sv@0.16.1 create --template minimal --types ts --add sveltekit-adapter="adapter:static" prettier eslint --no-install apps/viewer
 ```
 
 ## Developing

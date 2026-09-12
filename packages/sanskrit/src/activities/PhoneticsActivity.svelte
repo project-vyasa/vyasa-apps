@@ -1,21 +1,28 @@
 <script lang="ts">
 	import { Badge, SegmentedControl } from '@project-vyasa/vyasa-ui';
 	import EngineBanner from '../components/EngineBanner.svelte';
-	import { PRATISAKHYA_GROUPS, PRATYAHARA_CHIPS } from '../phonetic-sets';
+	import { chromeLabels } from '../chrome-script.svelte.ts';
 	import {
+		PRATISAKHYA_GROUPS,
+		PRATYAHARA_CHIPS,
+		TAITTIRIYA_CONTEXTS,
+		TAITTIRIYA_GLYPHS
+	} from '../phonetic-sets';
+	import {
+		checkTaittiriyaDvitva,
+		classifyTaittiriyaSvarita,
 		ensureEngine,
+		inspectTaittiriyaVarna,
 		inspectVarna,
 		pratyaharaSounds,
 		shivaSutras,
+		taittiriyaSvaritas,
 		type EngineStatus,
 		type ShivaSutra,
+		type TaittiriyaSvarita,
+		type TaittiriyaVarna,
 		type VarnaAnalysis
 	} from '../wasm';
-
-	const traditionOptions = [
-		{ value: 'panini', label: 'Pāṇini' },
-		{ value: 'pratisakhya', label: 'Ṛgveda-Prātiśākhya' }
-	];
 
 	let status = $state<EngineStatus>('loading');
 	let tradition = $state('panini');
@@ -23,12 +30,28 @@
 	let selected = $state('ac');
 	let matches = $state<VarnaAnalysis[]>([]);
 	let inspected = $state<VarnaAnalysis | null>(null);
+	let taittiriyaInspected = $state<TaittiriyaVarna | null>(null);
+	let svaritas = $state<TaittiriyaSvarita[]>([]);
+	let svaritaContext = $state('SemivowelSandhi');
+	let classifiedId = $state<string | undefined>();
+	let dvitvaPrev = $state('');
+	let dvitvaCurr = $state('ka');
+	let dvitvaNext = $state('');
+	let dvitvaResult = $state<boolean | null>(null);
 	let error = $state('');
 
+	const traditionOptions = $derived([
+		{ value: 'panini', label: chromeLabels.sa('Pāṇini') },
+		{ value: 'pratisakhya', label: chromeLabels.sa('Ṛgveda-Prātiśākhya') },
+		{ value: 'taittiriya', label: chromeLabels.sa('Taittirīya') }
+	]);
 	const selectedPratyahara = $derived(PRATYAHARA_CHIPS.find((p) => p.id === selected));
 	const isVowel = $derived(inspected?.varna_type.toLowerCase() === 'vowel');
+	const tIsVowel = $derived(taittiriyaInspected?.varna_type.toLowerCase() === 'vowel');
 	const matchVowels = $derived(matches.filter((m) => m.varna_type === 'vowel'));
 	const matchConsonants = $derived(matches.filter((m) => m.varna_type === 'consonant'));
+	const classifiedSvarita = $derived(svaritas.find((s) => s.id === classifiedId));
+	const showIastSub = $derived(chromeLabels.script !== 'iast');
 
 	$effect(() => {
 		void ensureEngine().then(async (next) => {
@@ -64,6 +87,43 @@
 		};
 	});
 
+	$effect(() => {
+		if (status !== 'ready' || tradition !== 'taittiriya') return;
+		let cancelled = false;
+		void taittiriyaSvaritas()
+			.then((next) => {
+				if (!cancelled) {
+					svaritas = next;
+					error = '';
+				}
+			})
+			.catch((err: unknown) => {
+				if (cancelled) return;
+				error = err instanceof Error ? err.message : String(err);
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		const ctx = svaritaContext;
+		if (status !== 'ready' || tradition !== 'taittiriya') return;
+		let cancelled = false;
+		void classifyTaittiriyaSvarita(ctx)
+			.then((id) => {
+				if (!cancelled) classifiedId = id;
+			})
+			.catch((err: unknown) => {
+				if (cancelled) return;
+				classifiedId = undefined;
+				error = err instanceof Error ? err.message : String(err);
+			});
+		return () => {
+			cancelled = true;
+		};
+	});
+
 	function selectPratyahara(id: string) {
 		selected = id;
 		inspected = null;
@@ -78,15 +138,40 @@
 			error = err instanceof Error ? err.message : String(err);
 		}
 	}
+
+	async function onTaittiriyaGlyph(symbol: string) {
+		if (status !== 'ready') return;
+		try {
+			taittiriyaInspected = await inspectTaittiriyaVarna(symbol);
+			error = '';
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	async function runDvitva() {
+		if (status !== 'ready' || !dvitvaCurr.trim()) return;
+		try {
+			dvitvaResult = await checkTaittiriyaDvitva(dvitvaPrev, dvitvaCurr, dvitvaNext);
+			error = '';
+		} catch (err) {
+			dvitvaResult = null;
+			error = err instanceof Error ? err.message : String(err);
+		}
+	}
 </script>
 
 <div class="phonetics">
 	<EngineBanner {status} />
 
 	<div class="toolbar">
-		<SegmentedControl bind:value={tradition} options={traditionOptions} aria-label="Phonetic tradition" />
+		<SegmentedControl
+			bind:value={tradition}
+			options={traditionOptions}
+			aria-label="Phonetic tradition"
+		/>
 		{#if tradition === 'panini'}
-			<span class="label">Pratyāhāra</span>
+			<span class="label font-sanskrit">{chromeLabels.sa('Pratyāhāra')}</span>
 			{#each PRATYAHARA_CHIPS as p (p.id)}
 				<button
 					type="button"
@@ -96,16 +181,20 @@
 					aria-label={`${p.id}: ${p.gloss}`}
 					onclick={() => selectPratyahara(p.id)}
 				>
-					<span class="chip-id">{p.id}</span>
+					<span class="chip-id font-sanskrit">{chromeLabels.sa(p.id)}</span>
 					<span class="chip-gloss">{p.gloss}</span>
 				</button>
 			{/each}
+		{:else if tradition === 'pratisakhya'}
+			<span class="label font-sanskrit"
+				>{chromeLabels.sa('Śaunaka')} · {chromeLabels.sa('Śaiśirīya')} {chromeLabels.sa('śākhā')}</span
+			>
 		{:else}
-			<span class="label">Śaunaka · Śaiśirīya śākhā</span>
+			<span class="label font-sanskrit">{chromeLabels.sa('Taittirīya-Prātiśākhya')}</span>
 		{/if}
 	</div>
 
-	{#if error && tradition === 'panini'}
+	{#if error && tradition !== 'pratisakhya'}
 		<p class="error">{error}</p>
 	{/if}
 
@@ -123,8 +212,10 @@
 									class="glyph font-sanskrit"
 									onclick={() => onGlyph(v.glyph_deva)}
 								>
-									{v.glyph_deva}
-									<span>{v.glyph_iast}</span>
+									{chromeLabels.glyph(v.glyph_iast)}
+									{#if showIastSub}
+										<span>{v.glyph_iast}</span>
+									{/if}
 								</button>
 							{/each}
 						</div>
@@ -135,115 +226,248 @@
 				<h2>Inspector</h2>
 				{#if inspected}
 					<div class="inspector">
-						<h3 class="font-sanskrit">{inspected.glyph_deva} / {inspected.glyph_iast}</h3>
+						<h3 class="font-sanskrit">
+							{chromeLabels.glyph(inspected.glyph_iast)}
+							{#if showIastSub}
+								/ {inspected.glyph_iast}
+							{/if}
+						</h3>
 						<p>{inspected.varna_type} · {inspected.sthana.join(', ')}</p>
 						<p>{inspected.abhyantara_prayatna}</p>
 						<div class="flags">
 							<Badge variant={inspected.is_ghosha ? 'success' : 'neutral'}>
-								{inspected.is_ghosha ? 'Ghoṣa' : 'Aghoṣa'}
+								{inspected.is_ghosha ? chromeLabels.sa('Ghoṣa') : chromeLabels.sa('Aghoṣa')}
 							</Badge>
 							{#if !isVowel}
 								<Badge variant={inspected.is_alpaprana ? 'neutral' : 'warning'}>
-									{inspected.is_alpaprana ? 'Alpaprāṇa' : 'Mahāprāṇa'}
+									{inspected.is_alpaprana
+										? chromeLabels.sa('Alpaprāṇa')
+										: chromeLabels.sa('Mahāprāṇa')}
 								</Badge>
 							{/if}
-							<Badge variant="primary">Mātrā {inspected.matra}</Badge>
+							<Badge variant="primary">{chromeLabels.sa('Mātrā')} {inspected.matra}</Badge>
 						</div>
 					</div>
 				{:else}
 					<p class="empty">Click a sound. Inspector uses the engine when it is loaded.</p>
 				{/if}
 			</section>
-		{:else}
-		<section>
-			<h2>Śiva Sūtras</h2>
-			<p class="group-hint">
-				Red is an <em>it</em>-marker (anubandha). It bounds a pratyāhāra and is not a member.
-				<em> a-i-u-ṇ</em> is sūtra 1: the fourth item is ण्, not a vowel.
-			</p>
-			<ol class="sutras font-sanskrit">
-				{#each sutras as s (s.index)}
-					<li>
-						<span class="idx">{s.index}.</span>
-						{s.sounds_deva.join(' ')}
-						<span class="it">{s.it_marker_deva}</span>
-					</li>
-				{/each}
-			</ol>
-		</section>
-		<section>
-			<h2>
-				Sounds in <span class="font-sanskrit">{selected}</span>
-				{#if selectedPratyahara}
-					<span class="gloss"> · {selectedPratyahara.gloss}</span>
-				{/if}
-				<span class="count">{matches.length}</span>
-			</h2>
-			{#if selectedPratyahara}
-				<p class="group-hint">{selectedPratyahara.rule}</p>
-			{/if}
-			{#key selected}
-				{#if matchVowels.length && matchConsonants.length}
-					<h3>Vowels ({matchVowels.length})</h3>
-					<div class="glyphs">
-						{#each matchVowels as v, i (`v-${i}-${v.glyph_deva}`)}
-							<button
-								type="button"
-								class="glyph font-sanskrit"
-								onclick={() => onGlyph(v.glyph_iast)}
+		{:else if tradition === 'taittiriya'}
+			<section>
+				<h2 class="font-sanskrit">{chromeLabels.sa('Svarita')} · Ch. 20</h2>
+				<p class="group-hint">
+					Eight varieties. {chromeLabels.sa('Nitya')} is inherent; the rest are
+					{chromeLabels.sa('kārya')} (dependent).
+				</p>
+				<div class="svaritas">
+					{#each svaritas as s (s.id)}
+						<div class="svarita font-sanskrit" class:nitya={s.is_nitya}>
+							<span class="svarita-name">{chromeLabels.sa(s.name_iast)}</span>
+							<Badge variant={s.is_nitya ? 'primary' : 'neutral'}
+								>{s.is_nitya ? chromeLabels.sa('Nitya') : chromeLabels.sa('Kārya')}</Badge
 							>
-								{v.glyph_deva}
-								<span>{v.glyph_iast}</span>
-							</button>
-						{/each}
-					</div>
-					<h3>Consonants ({matchConsonants.length})</h3>
-					<div class="glyphs">
-						{#each matchConsonants as v, i (`c-${i}-${v.glyph_deva}`)}
-							<button
-								type="button"
-								class="glyph font-sanskrit"
-								onclick={() => onGlyph(v.glyph_iast)}
-							>
-								{v.glyph_deva}
-								<span>{v.glyph_iast}</span>
-							</button>
-						{/each}
-					</div>
-				{:else}
-					<div class="glyphs">
-						{#each matches as v, i (`${i}-${v.glyph_deva}-${v.glyph_iast}`)}
-							<button
-								type="button"
-								class="glyph font-sanskrit"
-								onclick={() => onGlyph(v.glyph_iast)}
-							>
-								{v.glyph_deva}
-								<span>{v.glyph_iast}</span>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			{/key}
-			{#if inspected}
-				<div class="inspector">
-					<h3 class="font-sanskrit">{inspected.glyph_deva} / {inspected.glyph_iast}</h3>
-					<p>{inspected.varna_type} · {inspected.sthana.join(', ')}</p>
-					<p>{inspected.abhyantara_prayatna}</p>
-					<div class="flags">
-						<Badge variant={inspected.is_ghosha ? 'success' : 'neutral'}>
-							{inspected.is_ghosha ? 'Ghoṣa' : 'Aghoṣa'}
-						</Badge>
-						{#if !isVowel}
-							<Badge variant={inspected.is_alpaprana ? 'neutral' : 'warning'}>
-								{inspected.is_alpaprana ? 'Alpaprāṇa' : 'Mahāprāṇa'}
-							</Badge>
-						{/if}
-						<Badge variant="primary">Mātrā {inspected.matra}</Badge>
-					</div>
+						</div>
+					{/each}
 				</div>
-			{/if}
-		</section>
+				<label class="context">
+					<span>Juncture</span>
+					<select bind:value={svaritaContext}>
+						{#each TAITTIRIYA_CONTEXTS as c (c.id)}
+							<option value={c.id}>{c.label}</option>
+						{/each}
+					</select>
+				</label>
+				{#if classifiedSvarita}
+					<p class="group-hint font-sanskrit">
+						Classifies as {chromeLabels.sa(classifiedSvarita.name_iast)}.
+					</p>
+				{/if}
+			</section>
+			<section>
+				<h2>Inspector · {chromeLabels.sa('karaṇa')}</h2>
+				<p class="group-hint">
+					TPr active articulator ({chromeLabels.sa('karaṇa')}) beside Pāṇinian
+					{chromeLabels.sa('sthāna')}.
+				</p>
+				<div class="glyphs">
+					{#each TAITTIRIYA_GLYPHS as v (`t-${v.glyph_deva}-${v.glyph_iast}`)}
+						<button
+							type="button"
+							class="glyph font-sanskrit"
+							onclick={() => onTaittiriyaGlyph(v.glyph_iast)}
+						>
+							{chromeLabels.glyph(v.glyph_iast)}
+							{#if showIastSub}
+								<span>{v.glyph_iast}</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+				{#if taittiriyaInspected}
+					<div class="inspector">
+						<h3 class="font-sanskrit">
+							{chromeLabels.glyph(taittiriyaInspected.glyph_iast)}
+							{#if showIastSub}
+								/ {taittiriyaInspected.glyph_iast}
+							{/if}
+						</h3>
+						<p>
+							{taittiriyaInspected.varna_type} · {chromeLabels.sa('sthāna')}: {taittiriyaInspected.sthana.join(
+								', '
+							)}
+						</p>
+						<p class="font-sanskrit">
+							{chromeLabels.sa('karaṇa')}: {taittiriyaInspected.karana}
+						</p>
+						<p>{taittiriyaInspected.abhyantara_prayatna}</p>
+						<div class="flags">
+							<Badge variant={taittiriyaInspected.is_ghosha ? 'success' : 'neutral'}>
+								{taittiriyaInspected.is_ghosha
+									? chromeLabels.sa('Ghoṣa')
+									: chromeLabels.sa('Aghoṣa')}
+							</Badge>
+							{#if !tIsVowel}
+								<Badge variant={taittiriyaInspected.is_alpaprana ? 'neutral' : 'warning'}>
+									{taittiriyaInspected.is_alpaprana
+										? chromeLabels.sa('Alpaprāṇa')
+										: chromeLabels.sa('Mahāprāṇa')}
+								</Badge>
+							{/if}
+							<Badge variant="primary"
+								>{chromeLabels.sa('Mātrā')} {taittiriyaInspected.matra}</Badge
+							>
+						</div>
+					</div>
+				{/if}
+				<div class="dvitva">
+					<h3 class="font-sanskrit">{chromeLabels.sa('Dvitva')} · Ch. 14</h3>
+					<p class="group-hint">Consonant doubling. Glyphs in IAST or Devanagari.</p>
+					<div class="dvitva-row">
+						<label>
+							prev
+							<input class="font-sanskrit" bind:value={dvitvaPrev} spellcheck="false" />
+						</label>
+						<label>
+							curr
+							<input class="font-sanskrit" bind:value={dvitvaCurr} spellcheck="false" />
+						</label>
+						<label>
+							next
+							<input class="font-sanskrit" bind:value={dvitvaNext} spellcheck="false" />
+						</label>
+						<button type="button" class="chip" onclick={runDvitva}>Check</button>
+					</div>
+					{#if dvitvaResult !== null}
+						<p class="group-hint">
+							{dvitvaResult ? 'Doubles in Taittirīya recitation.' : 'Does not double.'}
+						</p>
+					{/if}
+				</div>
+			</section>
+		{:else}
+			<section>
+				<h2 class="font-sanskrit">{chromeLabels.sa('Śiva Sūtras')}</h2>
+				<p class="group-hint">
+					Red is an <em>it</em>-marker (anubandha). It bounds a {chromeLabels.sa('pratyāhāra')} and is
+					not a member.
+					<em> a-i-u-ṇ</em> is sūtra 1: the fourth item is ण्, not a vowel.
+				</p>
+				<ol class="sutras font-sanskrit">
+					{#each sutras as s (s.index)}
+						<li>
+							<span class="idx">{s.index}.</span>
+							{s.sounds_iast.map((g) => chromeLabels.glyph(g)).join(' ')}
+							<span class="it">{chromeLabels.glyph(s.it_marker_iast)}</span>
+						</li>
+					{/each}
+				</ol>
+			</section>
+			<section>
+				<h2>
+					Sounds in <span class="font-sanskrit">{chromeLabels.sa(selected)}</span>
+					{#if selectedPratyahara}
+						<span class="gloss"> · {selectedPratyahara.gloss}</span>
+					{/if}
+					<span class="count">{matches.length}</span>
+				</h2>
+				{#if selectedPratyahara}
+					<p class="group-hint">{selectedPratyahara.rule}</p>
+				{/if}
+				{#key selected}
+					{#if matchVowels.length && matchConsonants.length}
+						<h3>Vowels ({matchVowels.length})</h3>
+						<div class="glyphs">
+							{#each matchVowels as v, i (`v-${i}-${v.glyph_deva}`)}
+								<button
+									type="button"
+									class="glyph font-sanskrit"
+									onclick={() => onGlyph(v.glyph_iast)}
+								>
+									{chromeLabels.glyph(v.glyph_iast)}
+									{#if showIastSub}
+										<span>{v.glyph_iast}</span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+						<h3>Consonants ({matchConsonants.length})</h3>
+						<div class="glyphs">
+							{#each matchConsonants as v, i (`c-${i}-${v.glyph_deva}`)}
+								<button
+									type="button"
+									class="glyph font-sanskrit"
+									onclick={() => onGlyph(v.glyph_iast)}
+								>
+									{chromeLabels.glyph(v.glyph_iast)}
+									{#if showIastSub}
+										<span>{v.glyph_iast}</span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+					{:else}
+						<div class="glyphs">
+							{#each matches as v, i (`${i}-${v.glyph_deva}-${v.glyph_iast}`)}
+								<button
+									type="button"
+									class="glyph font-sanskrit"
+									onclick={() => onGlyph(v.glyph_iast)}
+								>
+									{chromeLabels.glyph(v.glyph_iast)}
+									{#if showIastSub}
+										<span>{v.glyph_iast}</span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+					{/if}
+				{/key}
+				{#if inspected}
+					<div class="inspector">
+						<h3 class="font-sanskrit">
+							{chromeLabels.glyph(inspected.glyph_iast)}
+							{#if showIastSub}
+								/ {inspected.glyph_iast}
+							{/if}
+						</h3>
+						<p>{inspected.varna_type} · {inspected.sthana.join(', ')}</p>
+						<p>{inspected.abhyantara_prayatna}</p>
+						<div class="flags">
+							<Badge variant={inspected.is_ghosha ? 'success' : 'neutral'}>
+								{inspected.is_ghosha ? chromeLabels.sa('Ghoṣa') : chromeLabels.sa('Aghoṣa')}
+							</Badge>
+							{#if !isVowel}
+								<Badge variant={inspected.is_alpaprana ? 'neutral' : 'warning'}>
+									{inspected.is_alpaprana
+										? chromeLabels.sa('Alpaprāṇa')
+										: chromeLabels.sa('Mahāprāṇa')}
+								</Badge>
+							{/if}
+							<Badge variant="primary">{chromeLabels.sa('Mātrā')} {inspected.matra}</Badge>
+						</div>
+					</div>
+				{/if}
+			</section>
 		{/if}
 	</div>
 </div>
@@ -413,6 +637,65 @@
 		flex-wrap: wrap;
 		gap: var(--space-2);
 		margin-top: var(--space-2);
+	}
+
+	.svaritas {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-2);
+		margin-bottom: var(--space-4);
+	}
+
+	.svarita {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-2);
+		padding: 0.35rem 0.55rem;
+		border: 1px solid var(--border-base);
+		border-radius: var(--control-radius);
+		background: var(--bg-canvas);
+	}
+
+	.svarita.nitya {
+		border-color: var(--action-primary);
+	}
+
+	.svarita-name {
+		font-size: var(--text-sm);
+		font-weight: var(--font-semibold);
+	}
+
+	.context,
+	.dvitva-row label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		margin-bottom: var(--space-3);
+	}
+
+	.context select,
+	.dvitva-row input {
+		font: inherit;
+		padding: 0.3rem 0.45rem;
+		border: 1px solid var(--border-base);
+		border-radius: var(--control-radius);
+		background: var(--bg-canvas);
+		color: var(--text-primary);
+		min-width: 6rem;
+	}
+
+	.dvitva {
+		margin-top: var(--space-6);
+	}
+
+	.dvitva-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: var(--space-2);
 	}
 
 	.error {

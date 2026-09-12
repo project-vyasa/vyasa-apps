@@ -2,16 +2,14 @@
 
 Front-end apps for the Vyasa ecosystem, published together on GitHub Pages:
 
-| App | Local | GitHub Pages |
-|-----|-------|----------------|
-| Viewer (`apps/platform`) | http://localhost:5373/ | https://project-vyasa.github.io/vyasa-apps/ |
-| Sanskrit Studio (`apps/sanskrit-studio`) | http://localhost:5374/ | https://project-vyasa.github.io/vyasa-apps/apps/sanskrit-studio/ |
+| App | Source | Local | GitHub Pages |
+|-----|--------|-------|----------------|
+| Viewer | `apps/viewer` | http://localhost:5373/ | https://project-vyasa.github.io/vyasa-apps/ |
+| Sanskrit Studio | `apps/sanskrit-studio` | http://localhost:5374/ | https://project-vyasa.github.io/vyasa-apps/sanskrit/ |
 
-Studio is a separate SvelteKit app (own router), nested under `apps/` so it does not collide with viewer catalog routes (`apps` is a reserved registry id).
+Sibling Kit apps use a reserved first path segment (`sanskrit`, later `studio`) so they do not collide with viewer catalog routes.
 
 ```bash
 bun run assemble:pages   # build viewer + studio → dist-pages/
-bun run deploy:pages     # assemble and publish the gh-pages branch
+bun run deploy           # assemble and publish the gh-pages branch
 ```
-
-Do not publish `apps/platform` alone: that replaces the whole `gh-pages` branch with the viewer and drops Studio. `bun run deploy:platform` now calls the combined `deploy:pages` script.

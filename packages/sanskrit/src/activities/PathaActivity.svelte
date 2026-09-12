@@ -1,39 +1,63 @@
 <script lang="ts">
 	import { Badge, Button, DataGrid, Select, SegmentedControl } from '@project-vyasa/vyasa-ui';
 	import EngineBanner from '../components/EngineBanner.svelte';
+	import { chromeLabels } from '../chrome-script.svelte.ts';
 	import {
 		ensureEngine,
+		generateJata,
 		generateKrama,
 		GOLDEN_PADA_PATHA,
 		supportedScripts,
 		type EngineStatus,
+		type JataStep,
 		type KramaStep,
 		type ScriptInfo
 	} from '../wasm';
-	import { CURRENT_PATHA_PATTERN, PATHA_PATTERNS } from '../patha-patterns';
+	import { PATHA_PATTERNS, type PathaPattern } from '../patha-patterns';
+
+	type PathaStep = KramaStep | JataStep;
 
 	let status = $state<EngineStatus>('loading');
 	let scripts = $state<ScriptInfo[]>([]);
 	let script = $state('devanagari');
+	let patternId = $state('krama');
 	let inputPada = $state(GOLDEN_PADA_PATHA);
 	let view = $state('table');
-	let steps = $state<KramaStep[]>([]);
+	let steps = $state<PathaStep[]>([]);
 	let current = $state(0);
 	let error = $state('');
 
+	const pattern = $derived(
+		PATHA_PATTERNS.find((p) => p.id === patternId) ??
+			PATHA_PATTERNS.find((p) => p.id === 'krama')!
+	);
+	const availableCount = $derived(PATHA_PATTERNS.filter((p) => p.available).length);
+	const isJata = $derived(pattern.id === 'jata');
 	const scriptOptions = $derived(scripts.map((s) => ({ label: s.name, value: s.id })));
 	const viewOptions = [
 		{ value: 'table', label: 'Table' },
 		{ value: 'trainer', label: 'Trainer' }
 	];
-	const columns = [
+	const kramaColumns = [
 		{ key: 'step_number' as const, label: '#' },
 		{ key: 'formula' as const, label: 'Formula' },
 		{ key: 'raw_pada' as const, label: 'Raw' },
 		{ key: 'sandhied' as const, label: 'Sandhied' }
 	];
-
+	const jataColumns = [
+		{ key: 'step_number' as const, label: '#' },
+		{ key: 'formula' as const, label: 'Formula' },
+		{ key: 'forward_text' as const, label: 'Forward' },
+		{ key: 'reverse_text' as const, label: 'Reverse' },
+		{ key: 'sandhied' as const, label: 'Sandhied' }
+	];
 	const step = $derived(steps[current]);
+	const jataStep = $derived(step && 'forward_text' in step ? step : null);
+	const kramaStep = $derived(step && 'raw_pada' in step ? step : null);
+	const pathaTitle = $derived(`${chromeLabels.sa(pattern.name)}-${chromeLabels.sa('pāṭha')}`);
+	const familyLabel = $derived(
+		pattern.family === 'prakriti' ? chromeLabels.sa('Prakṛti') : chromeLabels.sa('Vikṛti')
+	);
 
 	$effect(() => {
 		void ensureEngine().then(async (next) => {
@@ -45,21 +69,34 @@
 	$effect(() => {
 		const pada = inputPada;
 		const to = script;
+		const id = patternId;
 		if (status !== 'ready') {
 			steps = [];
 			return;
 		}
+		let cancelled = false;
 		void (async () => {
 			try {
-				steps = await generateKrama(pada, to);
-				if (current >= steps.length) current = 0;
+				const next = id === 'jata' ? await generateJata(pada, to) : await generateKrama(pada, to);
+				if (cancelled) return;
+				steps = next;
+				current = 0;
 				error = '';
 			} catch (err) {
+				if (cancelled) return;
 				error = err instanceof Error ? err.message : String(err);
 				steps = [];
 			}
 		})();
+		return () => {
+			cancelled = true;
+		};
 	});
+
+	function selectPattern(p: PathaPattern) {
+		if (!p.available) return;
+		patternId = p.id;
+	}
 
 	function nextStep() {
 		if (!steps.length) return;
@@ -89,15 +126,15 @@
 
 	<div class="toolbar">
 		<div class="current">
-			<span class="mode-name">{CURRENT_PATHA_PATTERN.name}-pāṭha</span>
-			<span class="formula font-sanskrit">{CURRENT_PATHA_PATTERN.formula}</span>
-			<span class="family">Prakṛti · 3 of 11 patterns</span>
+			<span class="mode-name">{pathaTitle}</span>
+			<span class="formula font-sanskrit">{chromeLabels.formula(pattern.formula)}</span>
+			<span class="family">{familyLabel} · {availableCount} of 11 patterns</span>
 		</div>
 		<label class="field">
 			<span>Script</span>
 			<Select options={scriptOptions} bind:value={script} />
 		</label>
-		<SegmentedControl bind:value={view} options={viewOptions} aria-label="Pāṭha view" />
+		<SegmentedControl bind:value={view} options={viewOptions} aria-label="{chromeLabels.sa('Pāṭha')} view" />
 	</div>
 
 	<div class="patterns" role="list" aria-label="Recitation patterns">
@@ -105,25 +142,27 @@
 			<button
 				type="button"
 				class="pattern"
-				class:current={p.available}
+				class:current={p.id === patternId}
 				disabled={!p.available}
 				title={p.help}
+				onclick={() => selectPattern(p)}
 			>
-				<span class="pattern-name">{p.name}</span>
-				<span class="pattern-formula">{p.formula}</span>
+				<span class="pattern-name font-sanskrit">{chromeLabels.sa(p.name)}</span>
+				<span class="pattern-formula">{chromeLabels.formula(p.formula)}</span>
 			</button>
 		{/each}
 	</div>
 
 	<div class="body">
 		<section class="input-col">
-			<label for="pada-input">Pada-pāṭha</label>
+			<label for="pada-input">{chromeLabels.sa('Pada')}-{chromeLabels.sa('pāṭha')}</label>
 			<textarea id="pada-input" class="font-sanskrit editor" bind:value={inputPada} spellcheck="false"
 			></textarea>
 			<p class="hint">
-				Left pane is Pada-pāṭha (input). The table is Krama. Rows like 22-iti-22 with इति between two
-				copies of a pada are parigraha (pragṛhya or the last word), not a typing error. Jaṭā through
-				Ghana are listed but not generated yet.
+				Left pane is {chromeLabels.sa('Pada')}-{chromeLabels.sa('pāṭha')} (input). Rows with
+				{chromeLabels.sa('iti')} between two copies of a pada are {chromeLabels.sa('parigraha')}
+				({chromeLabels.sa('pragṛhya')} or the last word), not a typing error. {chromeLabels.sa('Mālā')}
+				through {chromeLabels.sa('Ghana')} are listed but not generated yet.
 			</p>
 		</section>
 
@@ -134,16 +173,27 @@
 				{#if step}
 					<div class="card">
 						<div class="meta">
-							Step {step.step_number} of {steps.length} · {step.formula}
+							Step {step.step_number} of {steps.length} · {chromeLabels.formula(step.formula)}
 						</div>
 						<div class="font-sanskrit chant">{step.sandhied}</div>
 						<div class="flags">
-							<span class="raw font-sanskrit">Raw: {step.raw_pada}</span>
-							{#if step.is_parigraha}
-								<Badge variant="primary">Parigraha (इति)</Badge>
+							{#if jataStep}
+								<span class="raw font-sanskrit">
+									Forward: {jataStep.forward_text}
+									{#if jataStep.reverse_text}
+										· Reverse: {jataStep.reverse_text}
+									{/if}
+								</span>
+							{:else if kramaStep}
+								<span class="raw font-sanskrit">Raw: {kramaStep.raw_pada}</span>
 							{/if}
-							{#if step.pragrhya_detected}
-								<Badge variant="success">Pragṛhya</Badge>
+							{#if step.is_parigraha}
+								<Badge variant="primary"
+									>{chromeLabels.sa('Parigraha')} ({chromeLabels.sa('iti')})</Badge
+								>
+							{/if}
+							{#if kramaStep?.pragrhya_detected}
+								<Badge variant="success">{chromeLabels.sa('Pragṛhya')}</Badge>
 							{/if}
 						</div>
 						<div class="nav">
@@ -152,12 +202,16 @@
 						</div>
 					</div>
 				{:else}
-					<p class="empty">Enter padas to generate Krama-pāṭha.</p>
+					<p class="empty">Enter padas to generate {pathaTitle}.</p>
 				{/if}
 			{:else if steps.length}
-				<DataGrid data={steps} {columns} keyField="step_number" />
+				{#if isJata}
+					<DataGrid data={steps as JataStep[]} columns={jataColumns} keyField="step_number" />
+				{:else}
+					<DataGrid data={steps as KramaStep[]} columns={kramaColumns} keyField="step_number" />
+				{/if}
 			{:else}
-				<p class="empty">Enter padas to generate Krama-pāṭha.</p>
+				<p class="empty">Enter padas to generate {pathaTitle}.</p>
 			{/if}
 		</section>
 	</div>

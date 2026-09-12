@@ -4,7 +4,7 @@ description: Code review workflow for vyasa-apps frontend applications (SvelteKi
 
 # Vyasa-Apps Code Review Workflow
 
-This workflow performs a critical code review of the `vyasa-apps` monorepo, which houses the end-user applications (like the `platform` viewer). The review focuses on application architecture, Svelte 5 compliance, integration with the WASM runtimes, and strict adherence to the project invariants (especially schema neutrality).
+This workflow performs a critical code review of the `vyasa-apps` monorepo, which houses the end-user applications (like the viewer). The review focuses on application architecture, Svelte 5 compliance, integration with the WASM runtimes, and strict adherence to the project invariants (especially schema neutrality).
 
 ## Steps
 
@@ -48,14 +48,14 @@ Schema-neutrality scans catch *domain words*; this step catches *publication fam
 
 ```bash
 # Hardcoded stream ids / layout assumptions (runtime paths only — tests may use fixtures)
-rg -n "mula|iast|devanagari|sanskrit|samhita|purport|preferredTop" apps/platform/src \
+rg -n "mula|iast|devanagari|sanskrit|samhita|purport|preferredTop" apps/viewer/src \
   --glob '*.{ts,svelte}' --glob '!**/*.test.ts'
 
 # Primary-stream inference that bypasses manifest.primary_stream
-rg -n "primary_stream|resolvePrimaryStream|packageStreams" apps/platform/src --glob '*.ts'
+rg -n "primary_stream|resolvePrimaryStream|packageStreams" apps/viewer/src --glob '*.ts'
 
 # UI copy that implies a specific publication shape
-rg -n "placeholder=.*mula|devanagari" apps/platform/src --glob '*.svelte'
+rg -n "placeholder=.*mula|devanagari" apps/viewer/src --glob '*.svelte'
 ```
 
 Flag as **High Priority** when found in non-test runtime code:

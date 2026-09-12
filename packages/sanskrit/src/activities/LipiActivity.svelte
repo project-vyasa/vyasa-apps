@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Badge, Button, Select } from '@project-vyasa/vyasa-ui';
 	import EngineBanner from '../components/EngineBanner.svelte';
+	import { chromeLabels } from '../chrome-script.svelte.ts';
 	import { insertAtCursor, PALETTE_GROUPS, VEDIC_PALETTE, type PaletteMark } from '../insert-text';
 	import {
 		ensureEngine,
@@ -93,7 +94,7 @@
 							onclick={() => insertAccent(acc)}
 						>
 							<span class="font-sanskrit glyph">{acc.label}</span>
-							<span class="key-name">{acc.name}</span>
+							<span class="key-name font-sanskrit">{chromeLabels.sa(acc.name)}</span>
 						</button>
 					{/each}
 				</div>

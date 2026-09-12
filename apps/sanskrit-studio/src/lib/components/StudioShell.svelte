@@ -6,11 +6,12 @@
 		AppShell,
 		Button
 	} from '@project-vyasa/vyasa-ui';
+	import { chromeLabels } from '@project-vyasa/sanskrit';
 	import { getContext, type Snippet } from 'svelte';
 	import { base } from '$app/paths';
 	import { Languages, Mic, LayoutGrid } from 'lucide-svelte';
 	import { brandIconSrc } from '$lib/brand';
-	import { viewerHref } from '$lib/pages-apps';
+	import ChromeScriptSelect from './ChromeScriptSelect.svelte';
 
 	export type StudioActivity = 'lipi' | 'patha' | 'phonetics';
 
@@ -21,17 +22,21 @@
 
 	let { activity = $bindable(), children }: Props = $props();
 
+	$effect(() => {
+		void chromeLabels.init();
+	});
+
 	const themeContext = getContext<{
 		current: 'light' | 'dark';
 		theme: 'light' | 'dark' | 'system';
 		toggleTheme: () => void;
 	}>('theme');
 
-	const titles: Record<StudioActivity, string> = {
-		lipi: 'Lipi — Transliteration',
-		patha: 'Pāṭha — Krama recitation',
-		phonetics: 'Varṇa — Phonetics'
-	};
+	const titles = $derived({
+		lipi: `${chromeLabels.sa('Lipi')} — Transliteration`,
+		patha: `${chromeLabels.sa('Pāṭha')} — recitation`,
+		phonetics: `${chromeLabels.sa('Varṇa')} — Phonetics`
+	} satisfies Record<StudioActivity, string>);
 </script>
 
 <AppShell>
@@ -44,9 +49,9 @@
 			{themeContext}
 		>
 			{#snippet headerRight()}
-				<a class="sibling-app" href={viewerHref()} data-sveltekit-reload>Viewer</a>
+				<ChromeScriptSelect />
 			{/snippet}
-			<span class="header-activity">{titles[activity]}</span>
+			<span class="header-activity font-sanskrit">{titles[activity]}</span>
 		</AppHeader>
 	{/snippet}
 
@@ -60,7 +65,7 @@
 							size="icon"
 							class="activity-item"
 							icon={Languages}
-							title="Lipi: Transliteration"
+							title="{chromeLabels.sa('Lipi')}: Transliteration"
 							onclick={() => (activity = 'lipi')}
 						/>
 					{/snippet}
@@ -72,7 +77,7 @@
 							size="icon"
 							class="activity-item"
 							icon={Mic}
-							title="Pāṭha: Krama & recitation"
+							title="{chromeLabels.sa('Pāṭha')}: recitation"
 							onclick={() => (activity = 'patha')}
 						/>
 					{/snippet}
@@ -84,7 +89,7 @@
 							size="icon"
 							class="activity-item"
 							icon={LayoutGrid}
-							title="Varṇa: Articulatory phonetics"
+							title="{chromeLabels.sa('Varṇa')}: Articulatory phonetics"
 							onclick={() => (activity = 'phonetics')}
 						/>
 					{/snippet}
@@ -104,17 +109,19 @@
 		font-size: var(--text-sm);
 	}
 
-	.sibling-app {
-		font-size: var(--text-xs);
-		color: var(--text-secondary);
-		text-decoration: none;
+	:global(.app-header .app-title)::after {
+		content: 'Experimental';
+		margin-left: 0.35rem;
+		padding: 0.08rem 0.4rem;
+		font-size: 0.65rem;
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--text-tertiary);
+		border: 1px solid var(--border-base);
+		border-radius: var(--control-radius);
 		white-space: nowrap;
-		margin-right: var(--space-2);
-	}
-
-	.sibling-app:hover {
-		color: var(--text-primary);
-		text-decoration: underline;
+		line-height: 1.3;
 	}
 
 	.canvas {

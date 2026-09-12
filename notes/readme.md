@@ -6,7 +6,7 @@ Coordination space for **frontend / platform work** in this repo.
 
 | Repo | Path | Role |
 |------|------|------|
-| **vyasa-apps** (here) | `/Users/anand/Projects/project-vyasa/vyasa-apps` | Current SvelteKit platform — viewer, explore, library |
+| **vyasa-apps** (here) | `/Users/anand/Projects/project-vyasa/vyasa-apps` | Viewer, Sanskrit Studio, and (later) authoring studio |
 | **vyasa** (compiler) | `/Users/anand/Projects/project-vyasa/vyasa` | Rust toolchain: `vyasac`, viewer WASM runtime, language/schema |
 | **vyasa-samples** | `/Users/anand/Projects/project-vyasa/vyasa-samples` | Customer-style repo — validate end-to-end from a publisher/user POV (`vyasac pack`, catalogs) |
 | **vyasa-docs** | `/Users/anand/Projects/project-vyasa/vyasa-docs` | Astro Starlight docs; hosts an **earlier frozen** viewer and playarea — **do not replace WASM builds here** |
@@ -16,7 +16,7 @@ Coordination space for **frontend / platform work** in this repo.
 
 | Repo | Scope | Notes location |
 |------|-------|----------------|
-| **`vyasa-apps`** (here) | SvelteKit platform, viewer UI, registry/catalog UX, WASM *consumption* | `notes/` |
+| **`vyasa-apps`** (here) | Viewer UI, registry/catalog UX, WASM *consumption* | `notes/` |
 | **`vyasa`** | Rust compiler (`vyasac`), viewer WASM runtime, language/schema | `../vyasa/notes/` |
 | **`vyasa-samples`** | Sample `.vy` content, `context.vy`, packed publications | — |
 | **`vyasa-docs`** | Published docs + legacy embedded apps (frozen) | `../vyasa-docs/` — read-only for WASM |

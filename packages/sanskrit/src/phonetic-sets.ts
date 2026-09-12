@@ -104,3 +104,36 @@ export const PRATYAHARA_CHIPS: PratyaharaChip[] = [
 		rule: 'a → ल्: vowels plus consonants (ac + hal).'
 	}
 ];
+
+export const TAITTIRIYA_CONTEXTS: { id: string; label: string }[] = [
+	{ id: 'InternalSemivowelStem', label: 'Internal semivowel stem' },
+	{ id: 'SemivowelSandhi', label: 'Semivowel sandhi' },
+	{ id: 'AbhinihitaElision', label: 'Abhinihita elision' },
+	{ id: 'CoalescentLongVowel', label: 'Coalescent long vowel' },
+	{ id: 'PostUdattaConsonant', label: 'Post-udātta consonant' },
+	{ id: 'HiatusWithoutSandhi', label: 'Hiatus without sandhi' },
+	{ id: 'AcrossVirama', label: 'Across virāma' }
+];
+
+/** Inspector / dvitva glyphs for Taittirīya-Prātiśākhya (IAST is the chrome source). */
+export const TAITTIRIYA_GLYPHS: PhoneticGlyph[] = [
+	...SHAISHIRIYA_VOWELS,
+	{ glyph_deva: 'क', glyph_iast: 'ka' },
+	{ glyph_deva: 'ख', glyph_iast: 'kha' },
+	{ glyph_deva: 'ग', glyph_iast: 'ga' },
+	{ glyph_deva: 'ङ', glyph_iast: 'ṅa' },
+	{ glyph_deva: 'च', glyph_iast: 'ca' },
+	{ glyph_deva: 'ट', glyph_iast: 'ṭa' },
+	{ glyph_deva: 'त', glyph_iast: 'ta' },
+	{ glyph_deva: 'न', glyph_iast: 'na' },
+	{ glyph_deva: 'प', glyph_iast: 'pa' },
+	{ glyph_deva: 'म', glyph_iast: 'ma' },
+	{ glyph_deva: 'य', glyph_iast: 'ya' },
+	{ glyph_deva: 'र', glyph_iast: 'ra' },
+	{ glyph_deva: 'ल', glyph_iast: 'la' },
+	{ glyph_deva: 'व', glyph_iast: 'va' },
+	{ glyph_deva: 'श', glyph_iast: 'śa' },
+	{ glyph_deva: 'ष', glyph_iast: 'ṣa' },
+	{ glyph_deva: 'स', glyph_iast: 'sa' },
+	{ glyph_deva: 'ह', glyph_iast: 'ha' }
+];

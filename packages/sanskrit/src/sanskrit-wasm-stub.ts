@@ -21,6 +21,36 @@ export type KramaStep = {
 	pragrhya_detected: boolean;
 };
 
+export type JataStep = {
+	step_number: number;
+	formula: string;
+	first_index: number;
+	second_index: number | null;
+	forward_text: string;
+	reverse_text: string;
+	sandhied: string;
+	is_parigraha: boolean;
+};
+
+export type TaittiriyaSvarita = {
+	id: string;
+	name_deva: string;
+	name_iast: string;
+	is_nitya: boolean;
+};
+
+export type TaittiriyaVarna = {
+	glyph_deva: string;
+	glyph_iast: string;
+	varna_type: string;
+	sthana: string[];
+	karana: string;
+	abhyantara_prayatna: string;
+	is_ghosha: boolean;
+	is_alpaprana: boolean;
+	matra: number;
+};
+
 export type ShivaSutra = {
 	index: number;
 	name: string;
@@ -49,7 +79,10 @@ export const FALLBACK_SCRIPTS: ScriptInfo[] = [
 	{ id: 'malayalam', name: 'Malayalam (മലയാളം)', is_indic: true, has_vedic_pitch: true },
 	{ id: 'bengali', name: 'Bengali (বাংলা)', is_indic: true, has_vedic_pitch: true },
 	{ id: 'iast', name: 'IAST (Roman Diacritics)', is_indic: false, has_vedic_pitch: true },
-	{ id: 'iso15919', name: 'ISO 15919', is_indic: false, has_vedic_pitch: true }
+	{ id: 'iso15919', name: 'ISO 15919', is_indic: false, has_vedic_pitch: true },
+	{ id: 'slp1', name: 'SLP1', is_indic: false, has_vedic_pitch: false },
+	{ id: 'harvardkyoto', name: 'Harvard-Kyoto', is_indic: false, has_vedic_pitch: false },
+	{ id: 'wx', name: 'WX', is_indic: false, has_vedic_pitch: false }
 ];
 
 export const SANSKRIT_WASM_STUB = true;
@@ -94,5 +127,33 @@ export function get_pratyahara_sounds(_name: string): VarnaAnalysis[] {
 }
 
 export function inspect_varna(_symbol: string): VarnaAnalysis {
+	return missing();
+}
+
+export function generate_jata(_pada: string, _script: string): JataStep[] {
+	return missing();
+}
+
+export function generate_jata_text(_pada: string, _script: string): string {
+	return missing();
+}
+
+export function get_taittiriya_svaritas(): TaittiriyaSvarita[] {
+	return missing();
+}
+
+export function inspect_taittiriya_varna(_symbol: string): TaittiriyaVarna {
+	return missing();
+}
+
+export function check_taittiriya_dvitva(
+	_prev: string | null | undefined,
+	_curr: string,
+	_next?: string | null
+): boolean {
+	return missing();
+}
+
+export function classify_taittiriya_svarita_by_context(_context: string): string | undefined {
 	return missing();
 }

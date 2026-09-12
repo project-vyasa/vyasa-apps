@@ -7,11 +7,10 @@
   ],
   "scripts": {
     "build:vyasa-ui": "node scripts/ensure-vyasa-ui.mjs",
-    "build:platform": "bun run --cwd apps/platform build",
-    "deploy:platform": "node scripts/deploy-gh-pages.mjs",
+    "build:viewer": "bun run --cwd apps/viewer build",
     "dev:sanskrit-studio": "bun run --cwd apps/sanskrit-studio dev",
     "build:sanskrit-studio": "bun run --cwd apps/sanskrit-studio build",
     "assemble:pages": "node scripts/assemble-gh-pages.mjs",
-    "deploy:pages": "node scripts/deploy-gh-pages.mjs"
+    "deploy": "node scripts/deploy-gh-pages.mjs"
   }
 }

@@ -1,7 +1,24 @@
-import type { KramaStep, ScriptInfo, ShivaSutra, VarnaAnalysis } from './sanskrit-wasm-stub';
+/// <reference path="./sanskrit-wasm.d.ts" />
+import type {
+	JataStep,
+	KramaStep,
+	ScriptInfo,
+	ShivaSutra,
+	TaittiriyaSvarita,
+	TaittiriyaVarna,
+	VarnaAnalysis
+} from './sanskrit-wasm-stub';
 import { ENGINE_MISSING_MESSAGE, FALLBACK_SCRIPTS } from './sanskrit-wasm-stub';
 
-export type { KramaStep, ScriptInfo, ShivaSutra, VarnaAnalysis };
+export type {
+	JataStep,
+	KramaStep,
+	ScriptInfo,
+	ShivaSutra,
+	TaittiriyaSvarita,
+	TaittiriyaVarna,
+	VarnaAnalysis
+};
 export { ENGINE_MISSING_MESSAGE, FALLBACK_SCRIPTS, GOLDEN_PADA, GOLDEN_PADA_PATHA } from './sanskrit-wasm-stub';
 
 export type EngineStatus = 'loading' | 'ready' | 'missing';
@@ -14,12 +31,23 @@ type SanskritWasmModule = {
 	get_supported_scripts: () => unknown;
 	generate_krama: (pada: string, script: string) => unknown;
 	generate_krama_text?: (pada: string, script: string) => string;
+	generate_jata: (pada: string, script: string) => unknown;
+	generate_jata_text?: (pada: string, script: string) => string;
 	get_shiva_sutras: () => unknown;
 	get_pratyahara_sounds: (name: string) => unknown;
 	inspect_varna: (symbol: string) => unknown;
+	get_taittiriya_svaritas: () => unknown;
+	inspect_taittiriya_varna: (symbol: string) => unknown;
+	check_taittiriya_dvitva: (
+		prev: string | null | undefined,
+		curr: string,
+		next?: string | null
+	) => boolean;
+	classify_taittiriya_svarita_by_context: (context: string) => string | undefined;
 };
 
 let modulePromise: Promise<SanskritWasmModule> | null = null;
+let wasmMod: SanskritWasmModule | null = null;
 let status: EngineStatus = 'loading';
 let lastError = '';
 
@@ -51,6 +79,7 @@ async function loadModule(): Promise<SanskritWasmModule> {
 			}
 			await mod.default();
 			status = 'ready';
+			wasmMod = mod;
 			return mod;
 		})().catch((err: unknown) => {
 			status = 'missing';
@@ -94,6 +123,12 @@ export async function transliterate(text: string, from: string, to: string): Pro
 	return mod.transliterate(text, from, to);
 }
 
+/** Sync after `ensureEngine()`; returns `text` unchanged if the engine is not ready. */
+export function transliterateNow(text: string, from: string, to: string): string {
+	if (!wasmMod || from === to || !text) return text;
+	return wasmMod.transliterate(text, from, to);
+}
+
 export async function roundTripLossless(
 	text: string,
 	from: string,
@@ -110,6 +145,11 @@ export async function generateKrama(pada: string, script: string): Promise<Krama
 	return toArray<KramaStep>(mod.generate_krama(pada, script));
 }
 
+export async function generateJata(pada: string, script: string): Promise<JataStep[]> {
+	const mod = await loadModule();
+	return toArray<JataStep>(mod.generate_jata(pada, script));
+}
+
 export async function shivaSutras(): Promise<ShivaSutra[]> {
 	const mod = await loadModule();
 	return toArray<ShivaSutra>(mod.get_shiva_sutras());
@@ -123,4 +163,33 @@ export async function pratyaharaSounds(name: string): Promise<VarnaAnalysis[]> {
 export async function inspectVarna(symbol: string): Promise<VarnaAnalysis> {
 	const mod = await loadModule();
 	return mod.inspect_varna(symbol) as VarnaAnalysis;
+}
+
+export async function taittiriyaSvaritas(): Promise<TaittiriyaSvarita[]> {
+	const mod = await loadModule();
+	return toArray<TaittiriyaSvarita>(mod.get_taittiriya_svaritas());
+}
+
+export async function inspectTaittiriyaVarna(symbol: string): Promise<TaittiriyaVarna> {
+	const mod = await loadModule();
+	return mod.inspect_taittiriya_varna(symbol) as TaittiriyaVarna;
+}
+
+export async function checkTaittiriyaDvitva(
+	prev: string,
+	curr: string,
+	next: string
+): Promise<boolean> {
+	const mod = await loadModule();
+	return mod.check_taittiriya_dvitva(emptyToNull(prev), curr, emptyToNull(next));
+}
+
+export async function classifyTaittiriyaSvarita(context: string): Promise<string | undefined> {
+	const mod = await loadModule();
+	return mod.classify_taittiriya_svarita_by_context(context);
+}
+
+function emptyToNull(value: string): string | null {
+	const trimmed = value.trim();
+	return trimmed ? trimmed : null;
 }
