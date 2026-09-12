@@ -13,6 +13,7 @@ import { shouldReuseResolvedCatalogUrl } from './catalog-url-cache';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
 import { collectLeafUrns, toRelativeUrn } from '$lib/explore/urn-utils';
+import { initialReaderUrn } from '$lib/viewer/reader-navigation';
 import { parseAnnotationRows } from '$lib/viewer/annotation-rows';
 import { parseStreamSeparators } from '$lib/viewer/whitespace';
 import {
@@ -155,14 +156,8 @@ export async function loadPublication(
 
 	// 9. Determine initial navigation target (for 'root' URN redirect)
 	// Flatten the catalog tree to find the first leaf
-	let initialTargetUrn: string | null = null;
 	const flatUrns = collectLeafUrns(catalogTreeTemp);
-	if (flatUrns.length > 0) {
-		const firstLeaf = flatUrns[0];
-		const parts = firstLeaf.split(':');
-		// If the first leaf has multiple components (e.g., 1:1), navigate to its container (e.g., 1)
-		initialTargetUrn = parts.length > 1 ? parts.slice(0, parts.length - 1).join(':') : firstLeaf;
-	}
+	const initialTargetUrn = initialReaderUrn(flatUrns, urnComponents.length);
 
 	// 8c. Load actual streams and their block counts
 	const streamRows = await viewerDb.query(

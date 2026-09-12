@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { normalizeSourceUrl } from './local-dev-url';
 import { migrateLocalSourcesFromSettings } from './local-source';
+import { isContentThemeId, type ContentThemeId } from './viewer/content-presentation';
 
 export class ViewerSettings {
 	private _localSources = $state('');
@@ -10,7 +11,7 @@ export class ViewerSettings {
 	/** Stream id used for chrome labels (speaker badges, structure terms). Shared with Explorer. */
 	private _chromeStream = $state<string | null>(null);
 	private _showAnnotationGutter = $state(true);
-	private _contentTheme = $state<'light' | 'dark'>('light');
+	private _contentTheme = $state<ContentThemeId>('light');
 	private _contentTextSize = $state<'small' | 'medium' | 'large'>('medium');
 
 	constructor() {
@@ -38,8 +39,7 @@ export class ViewerSettings {
 					this._chromeStream = parsed.chromeStream;
 				if (typeof parsed.showAnnotationGutter === 'boolean')
 					this._showAnnotationGutter = parsed.showAnnotationGutter;
-				if (parsed.contentTheme === 'light' || parsed.contentTheme === 'dark')
-					this._contentTheme = parsed.contentTheme;
+				if (isContentThemeId(parsed.contentTheme)) this._contentTheme = parsed.contentTheme;
 				if (
 					parsed.contentTextSize === 'small' ||
 					parsed.contentTextSize === 'medium' ||
@@ -116,7 +116,7 @@ export class ViewerSettings {
 	get contentTheme() {
 		return this._contentTheme;
 	}
-	set contentTheme(val: 'light' | 'dark') {
+	set contentTheme(val: ContentThemeId) {
 		this._contentTheme = val;
 		this.save();
 	}

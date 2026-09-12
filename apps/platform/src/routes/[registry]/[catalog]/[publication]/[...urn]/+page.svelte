@@ -9,7 +9,11 @@
 	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { renderUrn } from '$lib/viewer/urn-renderer';
 	import { attachShellChromeGestures } from '$lib/viewer/shell-chrome-gestures';
-	import { applyContentPresentation, setReaderFullWidth } from '$lib/viewer/content-presentation';
+	import {
+		applyContentPresentation,
+		contentThemesFromManifest,
+		setReaderFullWidth
+	} from '$lib/viewer/content-presentation';
 	import { listUrnRecents, publicationUrnKey, rememberUrnRecent } from '$lib/viewer/urn-recents';
 	import { listUrnFavorites, toggleUrnFavorite } from '$lib/viewer/urn-favorites';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
@@ -17,6 +21,7 @@
 		navigateReaderNext,
 		navigateReaderPrev,
 		readerNavUrl,
+		readerWeaveUrn,
 		resolveReaderAddress
 	} from '$lib/viewer/reader-navigation';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
@@ -27,7 +32,6 @@
 	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
 	import {
 		catalogRefFromParams,
-		publicationReaderPath,
 		catalogLinkToVyasaUri
 	} from '$lib/catalog-ref';
 	import { defaultReferenceGutterVisible } from '$lib/viewer/view-defaults';
@@ -100,6 +104,16 @@
 	let customGridLayoutJson = $state<string | undefined>(undefined);
 	let activeUrns = $state<string[]>([]);
 	let packageData = $state<PackageData | null>(null);
+	const contentThemes = $derived(contentThemesFromManifest(packageData?.manifest));
+	$effect(() => {
+		const themes = contentThemes;
+		untrack(() => {
+			if (themes.length === 0) return;
+			if (!themes.includes(viewerSettings.contentTheme)) {
+				viewerSettings.contentTheme = themes[0];
+			}
+		});
+	});
 	let graphRuntime = $state<VyasaViewerRuntime | null>(null);
 	let urnComponents = $state<string[]>([]);
 	let showReferenceGutter = $state(true);
@@ -179,6 +193,7 @@
 		showReferenceGutter;
 		viewerSettings.contentTheme;
 		viewerSettings.contentTextSize;
+		contentThemes;
 		untrack(() => handleRenderUrn(currentUrn));
 	});
 
@@ -232,14 +247,6 @@
 						: labelStreams[0] || '';
 
 			packageData = result.packageData;
-
-			if ((urn === 'root' || !urn) && result.initialTargetUrn) {
-				setTimeout(() => {
-					goto(publicationReaderPath(ref, result.initialTargetUrn!, base), {
-						replaceState: true
-					});
-				}, 0);
-			}
 		} catch (err: unknown) {
 			console.error('Failed to load publication:', err);
 			errorMessage = err instanceof Error ? err.message : String(err);
@@ -248,18 +255,18 @@
 
 	async function handleRenderUrn(targetUrn: string) {
 		if (!graphRuntime || !packageData) return;
-		const canonical = resolveReaderAddress(targetUrn, sidebar.flatUrns, urnComponents.length);
-		if (canonical && canonical.urn !== targetUrn) {
+		const weaveUrn = readerWeaveUrn(targetUrn, sidebar.flatUrns, urnComponents.length);
+		if (!weaveUrn) return;
+		if (weaveUrn !== targetUrn) {
 			const ref = catalogRef;
 			if (ref) {
-				goto(readerNavUrl(ref, canonical.urn, base), { replaceState: true });
+				goto(readerNavUrl(ref, weaveUrn, base), { replaceState: true });
 			}
-			return;
 		}
 		const generation = ++renderGeneration;
 		try {
 			const result = await renderUrn(
-				targetUrn,
+				weaveUrn,
 				viewerDb,
 				graphRuntime,
 				packageData,
@@ -278,7 +285,7 @@
 			availableStreams = result.availableStreams;
 			if (activeView !== result.activeView) activeView = result.activeView;
 			srcdocContent = applyContentPresentation(result.srcdocContent, {
-				theme: viewerSettings.contentTheme,
+				theme: contentThemes.length ? viewerSettings.contentTheme : '',
 				textSize: viewerSettings.contentTextSize
 			});
 		} catch (e: unknown) {
@@ -341,6 +348,7 @@
 			{urnFavorites}
 			onToggleUrnFavorite={toggleFavorite}
 			onToggleFullWidth={() => (isFullWidth = !isFullWidth)}
+			{contentThemes}
 			bind:showReferenceGutter
 		/>
 	{/key}

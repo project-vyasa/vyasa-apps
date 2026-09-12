@@ -6,7 +6,7 @@ describe('viewerGutterChromeCss', () => {
 		const css = viewerGutterChromeCss(false, true);
 		expect(css).toContain('.left-gutter {\n\tdisplay: none;');
 		expect(css).toContain('.urn-badge-wrapper {\n\tdisplay: none;');
-		expect(css).toContain('gap: 0;');
+		expect(css).toContain('var(--vyasa-gutter-rule, #eee)');
 	});
 
 	it('keeps a narrow URN column when annotations are off but the gutter is on', () => {

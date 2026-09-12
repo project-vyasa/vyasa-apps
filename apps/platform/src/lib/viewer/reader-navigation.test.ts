@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+	initialReaderUrn,
 	navigateReaderNext,
 	navigateReaderPrev,
 	readerNavUrl,
+	readerWeaveUrn,
 	resolveReaderAddress
 } from './reader-navigation';
 
@@ -13,6 +15,13 @@ describe('reader-navigation', () => {
 
 	it('builds reader paths', () => {
 		expect(readerNavUrl(ref, '2:47', '/vyasa-apps')).toBe('/vyasa-apps/adi/vysamples/vyasa-bg/2:47');
+	});
+
+	it('opens a publication on the first leaf-container, not the first leaf', () => {
+		expect(initialReaderUrn(rvLeaves, 3)).toBe('1:1');
+		expect(initialReaderUrn(bgLeaves, 2)).toBe('1');
+		expect(readerWeaveUrn('root', rvLeaves, 3)).toBe('1:1');
+		expect(readerWeaveUrn('', bgLeaves, 2)).toBe('1');
 	});
 
 	it('resolves RV mandala to the first sukta', () => {

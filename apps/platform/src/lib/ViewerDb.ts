@@ -4,6 +4,17 @@ export class ViewerDb {
 	private sqlite3: SQLite3API | null = null;
 	private db: number | null = null;
 	private dbName: string = 'viewer-db-temp';
+	/** wa-sqlite connections are not safe to prepare/step concurrently. */
+	#opTail: Promise<void> = Promise.resolve();
+
+	#enqueue<T>(op: () => Promise<T>): Promise<T> {
+		const run = this.#opTail.then(op, op);
+		this.#opTail = run.then(
+			() => undefined,
+			() => undefined
+		);
+		return run;
+	}
 
 	async loadFromUrl(url: string) {
 		// Fetch the sqlite file
@@ -49,20 +60,25 @@ export class ViewerDb {
 	}
 
 	async close() {
-		if (this.db && this.sqlite3) {
-			await this.sqlite3.close(this.db);
-			this.db = null;
+		return this.#enqueue(async () => {
+			if (this.db && this.sqlite3) {
+				await this.sqlite3.close(this.db);
+				this.db = null;
 
-			// Clean up the memory VFS file to prevent memory leak
-			const memoryVfs = sqliteService.memoryVfs;
-			if (memoryVfs && memoryVfs.mapNameToFile.has(this.dbName)) {
-				memoryVfs.mapNameToFile.delete(this.dbName);
+				const memoryVfs = sqliteService.memoryVfs;
+				if (memoryVfs && memoryVfs.mapNameToFile.has(this.dbName)) {
+					memoryVfs.mapNameToFile.delete(this.dbName);
+				}
 			}
-		}
+		});
 	}
 
 	async query(sql: string, params: unknown[] = []) {
 		if (!sql || sql.trim() === '') return [];
+		return this.#enqueue(() => this.#queryNow(sql, params));
+	}
+
+	async #queryNow(sql: string, params: unknown[] = []) {
 		if (!this.db || !this.sqlite3) throw new Error('DB not loaded');
 		try {
 			const str = this.sqlite3.str_new(this.db, sql);

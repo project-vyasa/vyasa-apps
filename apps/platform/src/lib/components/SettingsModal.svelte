@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SettingsModal } from '@project-vyasa/vyasa-ui';
 	import { viewerSettings } from '../settings.svelte';
+	import { CONTENT_THEME_OPTIONS, isContentThemeId } from '../viewer/content-presentation';
 	import { DEFAULT_REGISTRY_URL } from '../registry';
 	import { Database, Link, Palette } from 'lucide-svelte';
 	import { getContext } from 'svelte';
@@ -46,7 +47,7 @@
 			return viewerSettings.contentTheme;
 		},
 		set contentTheme(val) {
-			viewerSettings.contentTheme = val as 'light' | 'dark';
+			if (isContentThemeId(val)) viewerSettings.contentTheme = val;
 		},
 		get contentTextSize() {
 			return viewerSettings.contentTextSize;
@@ -91,11 +92,12 @@
 							id: 'contentTheme',
 							type: 'select',
 							label: 'Content theme',
-							description: 'Paper and ink inside the reader (publisher styles)',
-							options: [
-								{ label: 'Light', value: 'light' },
-								{ label: 'Dark', value: 'dark' }
-							]
+							description:
+								'Paper in the reader. Tokens must match html.theme-* in the packed publication.',
+							options: CONTENT_THEME_OPTIONS.map((opt) => ({
+								label: opt.label,
+								value: opt.value
+							}))
 						},
 						{
 							id: 'contentTextSize',

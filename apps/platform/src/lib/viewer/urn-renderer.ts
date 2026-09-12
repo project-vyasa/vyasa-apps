@@ -86,10 +86,12 @@ export async function renderUrn(
 		(packageData.manifest as any).attributes?.layout === 'document';
 	// 1. Determine which leaf URNs to fetch
 	const matchingUrns = matchUrns(targetUrn, flatUrns);
+	const queryUrn =
+		targetUrn === 'root' || !targetUrn ? (matchingUrns[0] ?? targetUrn) : targetUrn;
 	const limit = matchingUrns.length > 0 ? matchingUrns.length : 1;
 
 	// 2. Query content rows from SQLite
-	const query = graphRuntime.build_viewport_query(targetUrn, limit);
+	const query = graphRuntime.build_viewport_query(queryUrn, limit);
 	const rows = await viewerDb.query(query);
 
 	// 3. Normalize stream names
@@ -286,15 +288,14 @@ ${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 .urn-badge {
 	display: inline-block;
 	padding: 0.2rem 0.5rem;
-	background: #f4f4f4;
-	color: #555;
+	background: var(--vyasa-gutter-chip-bg, #f4f4f4);
+	color: var(--vyasa-gutter-chip-ink, #555);
 	text-decoration: none;
 	border-radius: 4px;
 	font-weight: bold;
 }
 .urn-badge:hover {
-	background: #e0e0e0;
-	color: #000;
+	filter: brightness(1.08);
 }
 /* Neutral badge styling (no red borders!) */
 .entity-badge, .note-badge {
@@ -302,8 +303,8 @@ ${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 	align-items: center;
 	gap: 0.25rem;
 	padding: 0.2rem 0.4rem;
-	background: #f4f4f4;
-	color: #444;
+	background: var(--vyasa-gutter-chip-bg, #f4f4f4);
+	color: var(--vyasa-gutter-chip-ink, #444);
 	border: none;
 	border-radius: 4px;
 	font-size: 0.75rem;
@@ -313,8 +314,7 @@ ${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 	max-width: 100%;
 }
 .entity-badge:hover, .note-badge:hover {
-	background: #e0e0e0;
-	color: #222;
+	filter: brightness(1.08);
 }
 /* Stream typography and white-space: publisher theme via .vyasa-block-{stream} (see theme_layout). */
 </style>`;

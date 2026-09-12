@@ -9,11 +9,10 @@
 		Layers,
 		Maximize2,
 		Minimize2,
-		Moon,
+		Palette,
 		Rows2,
 		Sliders,
 		Star,
-		Sun,
 		X
 	} from 'lucide-svelte';
 	import { untrack } from 'svelte';
@@ -42,6 +41,7 @@
 		onGoToUrn: (target: string) => void;
 		onToggleUrnFavorite: (target?: string) => void;
 		onToggleFullWidth: () => void;
+		contentThemes?: string[];
 	}
 
 	let {
@@ -61,7 +61,8 @@
 		onNavigateNext,
 		onGoToUrn,
 		onToggleUrnFavorite,
-		onToggleFullWidth
+		onToggleFullWidth,
+		contentThemes = []
 	}: Props = $props();
 
 	let showCustomizer = $state(false);
@@ -138,7 +139,8 @@
 	}
 
 	function cyclePaperTheme() {
-		viewerSettings.contentTheme = cycleContentTheme(viewerSettings.contentTheme);
+		if (contentThemes.length < 2) return;
+		viewerSettings.contentTheme = cycleContentTheme(viewerSettings.contentTheme, contentThemes);
 	}
 
 	function viewLabel(view: string): string {
@@ -334,13 +336,15 @@
 				onclick={onToggleFullWidth}
 			/>
 		{/if}
-		<Button
-			variant="ghost"
-			size="icon"
-			icon={viewerSettings.contentTheme === 'dark' ? Moon : Sun}
-			title="Content theme: {viewerSettings.contentTheme} (click to toggle paper)"
-			onclick={cyclePaperTheme}
-		/>
+		{#if contentThemes.length > 1}
+			<Button
+				variant="ghost"
+				size="icon"
+				icon={Palette}
+				title="Content theme: {viewerSettings.contentTheme} (click to cycle)"
+				onclick={cyclePaperTheme}
+			/>
+		{/if}
 	</div>
 
 	<!-- Floating Grid Customizer Popover -->

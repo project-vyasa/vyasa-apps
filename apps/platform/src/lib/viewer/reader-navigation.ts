@@ -32,6 +32,34 @@ function orderedPrefixes(flatUrns: string[], depth: number): string[] {
 	return out;
 }
 
+/** First leaf-container (RV sukta, BG chapter) after opening a publication. */
+export function initialReaderUrn(flatUrns: string[], leafDepth: number): string | null {
+	if (flatUrns.length === 0) return null;
+	const firstLeaf = flatUrns[0];
+	const depth = leafContainerDepth(leafDepth);
+	if (depth < 1) return firstLeaf;
+	const parts = firstLeaf.split(':');
+	if (parts.length < depth) return firstLeaf;
+	return parts.slice(0, depth).join(':');
+}
+
+/**
+ * URN to weave for the current route. `root` (catalog open with no path)
+ * becomes the first leaf-container; other addresses go through
+ * {@link resolveReaderAddress}.
+ */
+export function readerWeaveUrn(
+	raw: string,
+	flatUrns: string[],
+	leafDepth: number
+): string | null {
+	const urn = normalizeUrnInput(raw);
+	if (!urn || urn === 'root') {
+		return initialReaderUrn(flatUrns, leafDepth);
+	}
+	return resolveReaderAddress(urn, flatUrns, leafDepth)?.urn ?? null;
+}
+
 /**
  * Canonical reader address. A short prefix (RV `1`) expands to the first
  * leaf-container (`1:1`). Full-depth and ranged URNs stay leaves.

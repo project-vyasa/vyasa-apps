@@ -9,7 +9,7 @@ export function viewerGutterChromeCss(
 	align-items: flex-start;
 	gap: ${showGutter ? '1.25rem' : '0'};
 	padding: 0.75rem 0;
-	border-bottom: 1px solid #eee;
+	border-bottom: 1px solid var(--vyasa-gutter-rule, #eee);
 	width: 100%;
 }
 .left-gutter {
