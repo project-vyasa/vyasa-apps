@@ -1,52 +1,53 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { loadPublication } from '$lib/viewer/publication-loader';
-	import { ViewerDb } from '$lib/ViewerDb';
-	import { onMount, onDestroy } from 'svelte';
+	import { untrack } from 'svelte';
 	import type { PackageData } from '$lib/types';
-	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { catalogRefFromParams } from '$lib/catalog-ref';
+	import { ensurePublication, peekPublication } from '$lib/viewer/publication-session';
 	import ExploreView from '$lib/components/ExploreView.svelte';
 	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 
 	const registryId = $derived(page.params.registry || '');
 	const catalogId = $derived(page.params.catalog || '');
 	const publicationId = $derived(page.params.publication || '');
+	const catalogRef = $derived(
+		registryId && catalogId && publicationId
+			? catalogRefFromParams(registryId, catalogId, publicationId)
+			: null
+	);
 
 	let packageData = $state<PackageData | null>(null);
 	let loading = $state(true);
+	let loadGeneration = 0;
 
-	const viewerDb = new ViewerDb();
+	$effect.pre(() => {
+		const ref = catalogRef;
+		untrack(() => {
+			void handleLoad(ref);
+		});
+	});
 
-	onMount(async () => {
-		if (registryId && catalogId && publicationId) {
-			try {
-				const ref = catalogRefFromParams(registryId, catalogId, publicationId);
-				const result = await loadPublication(ref, viewerDb);
-				packageData = result.packageData;
-				const pubTitle =
-					result.diagCatalog?.publications?.find((i) => i.id === ref.publicationId)?.title ||
-					result.packageData.manifest.title ||
-					ref.publicationId;
-				activePublication.setPublication(ref, result.diagCatalogUrl);
-				activePublication.setMetadata(
-					pubTitle,
-					result.diagPublicationUrl,
-					result.manifestTimestamp ?? result.packageData.manifest.timestamp,
-					result.diagCatalogUrl,
-					result.catalogUpdated
-				);
-			} catch (e) {
-				console.error('Failed to load explore publication:', e);
-			} finally {
-				loading = false;
-			}
+	async function handleLoad(ref: ReturnType<typeof catalogRefFromParams> | null) {
+		if (!ref) return;
+		const generation = ++loadGeneration;
+		const peeked = peekPublication(ref);
+		if (peeked) {
+			packageData = peeked.packageData;
+			loading = false;
+			return;
 		}
-	});
-
-	onDestroy(() => {
-		viewerDb.close();
-	});
+		loading = true;
+		try {
+			const result = await ensurePublication(ref);
+			if (generation !== loadGeneration) return;
+			packageData = result.packageData;
+		} catch (e) {
+			if (generation !== loadGeneration) return;
+			console.error('Failed to load explore publication:', e);
+		} finally {
+			if (generation === loadGeneration) loading = false;
+		}
+	}
 </script>
 
 {#if loading}

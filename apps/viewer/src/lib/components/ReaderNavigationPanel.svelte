@@ -2,20 +2,34 @@
 	import { Panel, ListView, Select } from '@project-vyasa/vyasa-ui';
 	import { BookOpen } from 'lucide-svelte';
 	import type { SidebarState } from '$lib/viewer/sidebar.svelte';
+	import type { NamedSpan } from '$lib/viewer/named-spans';
 
 	interface Props {
 		sidebar: SidebarState;
 		chromeStreams: string[];
 		chromeStream: string;
+		selectedSpanId?: string;
 		onNavigate: (urn: string) => void;
+		onSelectSpan?: (span: NamedSpan) => void;
 	}
 
 	let {
 		sidebar,
 		chromeStreams,
 		chromeStream = $bindable(),
-		onNavigate
+		selectedSpanId,
+		onNavigate,
+		onSelectSpan
 	}: Props = $props();
+
+	const spanItems = $derived(
+		sidebar.namedSpans.map((span) => ({
+			id: span.id,
+			title: span.label,
+			subtitle: span.containerUrn,
+			group: span.typeLabel
+		}))
+	);
 </script>
 
 <Panel title="Navigation" icon={BookOpen}>
@@ -40,6 +54,20 @@
 			</div>
 		</div>
 	{/if}
+	{#if spanItems.length > 0}
+		<ListView
+			items={spanItems}
+			keyField="id"
+			selectedId={selectedSpanId}
+			titleField="title"
+			subtitleField="subtitle"
+			groupBy="group"
+			onSelect={(item) => {
+				const span = sidebar.namedSpans.find((entry) => entry.id === item.id);
+				if (span) onSelectSpan?.(span);
+			}}
+		/>
+	{/if}
 	{#if sidebar.items.length > 0}
 		<ListView
 			items={sidebar.items}
@@ -50,7 +78,7 @@
 			groupBy={sidebar.items.some((item) => item.group) ? 'group' : undefined}
 			onSelect={(item) => onNavigate(item.id)}
 		/>
-	{:else}
+	{:else if spanItems.length === 0}
 		<div class="sidebar-panel-content">No navigation items available.</div>
 	{/if}
 </Panel>

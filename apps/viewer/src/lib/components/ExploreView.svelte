@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Button, Select } from '@project-vyasa/vyasa-ui';
-	import { BookOpen, Search, FilterX } from 'lucide-svelte';
+	import { Search, FilterX } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import type { PackageData } from '$lib/types';
@@ -13,7 +13,6 @@
 	import {
 		buildFacetIndex,
 		containerHasSelectedCoverageGaps,
-		defaultMapFacetTypeId,
 		type FacetSelection
 	} from '$lib/explore/facet-index';
 	import { catalogLeafIndices, isCatalogRangesNode } from '$lib/explore/urn-utils';
@@ -159,12 +158,6 @@
 
 	const facetIndex = $derived(buildFacetIndex(packageData, labelStream));
 
-	$effect(() => {
-		if (!userDismissedMap && mapFacetTypeId === null) {
-			const defaultFacet = defaultMapFacetTypeId(facetIndex);
-			if (defaultFacet) mapFacetTypeId = defaultFacet;
-		}
-	});
 	function filterNodesByCoverageGaps(
 		nodes: MapNode[],
 		streamSelection: Set<string>,

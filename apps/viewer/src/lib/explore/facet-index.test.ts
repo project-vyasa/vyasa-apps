@@ -13,9 +13,16 @@ import {
 	leafFacetCornerColors,
 	leafMissingStreamGap,
 	leafOrphanWithoutPrimary,
+	mapFacetAllowed,
 	paintLeafMapFacet,
+	relativeFrequency,
+	selectedFacetColorMap,
+	canSelectCategoricalFacet,
+	visibleFacetValues,
+	facetHistogramTsv,
 	STREAM_ORPHAN_VALUE_ID
 } from './facet-index';
+import { FACET_PALETTE, FACET_PALETTE_SIZE } from './facet-colors';
 import type { PackageData } from '$lib/types';
 
 const SPEAKER_FACET_TYPE = 'attr:speaker';
@@ -75,10 +82,13 @@ describe('explore urn-utils', () => {
 	it('matches container URNs to descendant leaves', () => {
 		expect(urnCoversLeaf('1', '1:5')).toBe(true);
 		expect(urnCoversLeaf('1:5', '1:6')).toBe(false);
+		expect(urnCoversLeaf('4:5', '4:5:1:1')).toBe(true);
+		expect(urnCoversLeaf('4:5', '2:1:4:5')).toBe(false);
 	});
 
-	it('matches suffix annotation URNs', () => {
+	it('matches prefix vs relative of the same path, not numeric suffixes', () => {
 		expect(urnsReferToSameBlock('urn:vyasa:1:3', '1:3')).toBe(true);
+		expect(urnsReferToSameBlock('2:1:4:5', '4:5')).toBe(false);
 	});
 });
 
@@ -127,14 +137,14 @@ describe('buildFacetIndex', () => {
 		expect(leafFacetCornerColors('1:1', active, index, index.leafFacetKeys).length).toBe(1);
 	});
 
-	it('uses legend colors for each selected filter value', () => {
+	it('uses unique selection colors for each selected filter value', () => {
 		const index = buildFacetIndex(packageData);
-		const colorMap = buildFacetValueColorMap(index, SPEAKER_FACET_TYPE);
 		const active = { [SPEAKER_FACET_TYPE]: new Set(['krishna', 'sanjaya']) };
+		const colorMap = selectedFacetColorMap(active);
 		const krishnaColor = leafFacetCornerColors('1:1', active, index, index.leafFacetKeys)[0];
 		const sanjayaColor = leafFacetCornerColors('1:4', active, index, index.leafFacetKeys)[0];
-		expect(krishnaColor).toBe(colorMap.get('krishna'));
-		expect(sanjayaColor).toBe(colorMap.get('sanjaya'));
+		expect(krishnaColor).toBe(colorMap.get(`${SPEAKER_FACET_TYPE}|krishna`));
+		expect(sanjayaColor).toBe(colorMap.get(`${SPEAKER_FACET_TYPE}|sanjaya`));
 		expect(krishnaColor).not.toBe(sanjayaColor);
 	});
 
@@ -296,6 +306,46 @@ describe('buildFacetIndex', () => {
 			).toBe(false);
 		});
 
+		it('paints only descendant leaves for a container annotate (no suffix collision)', () => {
+			const tree = {
+				'2': {
+					'1': {
+						'4': { slots: [0], leaves: [[5, 5]] as [number, number][] }
+					}
+				},
+				'4': {
+					'5': {
+						'1': { slots: [0], leaves: [[1, 2]] as [number, number][] }
+					}
+				}
+			};
+			const data: PackageData = {
+				manifest: { package_type: 'view', catalog_tree: '{}', primary_stream: 'mula' },
+				structure: { catalogTree: tree },
+				projections: {},
+				annotations: [
+					{ urn: '4:5:0:0', label: 'Featured', attributes: { value: 'span_a' } }
+				]
+			};
+			const index = buildFacetIndex(data);
+			const featured = index.types.find((t) => t.id === 'attr:featured');
+			expect(featured?.values.find((v) => v.id === 'span_a')?.count).toBe(2);
+			expect(
+				leafMatchesFacetSelection(
+					'4:5:1:1',
+					{ 'attr:featured': new Set(['span_a']) },
+					index.leafFacetKeys
+				)
+			).toBe(true);
+			expect(
+				leafMatchesFacetSelection(
+					'2:1:4:5',
+					{ 'attr:featured': new Set(['span_a']) },
+					index.leafFacetKeys
+				)
+			).toBe(false);
+		});
+
 		it('supports arbitrary future annotate keys without corpus constants', () => {
 			const data: PackageData = {
 				manifest: { package_type: 'view', catalog_tree: '{}', primary_stream: 'mula' },
@@ -400,5 +450,89 @@ describe('buildFacetIndex', () => {
 				)
 			).toBe(false);
 		});
+	});
+});
+
+describe('facet selection palette', () => {
+	const values = Array.from({ length: 12 }, (_, i) => ({
+		id: `v${i + 1}`,
+		label: `Value ${i + 1}`,
+		count: 12 - i
+	}));
+
+	it('assigns unique colors and does not wrap past the palette', () => {
+		const selected: Record<string, Set<string>> = {
+			'attr:rishi': new Set(values.slice(0, 9).map((v) => v.id))
+		};
+		const colors = selectedFacetColorMap(selected);
+		expect(colors.size).toBe(FACET_PALETTE_SIZE);
+		expect(new Set(colors.values()).size).toBe(FACET_PALETTE_SIZE);
+		expect(colors.get('attr:rishi|v9')).toBeUndefined();
+	});
+
+	it('caps concurrent categorical selections at the palette size', () => {
+		const eight: Record<string, Set<string>> = {
+			'attr:rishi': new Set(values.slice(0, 8).map((v) => v.id))
+		};
+		expect(canSelectCategoricalFacet(eight, 'attr:rishi', 'v1')).toBe(true);
+		expect(canSelectCategoricalFacet(eight, 'attr:rishi', 'v9')).toBe(false);
+	});
+
+	it('pins selected values that fall outside top-k', () => {
+		const shown = visibleFacetValues(values, new Set(['v12']), 8, '');
+		expect(shown.pinned.map((v) => v.id)).toContain('v12');
+		expect(shown.hiddenCount).toBe(3);
+		expect(shown.more.map((v) => v.id)).not.toContain('v12');
+	});
+
+	it('filters More… results by label', () => {
+		const shown = visibleFacetValues(values, undefined, 8, 'value 10');
+		expect(shown.more.map((v) => v.id)).toEqual(['v10']);
+	});
+
+	it('writes a histogram TSV with shares', () => {
+		const tsv = facetHistogramTsv({
+			id: 'attr:rishi',
+			label: 'Rishi',
+			kind: 'categorical',
+			values: [
+				{ id: 'a', label: 'A', count: 3 },
+				{ id: 'b', label: 'B', count: 1 }
+			]
+		});
+		expect(tsv.startsWith('id\tlabel\tcount\tshare\n')).toBe(true);
+		expect(tsv).toContain('a\tA\t3\t0.7500');
+		expect(tsv).toContain('b\tB\t1\t0.2500');
+	});
+
+	it('hides Map when a facet has more values than the palette', () => {
+		expect(
+			mapFacetAllowed({
+				id: 'attr:rishi',
+				label: 'Rishi',
+				kind: 'categorical',
+				values
+			})
+		).toBe(false);
+		expect(
+			mapFacetAllowed({
+				id: 'attr:featured',
+				label: 'Featured',
+				kind: 'categorical',
+				values: values.slice(0, 2)
+			})
+		).toBe(true);
+	});
+
+	it('uses relative frequency against the facet max, not the total', () => {
+		expect(relativeFrequency(4, 8)).toBe(0.5);
+		expect(relativeFrequency(8, 8)).toBe(1);
+		expect(relativeFrequency(1, 0)).toBe(0);
+	});
+
+	it('splits at most two colors instead of a four-way conic', () => {
+		const fill = cornerGradient([FACET_PALETTE[0], FACET_PALETTE[1], FACET_PALETTE[2]]);
+		expect(fill).toContain('linear-gradient');
+		expect(fill).not.toContain('conic-gradient');
 	});
 });

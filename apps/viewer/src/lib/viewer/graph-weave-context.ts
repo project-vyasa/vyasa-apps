@@ -1,5 +1,5 @@
 import type { AnnotationEntry, Manifest, VocabularyEntry } from '$lib/types';
-import { toRelativeUrn } from '$lib/explore/urn-utils';
+import { ancestorRelativeUrns, toRelativeUrn, urnCoversLeaf } from '$lib/explore/urn-utils';
 import { resolveTemplateContextKeys } from '$lib/explore/facet-config';
 import { graphFacetBindings } from '$lib/viewer/graph-annotate';
 import {
@@ -92,11 +92,45 @@ export function indexAnnotationsByUrn(
 	for (const ann of annotations) {
 		const relUrn = toRelativeUrn(ann.urn, globalPrefix);
 		const keys = new Set<string>([relUrn, ann.urn]);
-		if (ann.urn.endsWith(':' + relUrn)) keys.add(ann.urn);
 		for (const key of keys) {
 			if (!index[key]) index[key] = [];
 			index[key].push(ann);
 		}
 	}
 	return index;
+}
+
+/**
+ * Annotations on this leaf and ancestor containers (prefix coverage).
+ * Does not attach a container to a leaf that merely shares a numeric suffix.
+ */
+export function annotationsCoveringUrn(
+	nodeUrn: string,
+	index: Record<string, AnnotationEntry[]> | undefined,
+	globalPrefix: string,
+	fallback: AnnotationEntry[] | undefined
+): AnnotationEntry[] {
+	const relUrn = toRelativeUrn(nodeUrn, globalPrefix);
+	const seen = new Set<AnnotationEntry>();
+	const out: AnnotationEntry[] = [];
+
+	const push = (ann: AnnotationEntry) => {
+		if (seen.has(ann)) return;
+		seen.add(ann);
+		out.push(ann);
+	};
+
+	if (index) {
+		for (const key of ancestorRelativeUrns(relUrn)) {
+			for (const ann of index[key] ?? []) push(ann);
+		}
+		for (const ann of index[nodeUrn] ?? []) push(ann);
+		return out;
+	}
+
+	for (const ann of fallback ?? []) {
+		const annRel = toRelativeUrn(ann.urn, globalPrefix);
+		if (urnCoversLeaf(annRel, relUrn)) push(ann);
+	}
+	return out;
 }

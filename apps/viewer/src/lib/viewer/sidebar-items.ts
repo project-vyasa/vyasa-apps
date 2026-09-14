@@ -26,18 +26,22 @@ export function buildSidebarItems(
 	function pushContainerItem(pathParts: string[]) {
 		const id = pathParts.join(':');
 		const lastPart = pathParts[pathParts.length - 1];
-		const parentPart = pathParts.length > 1 ? pathParts[pathParts.length - 2] : '';
 		const itemKey = urnComponents[pathParts.length - 1] || 'Item';
-		const groupKey = pathParts.length > 1 ? urnComponents[pathParts.length - 2] || 'Group' : '';
 		const itemLabel = structureLabel(itemKey, itemKey);
-		const groupLabel = groupKey ? structureLabel(groupKey, groupKey) : '';
 		const semanticTitle = titles[id];
 		const fallbackTitle = `${itemLabel} ${lastPart}`;
-		const parentSemanticTitle = parentPart ? titles[parentPart] : undefined;
-		const groupTitle = parentSemanticTitle
-			? `${parentSemanticTitle} (${groupLabel} ${parentPart})`
-			: parentPart
-				? `${groupLabel} ${parentPart}`
+		// Ancestors of the sidebar row as a labeled path (RV: "Mandala 1";
+		// TTS: "Kanda 1 : Prasna 2"). Do not append "(Type n)" — that
+		// tautology is "Mandala 1 (Mandala 1)" when the title is already the locator.
+		const ancestorParts = pathParts.slice(0, -1);
+		const groupTitle =
+			ancestorParts.length > 0
+				? ancestorParts
+						.map((part, i) => {
+							const key = urnComponents[i] || 'Group';
+							return `${structureLabel(key, key)} ${part}`;
+						})
+						.join(' : ')
 				: undefined;
 
 		result.push({

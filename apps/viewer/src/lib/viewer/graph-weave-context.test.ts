@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { AnnotationEntry, Manifest, PackageData } from '$lib/types';
+import type { AnnotationEntry, Manifest } from '$lib/types';
 import {
 	enrichBlockAttributesForWeave,
+	indexAnnotationsByUrn,
+	annotationsCoveringUrn,
 	resolveFacetDisplayLabel
 } from './graph-weave-context';
 
@@ -111,5 +113,26 @@ describe('enrichBlockAttributesForWeave', () => {
 		);
 		expect(attrs?.['01:024:002']?.devata).toBe('अग्निः');
 		expect(attrs?.['01:024:002']?.melody).toBeUndefined();
+	});
+});
+
+describe('annotationsCoveringUrn', () => {
+	const featured = {
+		urn: '4:5:0:0',
+		label: 'Featured',
+		attributes: { value: 'span_a' }
+	};
+	const speaker = {
+		urn: '4:5:1:1',
+		label: 'Speaker',
+		attributes: { value: 'krishna' }
+	};
+
+	it('applies a container annotate to descendant leaves only', () => {
+		const index = indexAnnotationsByUrn([featured, speaker], 'urn:vyasa:pkg');
+		const onLeaf = annotationsCoveringUrn('4:5:1:1', index, 'urn:vyasa:pkg', undefined);
+		expect(onLeaf).toEqual(expect.arrayContaining([featured, speaker]));
+		const colliding = annotationsCoveringUrn('2:1:4:5', index, 'urn:vyasa:pkg', undefined);
+		expect(colliding).toEqual([]);
 	});
 });

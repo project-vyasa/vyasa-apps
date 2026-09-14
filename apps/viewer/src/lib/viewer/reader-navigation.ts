@@ -2,8 +2,20 @@ import { publicationReaderPath, type CatalogRef } from '$lib/catalog-ref';
 import { matchUrns } from '$lib/urn-utils';
 import { normalizeUrnInput } from '$lib/viewer/urn-recents';
 
-export function readerNavUrl(ref: CatalogRef, targetUrn: string, appBase: string): string {
-	return publicationReaderPath(ref, targetUrn, appBase);
+export function readerNavUrl(
+	ref: CatalogRef,
+	targetUrn: string,
+	appBase: string,
+	query?: Record<string, string | undefined>
+): string {
+	const path = publicationReaderPath(ref, targetUrn, appBase);
+	if (!query) return path;
+	const params = new URLSearchParams();
+	for (const [key, value] of Object.entries(query)) {
+		if (value) params.set(key, value);
+	}
+	const qs = params.toString();
+	return qs ? `${path}?${qs}` : path;
 }
 
 export type ReaderAddressMode = 'leaf' | 'container';
@@ -51,8 +63,10 @@ export function initialReaderUrn(flatUrns: string[], leafDepth: number): string 
 export function readerWeaveUrn(
 	raw: string,
 	flatUrns: string[],
-	leafDepth: number
+	leafDepth: number,
+	spanContainerUrn?: string | null
 ): string | null {
+	if (spanContainerUrn) return spanContainerUrn;
 	const urn = normalizeUrnInput(raw);
 	if (!urn || urn === 'root') {
 		return initialReaderUrn(flatUrns, leafDepth);

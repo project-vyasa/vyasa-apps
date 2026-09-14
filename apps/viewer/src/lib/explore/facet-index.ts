@@ -2,13 +2,8 @@ import type { AnnotationEntry, PackageData, VocabularyEntry } from '$lib/types';
 import { getVocabularyLabel } from '$lib/viewer/vocabulary';
 import { graphFacetBindings } from '$lib/viewer/graph-annotate';
 import { resolveFacetConfig, shouldIndexBlockAttributeKey } from './facet-config';
-import { facetColor, MAP_UNMATCHED_FILL } from './facet-colors';
-import {
-	collectLeafUrns,
-	urnCoversLeaf,
-	urnsReferToSameBlock,
-	toRelativeUrn
-} from './urn-utils';
+import { FACET_PALETTE, FACET_PALETTE_SIZE, FACET_VISIBLE_VALUES, MAP_UNMATCHED_FILL } from './facet-colors';
+import { collectLeafUrns, urnCoversLeaf, toRelativeUrn } from './urn-utils';
 
 export type FacetSelection = Record<string, Set<string>>;
 
@@ -65,7 +60,7 @@ const BLOCK_ATTRIBUTE_SKIP_KEYS = new Set([
 	'sloka'
 ]);
 
-function encodeFacetKey(typeId: string, valueId: string): string {
+export function encodeFacetKey(typeId: string, valueId: string): string {
 	return `${typeId}|${valueId.toLowerCase()}`;
 }
 
@@ -89,11 +84,12 @@ function applyFacetToLeaves(
 	typeId: string,
 	valueId: string,
 	map: Map<string, Set<string>>,
-	options?: { skipLeavesWithType?: boolean }
+	options?: { skipLeavesWithType?: boolean; globalPrefix?: string }
 ): void {
+	const relativeSource = toRelativeUrn(sourceUrn, options?.globalPrefix ?? '');
 	const key = encodeFacetKey(typeId, valueId);
 	for (const leaf of leafUrns) {
-		if (!urnCoversLeaf(sourceUrn, leaf) && !urnsReferToSameBlock(sourceUrn, leaf)) {
+		if (!urnCoversLeaf(relativeSource, leaf)) {
 			continue;
 		}
 		if (options?.skipLeavesWithType && leafHasFacetType(leaf, typeId, map)) {
@@ -142,7 +138,7 @@ function ingestAnnotationFacets(
 				continue;
 			}
 			// Container-scoped notes / legacy anchors — rare, small cardinality
-			applyFacetToLeaves(leafUrns, relUrn, typeId, valueId, map);
+			applyFacetToLeaves(leafUrns, relUrn, typeId, valueId, map, { globalPrefix });
 		}
 	}
 }
@@ -222,27 +218,8 @@ function collectStreamIds(
 	return [...ids].sort();
 }
 
-function resolvePrimaryStream(
-	manifestPrimary: string | undefined,
-	packageStreams?: Array<{ id: string; count?: number }>,
-	streamsByUrn?: Record<string, string[]>
-): string | undefined {
-	if (manifestPrimary) return manifestPrimary;
-	if (packageStreams?.length) {
-		const mula = packageStreams.find((row) => row.id === 'mula');
-		if (mula) return mula.id;
-		return [...packageStreams].sort((a, b) => (b.count || 0) - (a.count || 0))[0]?.id;
-	}
-	if (!streamsByUrn) return undefined;
-	const counts = new Map<string, number>();
-	for (const streamList of Object.values(streamsByUrn)) {
-		for (const streamId of streamList) {
-			counts.set(streamId, (counts.get(streamId) || 0) + 1);
-		}
-	}
-	if (counts.size === 0) return undefined;
-	if (counts.has('mula')) return 'mula';
-	return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+function resolvePrimaryStream(manifestPrimary: string | undefined): string | undefined {
+	return manifestPrimary || undefined;
 }
 
 function buildStreamCoverageType(
@@ -386,12 +363,91 @@ export function facetValueLabel(facetIndex: FacetIndex, typeId: string, valueId:
 	return facetType?.values.find((v) => v.id === valueId)?.label ?? valueId;
 }
 
+/** Unique colors for selected filter values — never wraps the palette. */
+export function selectedFacetColorMap(activeFacets: FacetSelection): Map<string, string> {
+	const keys: string[] = [];
+	for (const [typeId, valueIds] of Object.entries(activeFacets)) {
+		if (isCoverageFacet(typeId)) continue;
+		for (const valueId of valueIds) keys.push(encodeFacetKey(typeId, valueId));
+	}
+	const map = new Map<string, string>();
+	keys.forEach((key, index) => {
+		const color = FACET_PALETTE[index];
+		if (color) map.set(key, color);
+	});
+	return map;
+}
+
+export function countSelectedFacetValues(activeFacets: FacetSelection): number {
+	let n = 0;
+	for (const [typeId, valueIds] of Object.entries(activeFacets)) {
+		if (isCoverageFacet(typeId)) continue;
+		n += valueIds.size;
+	}
+	return n;
+}
+
+export function canSelectCategoricalFacet(
+	activeFacets: FacetSelection,
+	typeId: string,
+	valueId: string,
+	cap = FACET_PALETTE_SIZE
+): boolean {
+	if (isCoverageFacet(typeId)) return true;
+	if (activeFacets[typeId]?.has(valueId)) return true;
+	return countSelectedFacetValues(activeFacets) < cap;
+}
+
+/** Map-all is only useful when every value can have a unique palette color. */
+export function mapFacetAllowed(facetType: FacetType): boolean {
+	return facetType.kind === 'categorical' && facetType.values.length <= FACET_PALETTE_SIZE;
+}
+
+/** Top-k by existing count order, plus selected values that fall outside that window. */
+export function visibleFacetValues(
+	values: FacetValue[],
+	selected: Set<string> | undefined,
+	visibleCount = FACET_VISIBLE_VALUES,
+	moreQuery = ''
+): { pinned: FacetValue[]; more: FacetValue[]; hiddenCount: number } {
+	const top = values.slice(0, visibleCount);
+	const topIds = new Set(top.map((value) => value.id));
+	const pinnedExtra = values.filter((value) => selected?.has(value.id) && !topIds.has(value.id));
+	const pinned = [...top, ...pinnedExtra];
+	const pinnedIds = new Set(pinned.map((value) => value.id));
+	const rest = values.filter((value) => !pinnedIds.has(value.id));
+	const query = moreQuery.trim().toLowerCase();
+	const more = query
+		? rest.filter(
+				(value) =>
+					value.label.toLowerCase().includes(query) || value.id.toLowerCase().includes(query)
+			)
+		: rest;
+	return { pinned, more, hiddenCount: rest.length };
+}
+
+/** Relative bar width: count / max(count) in this facet. */
+export function relativeFrequency(count: number, maxCount: number): number {
+	if (maxCount <= 0) return 0;
+	return Math.min(1, count / maxCount);
+}
+
+export function facetHistogramTsv(facetType: FacetType): string {
+	const total = facetType.values.reduce((sum, value) => sum + value.count, 0) || 1;
+	const rows = ['id\tlabel\tcount\tshare'];
+	for (const value of facetType.values) {
+		rows.push(`${value.id}\t${value.label}\t${value.count}\t${(value.count / total).toFixed(4)}`);
+	}
+	return rows.join('\n');
+}
+
 export function buildFacetValueColorMap(facetIndex: FacetIndex, typeId: string): Map<string, string> {
 	const facetType = facetIndex.types.find((t) => t.id === typeId);
 	const map = new Map<string, string>();
 	if (!facetType) return map;
 	facetType.values.forEach((value, index) => {
-		map.set(value.id, facetColor(index));
+		const color = FACET_PALETTE[index];
+		if (color) map.set(value.id, color);
 	});
 	return map;
 }
@@ -454,9 +510,7 @@ export function buildFacetIndex(
 	if (!packageData?.structure?.catalogTree) return empty;
 
 	const primaryStream = resolvePrimaryStream(
-		(packageData.manifest as { primary_stream?: string }).primary_stream,
-		packageData.streams,
-		packageData.streamsByUrn
+		(packageData.manifest as { primary_stream?: string }).primary_stream
 	);
 	const chromeStream = labelStream || primaryStream;
 	const leafUrns = collectLeafUrns(packageData.structure.catalogTree);
@@ -570,22 +624,22 @@ export function containerHasSelectedCoverageGaps(
 	return false;
 }
 
-/** Assign legend colors for active filter selections (up to four corner cues). */
+/** Assign legend colors for active filter selections (at most two fills per cell). */
 export function leafFacetCornerColors(
 	leafUrn: string,
 	activeFacets: FacetSelection,
 	facetIndex: FacetIndex,
-	leafFacetKeys: Map<string, Set<string>>
+	leafFacetKeys: Map<string, Set<string>>,
+	colorMap = selectedFacetColorMap(activeFacets)
 ): string[] {
 	const colors: string[] = [];
 	for (const [typeId, valueIds] of Object.entries(activeFacets)) {
 		if (isCoverageFacet(typeId)) continue;
-		const colorMap = buildFacetValueColorMap(facetIndex, typeId);
 		for (const valueId of valueIds) {
 			if (leafFacetKeys.get(leafUrn)?.has(encodeFacetKey(typeId, valueId))) {
-				const color = colorMap.get(valueId);
+				const color = colorMap.get(encodeFacetKey(typeId, valueId));
 				if (color) colors.push(color);
-				if (colors.length >= 4) return colors;
+				if (colors.length >= 2) return colors;
 			}
 		}
 	}
@@ -595,11 +649,5 @@ export function leafFacetCornerColors(
 export function cornerGradient(colors: string[]): string | undefined {
 	if (colors.length === 0) return undefined;
 	if (colors.length === 1) return colors[0];
-	if (colors.length === 2) {
-		return `linear-gradient(135deg, ${colors[0]} 50%, ${colors[1]} 50%)`;
-	}
-	if (colors.length === 3) {
-		return `conic-gradient(from 135deg, ${colors[0]} 0deg 120deg, ${colors[1]} 120deg 240deg, ${colors[2]} 240deg 360deg)`;
-	}
-	return `conic-gradient(from 225deg, ${colors[0]} 0deg 90deg, ${colors[1]} 90deg 180deg, ${colors[2]} 180deg 270deg, ${colors[3]} 270deg 360deg)`;
+	return `linear-gradient(135deg, ${colors[0]} 50%, ${colors[1]} 50%)`;
 }

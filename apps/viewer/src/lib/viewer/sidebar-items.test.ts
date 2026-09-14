@@ -25,13 +25,62 @@ describe('buildSidebarItems', () => {
 				id: '1:1',
 				title: 'Opening Hymn',
 				subtitle: 'Sukta 1',
-				group: 'First Mandala (Mandala 1)'
+				group: 'Mandala 1'
 			},
 			{
 				id: '1:2',
 				title: 'Second Hymn',
 				subtitle: 'Sukta 2',
-				group: 'First Mandala (Mandala 1)'
+				group: 'Mandala 1'
+			}
+		]);
+	});
+
+	it('groups 4-level anuvākas under kāṇḍa, not titles["prasnaId"]', () => {
+		const tree = {
+			'1': {
+				'2': {
+					'1': { slots: [0], leaves: [[1, 1]] },
+					'2': { slots: [0], leaves: [[1, 2]] }
+				}
+			},
+			'2': {
+				'1': {
+					'1': { slots: [0], leaves: [[1, 1]] }
+				}
+			}
+		};
+		const ttsComponents = ['kanda', 'prasna', 'anuvaka', 'mantra'];
+		const titles = {
+			'1': 'Kāṇḍa 1',
+			'2': 'Kāṇḍa 2',
+			'1:2': 'Praśna 1.2',
+			'2:1': 'Praśna 2.1',
+			'1:2:1': 'Anuvāka 1.2.1',
+			'1:2:2': 'Anuvāka 1.2.2',
+			'2:1:1': 'Anuvāka 2.1.1'
+		};
+
+		expect(
+			buildSidebarItems(tree, { urnComponents: ttsComponents, titles, structureLabel })
+		).toEqual([
+			{
+				id: '1:2:1',
+				title: 'Anuvāka 1.2.1',
+				subtitle: 'Anuvaka 1',
+				group: 'Kanda 1 : Prasna 2'
+			},
+			{
+				id: '1:2:2',
+				title: 'Anuvāka 1.2.2',
+				subtitle: 'Anuvaka 2',
+				group: 'Kanda 1 : Prasna 2'
+			},
+			{
+				id: '2:1:1',
+				title: 'Anuvāka 2.1.1',
+				subtitle: 'Anuvaka 1',
+				group: 'Kanda 2 : Prasna 1'
 			}
 		]);
 	});

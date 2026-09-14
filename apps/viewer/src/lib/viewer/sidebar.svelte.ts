@@ -2,6 +2,7 @@ import { flattenTree } from '$lib/urn-utils';
 import type { PackageData } from '$lib/types';
 import { getVocabularyLabel, titlesForChromeStream } from '$lib/viewer/vocabulary';
 import { buildSidebarItems } from '$lib/viewer/sidebar-items';
+import { listNamedSpans, type NamedSpan } from '$lib/viewer/named-spans';
 
 export interface SidebarItem {
 	id: string;
@@ -65,6 +66,10 @@ export class SidebarState {
 		};
 
 		return buildSidebarItems(tree, { urnComponents, titles, structureLabel });
+	});
+
+	readonly namedSpans: NamedSpan[] = $derived.by(() => {
+		return listNamedSpans(this.#getPackageData(), this.#getChromeStream());
 	});
 
 	constructor(

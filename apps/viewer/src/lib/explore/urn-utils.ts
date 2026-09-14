@@ -91,8 +91,24 @@ export function urnCoversLeaf(containerUrn: string, leafUrn: string): boolean {
 	return leafUrn === containerUrn || leafUrn.startsWith(`${containerUrn}:`);
 }
 
-/** Match annotation / attribute URNs to explore leaf URNs. */
-export function urnsReferToSameBlock(a: string, b: string): boolean {
-	if (a === b) return true;
-	return a.endsWith(`:${b}`) || b.endsWith(`:${a}`);
+/**
+ * Same block after stripping publication prefix and trailing `:0` pads.
+ * Do not use raw `endsWith` — on a 4-level spine `2:1:4:5` is not `4:5`.
+ */
+export function urnsReferToSameBlock(
+	a: string,
+	b: string,
+	globalPrefix = 'urn:vyasa:'
+): boolean {
+	return toRelativeUrn(a, globalPrefix) === toRelativeUrn(b, globalPrefix);
+}
+
+/** Relative URN and each ancestor (`4:5:1:1` → `4:5:1:1`, `4:5:1`, `4:5`, `4`). */
+export function ancestorRelativeUrns(relativeUrn: string): string[] {
+	const parts = relativeUrn.split(':').filter((part) => part.length > 0);
+	const out: string[] = [];
+	for (let i = parts.length; i >= 1; i--) {
+		out.push(parts.slice(0, i).join(':'));
+	}
+	return out;
 }

@@ -9,7 +9,8 @@
 		leafFacetCornerColors,
 		leafMatchesCoverageGap,
 		leafMatchesFacetSelection,
-		paintLeafMapFacet
+		paintLeafMapFacet,
+		selectedFacetColorMap
 	} from '$lib/explore/facet-index';
 	import { MAP_UNMATCHED_FILL } from '$lib/explore/facet-colors';
 
@@ -36,6 +37,7 @@
 			? buildFacetValueColorMap(facetIndex, mapFacetTypeId)
 			: new Map<string, string>()
 	);
+	const selectionColorMap = $derived(selectedFacetColorMap(activeFacets));
 
 	const coverageSelection = $derived.by(() => {
 		const values = activeFacets.stream;
@@ -100,7 +102,13 @@
 			} else if (hasFilterSelection && facetIndex) {
 				facetMatch = leafMatchesFacetSelection(urn, activeFacets, facetIndex.leafFacetKeys);
 				const cornerColors = facetMatch
-					? leafFacetCornerColors(urn, activeFacets, facetIndex, facetIndex.leafFacetKeys)
+					? leafFacetCornerColors(
+							urn,
+							activeFacets,
+							facetIndex,
+							facetIndex.leafFacetKeys,
+							selectionColorMap
+						)
 					: [];
 				fill = cornerGradient(cornerColors) ?? fill;
 			}

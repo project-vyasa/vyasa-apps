@@ -1,11 +1,24 @@
 <script lang="ts">
-	import { Map, List } from 'lucide-svelte';
+	import { onMount } from 'svelte';
+	import { Map, List, ChevronDown, ChevronRight, ClipboardCopy, Check } from 'lucide-svelte';
 	import { Switch } from '@project-vyasa/vyasa-ui';
-	import type { FacetIndex, FacetSelection } from '$lib/explore/facet-index';
+	import { copyText } from '$lib/copy-text';
+	import {
+		loadCollapsedFacetTypes,
+		saveCollapsedFacetTypes
+	} from '$lib/explore/facet-sidebar-prefs';
+	import type { FacetIndex, FacetSelection, FacetType, FacetValue } from '$lib/explore/facet-index';
 	import {
 		STREAM_COVERAGE_MAX,
 		buildFacetValueColorMap,
-		isCoverageFacet
+		canSelectCategoricalFacet,
+		encodeFacetKey,
+		facetHistogramTsv,
+		isCoverageFacet,
+		mapFacetAllowed,
+		relativeFrequency,
+		selectedFacetColorMap,
+		visibleFacetValues
 	} from '$lib/explore/facet-index';
 
 	interface Props {
@@ -25,9 +38,28 @@
 	}: Props = $props();
 
 	const streamCoverageActive = $derived((activeFacets.stream?.size ?? 0) > 0);
+	const selectionColors = $derived(selectedFacetColorMap(activeFacets));
+
+	let collapsed = $state(new Set<string>());
+	let moreOpen = $state<Record<string, boolean>>({});
+	let moreQuery = $state<Record<string, string>>({});
+	let copiedTypeId = $state<string | null>(null);
+
+	onMount(() => {
+		collapsed = loadCollapsedFacetTypes();
+	});
+
+	function toggleCollapsed(typeId: string) {
+		const next = new Set(collapsed);
+		if (next.has(typeId)) next.delete(typeId);
+		else next.add(typeId);
+		collapsed = next;
+		saveCollapsedFacetTypes(next);
+	}
 
 	function toggleFilter(typeId: string, valueId: string) {
 		if (mapFacetTypeId === typeId) return;
+		if (!canSelectCategoricalFacet(activeFacets, typeId, valueId)) return;
 		if (!activeFacets[typeId]) {
 			activeFacets[typeId] = new Set();
 		}
@@ -95,9 +127,66 @@
 	}
 
 	function colorFor(typeId: string, valueId: string): string {
-		return buildFacetValueColorMap(facetIndex, typeId).get(valueId) ?? `var(--text-tertiary)`;
+		if (isCoverageFacet(typeId) || mapFacetTypeId === typeId) {
+			return buildFacetValueColorMap(facetIndex, typeId).get(valueId) ?? `var(--text-tertiary)`;
+		}
+		return selectionColors.get(encodeFacetKey(typeId, valueId)) ?? 'transparent';
+	}
+
+	function filterDisabled(typeId: string, valueId: string): boolean {
+		return mapFacetTypeId === typeId || !canSelectCategoricalFacet(activeFacets, typeId, valueId);
+	}
+
+	async function copyHistogram(facetType: FacetType) {
+		const ok = await copyText(facetHistogramTsv(facetType));
+		if (!ok) return;
+		copiedTypeId = facetType.id;
+		setTimeout(() => {
+			if (copiedTypeId === facetType.id) copiedTypeId = null;
+		}, 1600);
+	}
+
+	function listsFor(facetType: FacetType) {
+		return visibleFacetValues(
+			facetType.values,
+			activeFacets[facetType.id],
+			undefined,
+			moreQuery[facetType.id] ?? ''
+		);
+	}
+
+	function maxCount(facetType: FacetType): number {
+		return Math.max(0, ...facetType.values.map((value) => value.count));
 	}
 </script>
+
+{#snippet valueRow(facetType: FacetType, value: FacetValue, barMax: number, coverage: boolean)}
+	{@const share = relativeFrequency(value.count, barMax)}
+	{@const checked = hasFilter(facetType.id, value.id)}
+	{@const disabled = coverage
+		? coverageAtMax(facetType.id, value.id, value.count)
+		: filterDisabled(facetType.id, value.id)}
+	<label
+		class="facet-item"
+		class:coverage-item={coverage}
+		class:active={checked}
+		class:disabled
+	>
+		<span class="freq-bar" style:width="{share * 100}%"></span>
+		<input
+			type="checkbox"
+			checked={checked}
+			{disabled}
+			onchange={() =>
+				coverage
+					? toggleCoverage(facetType.id, value.id, value.count)
+					: toggleFilter(facetType.id, value.id)}
+		/>
+		<span class="swatch small" style:background={colorFor(facetType.id, value.id)}></span>
+		<span class="facet-label" title={value.label}>{value.label}</span>
+		<span class="facet-count">{value.count}</span>
+	</label>
+{/snippet}
 
 <div class="facet-sidebar">
 	{#if facetIndex.types.length === 0}
@@ -109,103 +198,132 @@
 		{#each facetIndex.types as facetType (facetType.id)}
 			{@const mapActive = mapFacetTypeId === facetType.id}
 			{@const coverage = facetType.kind === 'coverage'}
+			{@const isCollapsed = collapsed.has(facetType.id)}
+			{@const allowMap = mapFacetAllowed(facetType)}
+			{@const lists = listsFor(facetType)}
+			{@const barMax = maxCount(facetType)}
 			<div class="facet-group" class:map-active={mapActive} class:coverage-facet={coverage}>
 				<div class="group-header">
-					<h4 class="group-title">{facetType.label}</h4>
-					{#if !coverage}
+					<button
+						type="button"
+						class="group-toggle"
+						onclick={() => toggleCollapsed(facetType.id)}
+						aria-expanded={!isCollapsed}
+					>
+						{#if isCollapsed}
+							<ChevronRight size={14} />
+						{:else}
+							<ChevronDown size={14} />
+						{/if}
+						<span class="group-title">{facetType.label}</span>
+					</button>
+					<div class="group-actions">
 						<button
 							type="button"
-							class="mode-toggle"
-							class:active={mapActive}
-							onclick={() => toggleMapMode(facetType.id)}
-							title={mapActive ? 'Switch to filter mode' : 'Show full map for this facet'}
+							class="icon-btn"
+							onclick={() => copyHistogram(facetType)}
+							title="Copy histogram"
 						>
-							{#if mapActive}
-								<List size={14} />
-								<span>Filter</span>
+							{#if copiedTypeId === facetType.id}
+								<Check size={14} />
 							{:else}
-								<Map size={14} />
-								<span>Map</span>
+								<ClipboardCopy size={14} />
 							{/if}
 						</button>
-					{/if}
+						{#if allowMap}
+							<button
+								type="button"
+								class="mode-toggle"
+								class:active={mapActive}
+								onclick={() => toggleMapMode(facetType.id)}
+								title={mapActive ? 'Switch to filter mode' : 'Show full map for this facet'}
+							>
+								{#if mapActive}
+									<List size={14} />
+									<span>Filter</span>
+								{:else}
+									<Map size={14} />
+									<span>Map</span>
+								{/if}
+							</button>
+						{/if}
+					</div>
 				</div>
 
-				{#if coverage}
-					<p class="mode-hint coverage-hint">
-						Gaps vs primary stream — select up to {STREAM_COVERAGE_MAX} to highlight missing
-						coverage on the map. “Without primary” marks blocks that exist only in alternate
-						streams.
-					</p>
-					{#if streamCoverageComplete(facetType)}
-						<p class="mode-hint coverage-complete">All alternate streams fully cover primary.</p>
-					{/if}
-					<div class="facet-list">
-						{#each facetType.values as value (facetType.id + value.id)}
-							<label
-								class="facet-item coverage-item"
-								class:active={hasFilter(facetType.id, value.id)}
-								class:disabled={coverageAtMax(facetType.id, value.id, value.count)}
+				{#if !isCollapsed}
+					{#if coverage}
+						<p class="mode-hint coverage-hint">
+							Gaps vs primary stream — select up to {STREAM_COVERAGE_MAX} to highlight missing
+							coverage on the map. “Without primary” marks blocks that exist only in alternate
+							streams.
+						</p>
+						{#if streamCoverageComplete(facetType)}
+							<p class="mode-hint coverage-complete">All alternate streams fully cover primary.</p>
+						{/if}
+						<div class="facet-list">
+							{#each facetType.values as value (facetType.id + value.id)}
+								{@render valueRow(facetType, value, barMax, true)}
+							{/each}
+						</div>
+						<label
+							class="coverage-map-toggle"
+							class:disabled={!streamCoverageActive}
+							title={streamCoverageActive
+								? 'Hide containers with no matching gaps'
+								: 'Select a stream gap to filter containers'}
+						>
+							<Switch bind:checked={hideContainersWithoutGaps} disabled={!streamCoverageActive} />
+							<span class="toggle-label">Containers with gaps only</span>
+						</label>
+					{:else if mapActive}
+						<p class="mode-hint">
+							Every block is colored by {facetType.label.toLowerCase()}. Unmarked blocks stay dim.
+						</p>
+						<div class="facet-list legend">
+							{#each facetType.values as value (facetType.id + value.id)}
+								<div class="legend-item">
+									<span class="freq-bar" style:width="{relativeFrequency(value.count, barMax) * 100}%"
+									></span>
+									<span class="swatch" style:background={colorFor(facetType.id, value.id)}></span>
+									<span class="facet-label" title={value.label}>{value.label}</span>
+									<span class="facet-count">{value.count}</span>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="facet-list">
+							{#each lists.pinned as value (facetType.id + value.id)}
+								{@render valueRow(facetType, value, barMax, false)}
+							{/each}
+						</div>
+						{#if lists.hiddenCount > 0}
+							<button
+								type="button"
+								class="more-toggle"
+								onclick={() => {
+									moreOpen[facetType.id] = !moreOpen[facetType.id];
+									if (moreOpen[facetType.id] && moreQuery[facetType.id] === undefined) {
+										moreQuery[facetType.id] = '';
+									}
+								}}
 							>
+								{moreOpen[facetType.id] ? 'Less' : `More… (${lists.hiddenCount})`}
+							</button>
+							{#if moreOpen[facetType.id]}
 								<input
-									type="checkbox"
-									checked={hasFilter(facetType.id, value.id)}
-									disabled={coverageAtMax(facetType.id, value.id, value.count)}
-									onchange={() => toggleCoverage(facetType.id, value.id, value.count)}
+									class="more-search"
+									type="search"
+									placeholder="Search values…"
+									bind:value={moreQuery[facetType.id]}
 								/>
-								<span
-									class="swatch small"
-									style:background={colorFor(facetType.id, value.id)}
-								></span>
-								<span class="facet-label" title={value.label}>{value.label}</span>
-								<span class="facet-count">{value.count}</span>
-							</label>
-						{/each}
-					</div>
-					<label
-						class="coverage-map-toggle"
-						class:disabled={!streamCoverageActive}
-						title={streamCoverageActive
-							? 'Hide containers with no matching gaps'
-							: 'Select a stream gap to filter containers'}
-					>
-						<Switch
-							bind:checked={hideContainersWithoutGaps}
-							disabled={!streamCoverageActive}
-						/>
-						<span class="toggle-label">Containers with gaps only</span>
-					</label>
-				{:else if mapActive}
-					<p class="mode-hint">
-						Every block is colored by {facetType.label.toLowerCase()}. Unmarked blocks stay dim.
-					</p>
-					<div class="facet-list legend">
-						{#each facetType.values as value (facetType.id + value.id)}
-							<div class="legend-item">
-								<span class="swatch" style:background={colorFor(facetType.id, value.id)}></span>
-								<span class="facet-label" title={value.label}>{value.label}</span>
-								<span class="facet-count">{value.count}</span>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="facet-list">
-						{#each facetType.values as value (facetType.id + value.id)}
-							<label class="facet-item" class:active={hasFilter(facetType.id, value.id)}>
-								<input
-									type="checkbox"
-									checked={hasFilter(facetType.id, value.id)}
-									onchange={() => toggleFilter(facetType.id, value.id)}
-								/>
-								<span
-									class="swatch small"
-									style:background={colorFor(facetType.id, value.id)}
-								></span>
-								<span class="facet-label" title={value.label}>{value.label}</span>
-								<span class="facet-count">{value.count}</span>
-							</label>
-						{/each}
-					</div>
+								<div class="facet-list">
+									{#each lists.more as value (facetType.id + 'more' + value.id)}
+										{@render valueRow(facetType, value, barMax, false)}
+									{/each}
+								</div>
+							{/if}
+						{/if}
+					{/if}
 				{/if}
 			</div>
 		{/each}
@@ -254,6 +372,18 @@
 		margin-bottom: var(--space-3);
 	}
 
+	.group-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		min-width: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+	}
+
 	.group-title {
 		margin: 0;
 		font-size: 0.8rem;
@@ -261,9 +391,19 @@
 		text-transform: uppercase;
 		letter-spacing: 0.5px;
 		color: var(--text-secondary);
+		text-align: left;
 	}
 
-	.mode-toggle {
+	.group-actions {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		flex: 0 0 auto;
+	}
+
+	.icon-btn,
+	.mode-toggle,
+	.more-toggle {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
@@ -277,10 +417,29 @@
 		cursor: pointer;
 	}
 
+	.icon-btn {
+		padding: 0.2rem;
+	}
+
 	.mode-toggle.active {
 		border-color: var(--action-primary);
 		color: var(--action-primary);
 		background: color-mix(in srgb, var(--action-primary) 10%, var(--bg-surface));
+	}
+
+	.more-toggle {
+		margin-top: var(--space-2);
+	}
+
+	.more-search {
+		width: 100%;
+		margin: var(--space-2) 0;
+		padding: 0.3rem 0.5rem;
+		border: 1px solid var(--border-base);
+		border-radius: var(--control-radius);
+		background: var(--bg-surface);
+		color: var(--text-primary);
+		font-size: 0.8rem;
 	}
 
 	.mode-hint {
@@ -325,11 +484,13 @@
 
 	.facet-item,
 	.legend-item {
+		position: relative;
 		display: flex;
 		align-items: flex-start;
 		gap: var(--space-2);
 		font-size: 0.85rem;
 		color: var(--text-primary);
+		overflow: hidden;
 	}
 
 	.facet-item {
@@ -345,6 +506,18 @@
 	.facet-item.disabled {
 		opacity: 0.45;
 		cursor: not-allowed;
+	}
+
+	.freq-bar {
+		position: absolute;
+		inset: 0 auto 0 0;
+		background: color-mix(in srgb, var(--action-primary) 14%, transparent);
+		pointer-events: none;
+	}
+
+	.facet-item > :not(.freq-bar),
+	.legend-item > :not(.freq-bar) {
+		position: relative;
 	}
 
 	.facet-item input[type='checkbox'],

@@ -17,6 +17,12 @@ describe('reader-navigation', () => {
 		expect(readerNavUrl(ref, '2:47', '/vyasa-apps')).toBe('/vyasa-apps/adi/vysamples/vyasa-bg/2:47');
 	});
 
+	it('appends span query params', () => {
+		expect(readerNavUrl(ref, '4:5', '/vyasa-apps', { span: 'attr:featured|span_a' })).toBe(
+			'/vyasa-apps/adi/vysamples/vyasa-bg/4:5?span=attr%3Afeatured%7Cspan_a'
+		);
+	});
+
 	it('opens a publication on the first leaf-container, not the first leaf', () => {
 		expect(initialReaderUrn(rvLeaves, 3)).toBe('1:1');
 		expect(initialReaderUrn(bgLeaves, 2)).toBe('1');
@@ -67,6 +73,12 @@ describe('reader-navigation', () => {
 		const visited: string[] = [];
 		navigateReaderNext(rvLeaves, '1', 3, (url) => visited.push(url), (urn) => urn);
 		expect(visited).toEqual(['1:2']);
+	});
+
+	it('weaves a named-span container without shrinking to the first anuvāka', () => {
+		const ttsLeaves = ['4:5:1:1', '4:5:1:2', '4:5:2:1', '4:6:1:1'];
+		expect(readerWeaveUrn('4:5', ttsLeaves, 4)).toBe('4:5:1');
+		expect(readerWeaveUrn('4:5', ttsLeaves, 4, '4:5')).toBe('4:5');
 	});
 
 	it('steps RV rik by leaf', () => {
