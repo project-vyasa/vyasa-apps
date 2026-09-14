@@ -36,41 +36,37 @@ export class ViewerDb {
 			await sqliteService.init();
 		}
 		this.sqlite3 = sqliteService.sqlite3;
-
-		// Close previous if exists
-		await this.close();
-
-		// Generate a unique dbName to prevent schema caching issues when switching DBs
-		this.dbName = `viewer-db-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-
-		// Populate MemoryVFS directly
-		const memoryVfs = sqliteService.memoryVfs;
-		if (memoryVfs) {
-			memoryVfs.mapNameToFile.set(this.dbName, {
-				name: this.dbName,
-				flags: 0,
-				size: buffer.byteLength,
-				data: buffer
-			});
-		}
-
-		// Open a memory DB (without OPEN_CREATE so it must use our file)
 		if (!this.sqlite3) throw new Error('SQLite not initialized');
-		this.db = await this.sqlite3.open_v2(this.dbName, this.sqlite3.OPEN_READONLY, 'memory');
+
+		return this.#enqueue(async () => {
+			await this.#closeNow();
+			this.dbName = `viewer-db-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+			const memoryVfs = sqliteService.memoryVfs;
+			if (memoryVfs) {
+				memoryVfs.mapNameToFile.set(this.dbName, {
+					name: this.dbName,
+					flags: 0,
+					size: buffer.byteLength,
+					data: buffer
+				});
+			}
+			this.db = await this.sqlite3!.open_v2(this.dbName, this.sqlite3!.OPEN_READONLY, 'memory');
+		});
 	}
 
 	async close() {
-		return this.#enqueue(async () => {
-			if (this.db && this.sqlite3) {
-				await this.sqlite3.close(this.db);
-				this.db = null;
+		return this.#enqueue(() => this.#closeNow());
+	}
 
-				const memoryVfs = sqliteService.memoryVfs;
-				if (memoryVfs && memoryVfs.mapNameToFile.has(this.dbName)) {
-					memoryVfs.mapNameToFile.delete(this.dbName);
-				}
+	async #closeNow() {
+		if (this.db && this.sqlite3) {
+			await this.sqlite3.close(this.db);
+			this.db = null;
+			const memoryVfs = sqliteService.memoryVfs;
+			if (memoryVfs && memoryVfs.mapNameToFile.has(this.dbName)) {
+				memoryVfs.mapNameToFile.delete(this.dbName);
 			}
-		});
+		}
 	}
 
 	async query(sql: string, params: unknown[] = []) {

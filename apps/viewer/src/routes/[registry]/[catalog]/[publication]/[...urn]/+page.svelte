@@ -5,16 +5,19 @@
 	import { goto } from '$app/navigation';
 	import { onDestroy, getContext, untrack, type Snippet } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
-	import { ViewerDb } from '$lib/ViewerDb';
-	import { loadPublication } from '$lib/viewer/publication-loader';
 	import { renderUrn } from '$lib/viewer/urn-renderer';
+	import {
+		ensurePublication,
+		peekPublication,
+		publicationSessionDb
+	} from '$lib/viewer/publication-session';
 	import { attachShellChromeGestures } from '$lib/viewer/shell-chrome-gestures';
 	import {
 		applyContentPresentation,
 		contentThemesFromManifest,
 		setReaderFullWidth
 	} from '$lib/viewer/content-presentation';
-	import { listUrnRecents, publicationUrnKey, rememberUrnRecent } from '$lib/viewer/urn-recents';
+	import { listUrnRecents, publicationUrnKey, rememberUrnRecent, normalizeUrnInput } from '$lib/viewer/urn-recents';
 	import { listUrnFavorites, toggleUrnFavorite } from '$lib/viewer/urn-favorites';
 	import { SidebarState } from '$lib/viewer/sidebar.svelte';
 	import {
@@ -24,10 +27,10 @@
 		readerWeaveUrn,
 		resolveReaderAddress
 	} from '$lib/viewer/reader-navigation';
+	import { findNamedSpan, type NamedSpan } from '$lib/viewer/named-spans';
 	import ViewerNavBar from '$lib/components/ViewerNavBar.svelte';
 	import ReaderNavigationPanel from '$lib/components/ReaderNavigationPanel.svelte';
 	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
-	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
 	import {
@@ -42,6 +45,7 @@
 	const catalogId = $derived(page.params.catalog || '');
 	const publicationId = $derived(page.params.publication || '');
 	const urn = $derived(page.params.urn || 'root');
+	const spanParam = $derived(page.url.searchParams.get('span') ?? '');
 
 	const catalogRef = $derived(
 		registryId && catalogId && publicationId
@@ -97,6 +101,8 @@
 		untrack(() => syncIframeFullWidth());
 	});
 	let srcdocContent = $state('');
+	/** False until the first weave finishes so the iframe is not created with empty srcdoc. */
+	let weaveReady = $state(false);
 	let errorMessage = $state<string | null>(null);
 	let activeView = $state<string | undefined>(undefined);
 	let availableViews = $state<string[]>([]);
@@ -127,6 +133,7 @@
 		});
 	});
 	let renderGeneration = 0;
+	let fetchingPack = $state(true);
 	const urnRecentKey = $derived(publicationUrnKey(registryId, catalogId, publicationId));
 	let urnRecents = $state<string[]>([]);
 	let urnFavorites = $state<string[]>([]);
@@ -155,13 +162,17 @@
 	let lastLoadedCatalog = '';
 	let lastLoadedPublication = '';
 
-	const viewerDb = new ViewerDb();
+	const viewerDb = publicationSessionDb();
 	const sidebar = new SidebarState(
 		() => packageData,
 		() => urnComponents,
 		() => urn,
 		() => chromeStream || undefined
 	);
+	const activeSpan = $derived(
+		findNamedSpan(sidebar.namedSpans, spanParam || null, normalizeUrnInput(urn))
+	);
+	const selectedSpanId = $derived(activeSpan?.id);
 
 	$effect(() => {
 		if (shell) {
@@ -176,10 +187,19 @@
 		}
 	});
 
-	$effect(() => {
+	$effect.pre(() => {
 		const ref = catalogRef;
 		untrack(() => {
 			if (ref) handleLoadPublication();
+		});
+	});
+
+	$effect(() => {
+		const html = srcdocContent;
+		const frame = viewerFrame;
+		if (!frame || !html) return;
+		untrack(() => {
+			if (frame.srcdoc !== html) frame.srcdoc = html;
 		});
 	});
 
@@ -194,47 +214,40 @@
 		viewerSettings.contentTheme;
 		viewerSettings.contentTextSize;
 		contentThemes;
+		spanParam;
+		sidebar.flatUrns;
 		untrack(() => handleRenderUrn(currentUrn));
 	});
-
-	onDestroy(() => viewerDb.close());
 
 	async function handleLoadPublication() {
 		const ref = catalogRef;
 		if (!ref) return;
 		errorMessage = null;
+		if (
+			ref.registryId === lastLoadedRegistryId &&
+			ref.catalogId === lastLoadedCatalog &&
+			ref.publicationId === lastLoadedPublication
+		) {
+			fetchingPack = false;
+			return;
+		}
+
+		const peeked = peekPublication(ref);
+		fetchingPack = !peeked;
 		try {
-			if (
-				ref.registryId === lastLoadedRegistryId &&
-				ref.catalogId === lastLoadedCatalog &&
-				ref.publicationId === lastLoadedPublication
-			) {
-				return;
-			}
+			const result = peeked ?? (await ensurePublication(ref));
 			lastLoadedRegistryId = ref.registryId;
 			lastLoadedCatalog = ref.catalogId;
 			lastLoadedPublication = ref.publicationId;
 
-			const result = await loadPublication(ref, viewerDb);
 			urnComponents = result.urnComponents;
 			graphRuntime = result.graphRuntime;
-
-			const pubTitle =
-				result.diagCatalog?.publications?.find((i) => i.id === ref.publicationId)?.title ||
-				result.packageData.manifest.title ||
-				ref.publicationId;
-			activePublication.setPublication(ref, result.diagCatalogUrl);
-			activePublication.setMetadata(
-				pubTitle,
-				result.diagPublicationUrl,
-				result.manifestTimestamp ?? result.packageData.manifest.timestamp,
-				result.diagCatalogUrl,
-				result.catalogUpdated
-			);
 
 			availableViews = [];
 			activeView = undefined;
 			customGridLayoutJson = undefined;
+			srcdocContent = '';
+			weaveReady = false;
 
 			const primary = (result.packageData.manifest as { primary_stream?: string })?.primary_stream;
 			const labelStreams = chromeStreamsFromVocabulary(result.packageData.vocabulary, primary);
@@ -250,17 +263,30 @@
 		} catch (err: unknown) {
 			console.error('Failed to load publication:', err);
 			errorMessage = err instanceof Error ? err.message : String(err);
+		} finally {
+			fetchingPack = false;
 		}
 	}
 
 	async function handleRenderUrn(targetUrn: string) {
 		if (!graphRuntime || !packageData) return;
-		const weaveUrn = readerWeaveUrn(targetUrn, sidebar.flatUrns, urnComponents.length);
+		const span = findNamedSpan(
+			sidebar.namedSpans,
+			spanParam || null,
+			normalizeUrnInput(targetUrn)
+		);
+		const weaveUrn = readerWeaveUrn(
+			targetUrn,
+			sidebar.flatUrns,
+			urnComponents.length,
+			span?.containerUrn
+		);
 		if (!weaveUrn) return;
 		if (weaveUrn !== targetUrn) {
 			const ref = catalogRef;
 			if (ref) {
-				goto(readerNavUrl(ref, weaveUrn, base), { replaceState: true });
+				goto(navUrl(weaveUrn, spanParam || span?.id), { replaceState: true });
+				return;
 			}
 		}
 		const generation = ++renderGeneration;
@@ -288,25 +314,38 @@
 				theme: contentThemes.length ? viewerSettings.contentTheme : '',
 				textSize: viewerSettings.contentTextSize
 			});
+			weaveReady = true;
 		} catch (e: unknown) {
 			if (generation !== renderGeneration) return;
 			console.error('Render failed', e);
 			const msg = e instanceof Error ? e.message : String(e);
 			srcdocContent = `<div class="render-error">Failed to weave view: ${msg}</div>`;
+			weaveReady = true;
 		}
 	}
 
-	function navUrl(targetUrn: string) {
+	function navUrl(targetUrn: string, spanId?: string) {
 		const ref = catalogRef;
 		if (!ref) return base || '/';
-		return readerNavUrl(ref, targetUrn, base);
+		return readerNavUrl(ref, targetUrn, base, spanId ? { span: spanId } : undefined);
 	}
 
 	function onNavigate(target: string) {
 		goToUrn(target);
 	}
 
+	function goToSpan(span: NamedSpan) {
+		urnRecents = rememberUrnRecent(urnRecentKey, span.containerUrn);
+		goto(navUrl(span.containerUrn, span.id));
+	}
+
 	function goToUrn(target: string) {
+		const normalized = normalizeUrnInput(target);
+		const span = sidebar.namedSpans.find((entry) => entry.containerUrn === normalized);
+		if (span) {
+			goToSpan(span);
+			return;
+		}
 		const resolved = resolveReaderAddress(target, sidebar.flatUrns, urnComponents.length);
 		if (!resolved) return;
 		urnRecents = rememberUrnRecent(urnRecentKey, resolved.urn);
@@ -359,7 +398,9 @@
 		{sidebar}
 		{chromeStreams}
 		bind:chromeStream
+		selectedSpanId={selectedSpanId}
 		{onNavigate}
+		onSelectSpan={goToSpan}
 	/>
 {/snippet}
 
@@ -374,7 +415,7 @@
 <div class="viewer-container">
 	{#if errorMessage}
 		<div class="error-box">{errorMessage}</div>
-	{:else if !srcdocContent}
+	{:else if fetchingPack || !weaveReady}
 		<LoadingBrand message="Loading {publicationId}…" />
 	{:else}
 		<iframe

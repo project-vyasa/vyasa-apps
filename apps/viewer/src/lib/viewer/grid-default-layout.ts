@@ -1,16 +1,29 @@
 import type { Manifest } from '$lib/types';
+import { packedStreamId, parseStreamAliases } from './stream-identity';
 
 /**
  * Resolve stream order for grid defaults and customize UI.
- * Uses manifest `streams_config` when present, otherwise `primary_stream` first.
+ * Uses manifest `streams_config` when present (logical ids mapped through
+ * `stream_aliases`), otherwise `primary_stream` first.
  */
 export function resolveManifestStreamOrder(
 	definedStreamOrder: string[],
 	allStreams: string[],
 	manifest: Manifest
 ): string[] {
+	const aliases = parseStreamAliases(manifest.stream_aliases);
 	const present = new Set(allStreams);
-	const pick = (order: string[]) => order.filter((s) => present.has(s));
+	const pick = (order: string[]) => {
+		const seen = new Set<string>();
+		const out: string[] = [];
+		for (const id of order) {
+			const packed = packedStreamId(id, aliases);
+			if (!present.has(packed) || seen.has(packed)) continue;
+			seen.add(packed);
+			out.push(packed);
+		}
+		return out;
+	};
 	const appendMissing = (ordered: string[]) => [
 		...ordered,
 		...allStreams.filter((s) => !ordered.includes(s))

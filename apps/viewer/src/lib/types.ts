@@ -74,6 +74,8 @@ export interface Manifest {
 	package_type: string;
 	layout?: string;
 	primary_stream?: string;
+	/** JSON object logical id → packed stream name. */
+	stream_aliases?: string;
 
 	catalog_tree: string;
 	catalog_tree_encoding?: string;
@@ -108,7 +110,7 @@ export interface PackageData {
 	projections: Record<string, string>;
 	/** @deprecated Prefer titlesByStream + chrome stream selection */
 	titles?: Record<string, string>;
-	/** URN → title, keyed by stream name (e.g. mula / iast) */
+	/** URN → title, keyed by packed stream name */
 	titlesByStream?: Record<string, Record<string, string>>;
 	/** Relative URN → packed block attribute JSON (rishi, chandas, title, …) */
 	blockAttributesByUrn?: Record<string, Record<string, string>>;

@@ -18,6 +18,11 @@ import {
 	resolveManifestStreamOrder
 } from '$lib/viewer/grid-default-layout';
 import { pickInitialActiveView } from '$lib/viewer/view-defaults';
+import { viewportIncludesUrn, viewportLeafFetchLimit } from '$lib/viewer/viewport-limit';
+import { toRelativeUrn } from '$lib/explore/urn-utils';
+import { annotationsCoveringUrn } from '$lib/viewer/graph-weave-context';
+import { toSequenceId } from '$lib/viewer/sequence-id';
+import { parseWeaveDiagnostics, reportWeaveDiagnostics } from '$lib/viewer/weave-diagnostics';
 
 function normalizeBlockContent(content: unknown): Uint8Array {
 	if (content instanceof Uint8Array) return content;
@@ -88,17 +93,30 @@ export async function renderUrn(
 	const matchingUrns = matchUrns(targetUrn, flatUrns);
 	const queryUrn =
 		targetUrn === 'root' || !targetUrn ? (matchingUrns[0] ?? targetUrn) : targetUrn;
-	const limit = matchingUrns.length > 0 ? matchingUrns.length : 1;
+	const limit = viewportLeafFetchLimit(matchingUrns.length);
 
 	// 2. Query content rows from SQLite
 	const query = graphRuntime.build_viewport_query(queryUrn, limit);
-	const rows = await viewerDb.query(query);
+	const rawRows = await viewerDb.query(query);
+	const prefix =
+		(packageData.manifest as { prefix?: string; global_prefix?: string }).prefix ||
+		(packageData.manifest as { global_prefix?: string }).global_prefix ||
+		'';
+	const rows = rawRows.filter((row) => {
+		try {
+			const decoded = graphRuntime.get_urn(toSequenceId(row[0]));
+			if (!decoded) return true;
+			return viewportIncludesUrn(decoded, matchingUrns, prefix);
+		} catch {
+			return true;
+		}
+	});
 
 	// 3. Normalize stream names
 	let rowsJson: { id: unknown; stream: unknown; content: unknown }[] = [];
 	for (const r of rows) {
 		rowsJson.push({
-			id: r[0],
+			id: toSequenceId(r[0]),
 			stream: (r[1] as string).startsWith('dependency.') ? r[1] : `local.${r[1]}`,
 			content: normalizeBlockContent(r[2])
 		});
@@ -189,37 +207,38 @@ export async function renderUrn(
 	} else {
 		viewNodes = graphRuntime.weave_view(rowsJson, templatesJson, currentActiveView, optionsJson);
 	}
+	reportWeaveDiagnostics(
+		parseWeaveDiagnostics(
+			typeof graphRuntime.last_weave_diagnostics === 'function'
+				? graphRuntime.last_weave_diagnostics()
+				: ''
+		),
+		{
+			publicationId: packageData.manifest.title,
+			urn: targetUrn
+		}
+	);
 
 	// 8. Theme shell wraps all views; craft `{view}_layout` wraps items first.
-	const prefix =
-		(packageData.manifest as any)?.prefix || (packageData.manifest as any)?.global_prefix || '';
 	let itemsHtml = '';
 	for (const node of viewNodes) {
 		// Filter out container placeholder rows (e.g. 1:0 or ending in :0 / .0 or empty content)
 		if (node.urn.endsWith(':0') || node.urn.endsWith('.0') || isPlaceholderContent(node.content)) {
 			continue;
 		}
-
-		let shortUrn = node.urn;
-		if (prefix && shortUrn.startsWith(prefix + ':')) {
-			shortUrn = shortUrn.slice(prefix.length + 1);
-		} else {
-			const parts = shortUrn.split(':');
-			if (parts.length > 2) {
-				shortUrn = parts.slice(-2).join(':');
-			}
+		if (!viewportIncludesUrn(node.urn, matchingUrns, prefix)) {
+			continue;
 		}
 
+		const shortUrn = toRelativeUrn(node.urn, prefix) || node.urn;
+
 		let annotationBadgesHtml = '';
-		const annIndex = packageData.annotationsByUrn;
-		const matchingAnns = annIndex
-			? [...(annIndex[node.urn] ?? []), ...(annIndex[shortUrn] ?? [])]
-			: (packageData.annotations ?? []).filter(
-					(ann) =>
-						ann.urn === node.urn ||
-						ann.urn.endsWith(':' + node.urn) ||
-						node.urn.endsWith(':' + ann.urn)
-				);
+		const matchingAnns = annotationsCoveringUrn(
+			node.urn,
+			packageData.annotationsByUrn,
+			prefix,
+			packageData.annotations
+		);
 		if (matchingAnns.length) {
 			const seen = new Set<string>();
 			for (const ann of matchingAnns) {
