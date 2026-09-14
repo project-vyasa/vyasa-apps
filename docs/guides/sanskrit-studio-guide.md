@@ -8,14 +8,14 @@ local: http://localhost:5374/
 
 # Sanskrit Studio
 
-> **Status:** Internal notes in **vyasa-apps** (`docs/guides/`). Not a published HTML docs site.  
-> **Live:** [project-vyasa.github.io/vyasa-apps/sanskrit/](https://project-vyasa.github.io/vyasa-apps/sanskrit/)  
+> **Status:** Internal notes in **vyasa-apps** (`docs/guides/`). Public user guide: [`apps/docs`](../../apps/docs/) → https://project-vyasa.github.io/vyasa-apps/docs/sanskrit-studio/  
+> **Live app:** [project-vyasa.github.io/vyasa-apps/sanskrit/](https://project-vyasa.github.io/vyasa-apps/sanskrit/)  
 > **Local:** `cd apps/sanskrit-studio && bun run dev` → http://localhost:5374/  
-> **Viewer** (catalogs and reading) is a different app; its guide is not written yet.
+> **Viewer** (catalogs and reading) is a different app: https://project-vyasa.github.io/vyasa-apps/docs/viewer/
 
 Sanskrit Studio is a small, **experimental** workbench. It runs in the browser (no account, no upload). The engine is WebAssembly from `vyutils`. If the engine is missing, a banner says so — restart the dev server after `wasm-pack`.
 
-It is **not** a reader of packed publications. Use the [Viewer](https://project-vyasa.github.io/vyasa-apps/) for that.
+It is **not** a reader of packed publications. Use the [Viewer](https://project-vyasa.github.io/vyasa-apps/viewer/) for that.
 
 ---
 

@@ -14,12 +14,14 @@ describe('reader-navigation', () => {
 	const rvLeaves = ['1:1:1', '1:1:2', '1:2:1', '2:1:1', '2:1:2'];
 
 	it('builds reader paths', () => {
-		expect(readerNavUrl(ref, '2:47', '/vyasa-apps')).toBe('/vyasa-apps/adi/vysamples/vyasa-bg/2:47');
+		expect(readerNavUrl(ref, '2:47', '/vyasa-apps/viewer')).toBe(
+			'/vyasa-apps/viewer/adi/vysamples/vyasa-bg/2:47'
+		);
 	});
 
 	it('appends span query params', () => {
-		expect(readerNavUrl(ref, '4:5', '/vyasa-apps', { span: 'attr:featured|span_a' })).toBe(
-			'/vyasa-apps/adi/vysamples/vyasa-bg/4:5?span=attr%3Afeatured%7Cspan_a'
+		expect(readerNavUrl(ref, '4:5', '/vyasa-apps/viewer', { span: 'attr:featured|span_a' })).toBe(
+			'/vyasa-apps/viewer/adi/vysamples/vyasa-bg/4:5?span=attr%3Afeatured%7Cspan_a'
 		);
 	});
 

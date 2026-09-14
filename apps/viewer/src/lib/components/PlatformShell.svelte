@@ -9,7 +9,7 @@
 	import { base } from '$app/paths';
 	import { page } from '$app/state';
 	import { brandIconSrc } from '$lib/brand';
-	import { sanskritStudioHref } from '$lib/pages-apps';
+	import { appsDocsHref, sanskritStudioHref } from '$lib/pages-apps';
 
 	const themeContext = getContext<any>('theme');
 
@@ -131,6 +131,7 @@
 		>
 			{#snippet headerRight()}
 				<a class="sibling-app" href={sanskritStudioHref()} data-sveltekit-reload>Sanskrit Studio</a>
+				<a class="sibling-app" href={appsDocsHref()} data-sveltekit-reload>Docs</a>
 			{/snippet}
 			{#if activePublication.publicationId}
 				{@const displayTitle = activePublication.title || activePublication.publicationId}

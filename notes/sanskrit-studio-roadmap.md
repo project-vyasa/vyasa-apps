@@ -1,6 +1,6 @@
 # Sanskrit Studio — next activities and researcher needs
 
-Companion to the Studio notes: [`docs/guides/sanskrit-studio-guide.md`](../docs/guides/sanskrit-studio-guide.md) (internal, not published HTML).  
+Companion to the Studio notes: [`docs/guides/sanskrit-studio-guide.md`](../docs/guides/sanskrit-studio-guide.md) (internal). Public guide: `apps/docs` → `/sanskrit-studio/`.  
 Engine: `vyutils` crates `vyasa-lipi`, `vyasa-patha`, `vyasa-phonetics` via WASM.
 
 ## Landscape (what people already use)

@@ -1,0 +1,58 @@
+---
+title: Sanskrit Studio
+description: Lipi, Pāṭha, and Varṇa in the browser — not a publication reader.
+---
+
+Sanskrit Studio is at [project-vyasa.github.io/vyasa-apps/sanskrit](https://project-vyasa.github.io/vyasa-apps/sanskrit/). Locally: `cd apps/sanskrit-studio && bun run dev` → http://localhost:5374/
+
+It is a small **experimental** workbench. No account, no upload. The engine is WebAssembly from `vyutils`. If the engine is missing, a banner says so — rebuild WASM and restart the dev server.
+
+It is **not** a reader of packed publications. Use the [Viewer](../viewer/) for that.
+
+## The window
+
+| Region | What it is |
+|--------|------------|
+| **Header** | Logo, *Sanskrit Studio*, activity title, **Labels**, theme and density |
+| **Activity bar** (left) | Three tools: Lipi, Pāṭha, Varṇa |
+| **Main pane** | The tool you picked |
+
+**Labels** change how Sanskrit words in the **chrome** are written (menus, titles, pattern names). Canonical source is IAST. English glosses stay English. This is separate from output script inside Lipi or Pāṭha.
+
+## Lipi — transliteration
+
+Rewrite the same Sanskrit between **11 scripts**, keeping Vedic pitch marks.
+
+1. Open **Lipi**.
+2. Choose **from** and **to** scripts.
+3. Type or paste in the left box (or tap a Vedic mark from the palette).
+4. Read the right box. The **lossless** badge means a round-trip matches the source script.
+
+## Pāṭha — recitation patterns
+
+Start from **Pada-pāṭha** (words already split, usually with `|` or daṇḍas). The studio can emit **Krama** and **Jaṭā**. Other traditional patterns are listed; they are not generated yet.
+
+1. Open **Pāṭha**.
+2. Put pada text in the **left** editor.
+3. Pick **Krama** or **Jaṭā**.
+4. Switch **table** vs **trainer**.
+5. Set **output script** for the generated text (independent of Labels).
+
+Left pane is **padas**. Pasting continuous saṃhitā will not split it into words.
+
+## Varṇa — phonetics
+
+Inspect one sound against a tradition: **Pāṇini**, **Ṛgveda-Prātiśākhya**, or **Taittirīya**.
+
+1. Open **Varṇa**.
+2. Pick a tradition.
+3. Type a syllable or use the inspector.
+4. Read place of articulation, effort, quantity, and juncture notes where the engine knows them.
+
+## What this app is not
+
+- Not a dictionary, morphology analyser, or meter scanner.
+- Not a full Vedic recitation trainer for every traditional pattern.
+- Not the place to open a packed Ṛgveda or Gītā — that is the Viewer.
+
+If a script shows tofu (empty boxes), the webfont is not loaded yet. Conversion still runs; the glyph may be missing.

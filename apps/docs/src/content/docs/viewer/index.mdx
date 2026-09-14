@@ -1,0 +1,37 @@
+---
+title: Viewer
+description: Open a catalog, read a publication, and switch grid vs stacked views.
+---
+
+The Viewer is the app at [project-vyasa.github.io/vyasa-apps/viewer](https://project-vyasa.github.io/vyasa-apps/viewer/). Locally: `cd apps/viewer && bun run dev` → http://localhost:5373/
+
+It opens **packed publications** (`.vyview`) from a registry/catalog. It is not Sanskrit Studio.
+
+## Open a work
+
+1. Start in the **library**. Catalogs list publications.
+2. Open a publication. The reader lands on the first leaf-container (a chapter, sukta, …), not an empty root.
+3. Use the **sidebar** to jump. Type a URN in the go-to field (desktop leaf field, or the compact full URN on a handset).
+
+Shareable links look like `vyasa://…` from the copy control in the chrome.
+
+## Reading
+
+| Control | What it does |
+|---------|----------------|
+| **Grid / Reading** | Grid is columns of streams. Reading (when the pack includes a craft view) is the publisher’s stacked layout. |
+| **Language** | Chrome labels (titles, speaker names) from packed vocabulary streams. |
+| **Text size / paper** | Size of the **content** iframe, separate from app chrome density. Paper themes come from the pack when present. |
+| **Gutter** | URN badges and annotation marks beside each block. |
+
+Grid column order and stream names come from the **pack** (`streams_config`, `primary_stream`). The viewer does not invent publication-specific stream ids.
+
+## Explore
+
+Explore is a map of leaves (verses, sūtras, …) with facets from graph annotate and block attributes. Filters paint the matrix; Map mode is only offered when a facet has few enough values for unique colors.
+
+## Settings
+
+Add a **local** catalog or registry URL if you are serving packs on your machine. The Adi registry stays available.
+
+Packing and `context.vy` are documented in [vyasa-docs](https://project-vyasa.github.io/vyasa-docs/), not here.

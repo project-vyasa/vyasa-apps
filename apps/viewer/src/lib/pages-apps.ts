@@ -5,3 +5,7 @@ export function sanskritStudioHref(): string {
 	return pagesAppHref('sanskrit-studio', { dev });
 }
 
+export function appsDocsHref(): string {
+	return pagesAppHref('docs', { dev });
+}
+

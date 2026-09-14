@@ -61,7 +61,8 @@ This repo owns **`@project-vyasa/viewer`**: viewer, explore, library, and diagno
 
 ## NEXT
 
-- [ ] **User guides** — Internal Studio notes: [`docs/guides/sanskrit-studio-guide.md`](../docs/guides/sanskrit-studio-guide.md). Viewer notes later (`docs/guides/viewer-guide.md`). Not published HTML; vyasa-docs stays publisher/linguist toolchain docs. Roadmap: [`sanskrit-studio-roadmap.md`](./sanskrit-studio-roadmap.md).
+- [x] **User guides (public HTML)** — Starlight at `apps/docs` → https://project-vyasa.github.io/vyasa-apps/docs/ (local http://localhost:5375/). Shared chrome: `vyasa-ui/starlight`. Agent drafts stay in [`docs/guides/`](../docs/guides/) and [`notes/`](./). Pack/language docs stay on vyasa-docs. Roadmap: [`sanskrit-studio-roadmap.md`](./sanskrit-studio-roadmap.md).
+- [x] **Viewer nested under `/viewer/`** — GH Pages dest `viewer`. Site index redirects there (`SITE_INDEX_REDIRECT_ID`); flip to `'docs'` when the docs splash should own `/vyasa-apps/`. Org Pages + vyasa-docs still link the old root until those repos are updated.
 
 - [ ] **App locale vs publication language** — shell `en-US` vs work `sa` (BG → `mula`, not English). Chrome stream is not BCP 47. Design: [`locale-and-publication-language.md`](./locale-and-publication-language.md).
 - [ ] **Bitmask facet index** — leaf ordinals + `Uint32Array` bitsets replacing `Map<string, Set<string>>`; speeds Explore today, prerequisite for Atlas.

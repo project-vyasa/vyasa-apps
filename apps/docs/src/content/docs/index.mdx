@@ -1,0 +1,33 @@
+---
+title: Vyasa Apps
+description: How to use the Vyasa Viewer and Sanskrit Studio.
+template: splash
+hero:
+  tagline: Read packed publications in the Viewer. Explore Lipi, Pāṭha, and Varṇa in Sanskrit Studio.
+  image:
+    file: ../../assets/vyasa-logo.png
+  actions:
+    - text: Open the Viewer
+      link: https://project-vyasa.github.io/vyasa-apps/viewer/
+      icon: external
+    - text: Open Sanskrit Studio
+      link: https://project-vyasa.github.io/vyasa-apps/sanskrit/
+      icon: external
+    - text: GitHub
+      link: https://github.com/project-vyasa/vyasa-apps
+      icon: external
+      variant: minimal
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+	<Card title="<a href='https://project-vyasa.github.io/vyasa-apps/viewer/'>Viewer</a>" icon="open-book">
+		Library, reading grid vs stacked views, Explore, and chrome (language, theme, text size).
+		[User guide](./viewer/)
+	</Card>
+	<Card title="<a href='https://project-vyasa.github.io/vyasa-apps/sanskrit/'>Sanskrit Studio</a>" icon="puzzle">
+		Browser workbench for transliteration, recitation patterns, and phonetics. Not a publication reader.
+		[User guide](./sanskrit-studio/)
+	</Card>
+</CardGrid>
