@@ -14,6 +14,8 @@ This repo owns **`@project-vyasa/viewer`**: viewer, explore, library, and diagno
 
 ## NOW
 
+- [x] **Viewer WASM ABI 2** — `api_version()` check after init; `get_urn` / weave row ids as `bigint`; `last_weave_diagnostics()` immediately after each weave. Contract: [`vyasa/notes/vyasa-apps-weave-diagnostics.md`](../../vyasa/notes/vyasa-apps-weave-diagnostics.md).
+- [x] **Named spans + 4-level nav** — prefix-only Explore coverage (no suffix collision); 4-level sidebar groups by labeled ancestor path (no `(Type n)` tautology); named spans in reader nav when graph annotate is on a container. Viewport SQL no longer paints the following praśna. FR: [`feature-request-named-spans-and-4level-nav.md`](./feature-request-named-spans-and-4level-nav.md). **Live TTS check** still needs `taittiriya-samhita.vyview` (Explore FEATURED 27/39; reader span → 4.5 / 4.7).
 - [x] **LibraryView collection primitives** — `SearchInput`, `SummaryRow`, `SegmentedControl`, `CardGrid`, global search (`library-publication-hits.ts`). See [FR handoff](../../vyasa-ui/svelte/notes/feature-request-library-browser.md).
 - [x] **Catalog identity routing** — `{registry}/{catalog}/{publication}`, `CatalogRef`, `vyasa://`, `/link?uri=…` resolver.
 - [x] **Settings: dual sources** — Adi always on; optional local URL with autodetect.
@@ -22,7 +24,7 @@ This repo owns **`@project-vyasa/viewer`**: viewer, explore, library, and diagno
 - [x] **Vyasa URI share/copy** — activity bar + debug header + explore selection.
 - [x] **Schema cutover (local)** — `registry.json` + `catalog.json` new shape; legacy shim retained until GH Pages deploy.
 - [~] **Reader / nav / layout polish** — in-flight; reader page decomposed.
-- [ ] **Audit publication-specific viewer heuristics** — code-review §3b; see [`CODE_REVIEW_TASKS.md`](../assessments/platform/CODE_REVIEW_TASKS.md). Known: `facet-index.ts` `mula` fallback, `ViewerNavBar` placeholder copy.
+- [ ] **Audit publication-specific viewer heuristics** — code-review §3b; see [`CODE_REVIEW_TASKS.md`](../assessments/platform/CODE_REVIEW_TASKS.md). `resolvePrimaryStream()` now uses `manifest.primary_stream` only. Remaining: `ViewerNavBar` placeholder copy.
 - [ ] **RV grid vertical whitespace** — viewer spacing only: `.urn-row` padding `0.75rem 0`, WASM grid `gap: 0.5rem`. Stream typography/`white-space` in publisher `theme.vy` (`.vyasa-block-{stream}`). Repack vyasa-bg + rigveda after theme updates.
 - [x] **View templates Phase A–B (vyasa-bg)** — `theme.vy` + packed `reading.vy` (stacked); `theme_layout` wraps craft layouts. Verify Grid vs Reading in the view picker.
 - [x] **Content themes (reader class)** — Settings sets `html.theme-light` / `theme-dark` on iframe; persist localStorage. Manifest `content_themes[]` still pending vyasac.
@@ -53,13 +55,17 @@ This repo owns **`@project-vyasa/viewer`**: viewer, explore, library, and diagno
 - [x] **Diagnostics uses AppShell left** — Tree in `setSidebarLeft` (`Panel` + `Tree`); handset re-click bug icon toggles the overlay.
 
 - [x] **Compact URN entry** — Handset top bar accepts a full URN (`1:0:5`); last 8 typed/sidebar jumps remembered per publication. Desktop still uses the leaf field. Recents open on field focus (no History button).
-- [x] **Explore map density** — chapter tiles are 10-cell wide (titles wrap); 8px cells; book-level markers in the same grid.
+- [x] **Book ↔ Explore pack cache** — shared `publication-session` SQLite + package; LoadingBrand only while the pack is fetching.
+- [x] **Explore facet UX** — filter/presence default (no auto Map); top-k + More; unique palette (no wrap, cap 8); copy histogram; collapsible facets; relative-frequency bars. Map-all only when `values.length ≤ palette`.
+- [x] **Select: single option is a static label** — `vyasa-ui` `Select` (Language, Lipi, etc.).
 
 ## NEXT
 
+- [ ] **User guides** — Internal Studio notes: [`docs/guides/sanskrit-studio-guide.md`](../docs/guides/sanskrit-studio-guide.md). Viewer notes later (`docs/guides/viewer-guide.md`). Not published HTML; vyasa-docs stays publisher/linguist toolchain docs. Roadmap: [`sanskrit-studio-roadmap.md`](./sanskrit-studio-roadmap.md).
+
 - [ ] **App locale vs publication language** — shell `en-US` vs work `sa` (BG → `mula`, not English). Chrome stream is not BCP 47. Design: [`locale-and-publication-language.md`](./locale-and-publication-language.md).
 - [ ] **Bitmask facet index** — leaf ordinals + `Uint32Array` bitsets replacing `Map<string, Set<string>>`; speeds Explore today, prerequisite for Atlas.
-- [ ] **Facet palette collision** — `facetColor()` cycles every 8; ~80-value facets render duplicate colours. Top-N + neutral "Other".
+- [x] **Facet palette collision** — filter/presence default; top-k + unique palette (no wrap). Remaining Atlas work is still in [`atlas-activity-design.md`](./atlas-activity-design.md).
 - [ ] **Atlas activity** — high-density spine + on-demand graph fidelity; design in [`atlas-activity-design.md`](./atlas-activity-design.md).
 - [ ] **Remove registry legacy shim** — after vyasa-docs GH Pages serves `catalogs[]` / `id: adi`.
 - [ ] **Book activity UX (RV)** — `default_view` manifest key; revisit document layout gutter.
@@ -73,7 +79,7 @@ This repo owns **`@project-vyasa/viewer`**: viewer, explore, library, and diagno
 
 - **vyasa-samples:** repack vyasa-bg after `vocabulary/facets.vy` + localization `facets` blocks (if explorer speaker *type* label still title-case).
 - **sa.wikisource.org:** repack rigveda after facets registry + samhita localization (`bun run build:rv`).
-- **vyasac:** emit `content_themes` in manifest. **TODO:** deprecate per-file `default.html` SSG for platform-targeted pubs.
+- **vyasac:** RV packed stream id is still `primary` (not `samhita`) — grid order + verse CSS. Defect: [`defect-rv-grid-packed-stream-names.md`](./defect-rv-grid-packed-stream-names.md). Also: emit `content_themes` in manifest. **TODO:** deprecate per-file `default.html` SSG for platform-targeted pubs.
 
 ## Done (recent)
 

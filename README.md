@@ -13,3 +13,5 @@ Sibling Kit apps use a reserved first path segment (`sanskrit`, later `studio`) 
 bun run assemble:pages   # build viewer + studio → dist-pages/
 bun run deploy           # assemble and publish the gh-pages branch
 ```
+
+**Guides (internal notes, not a public docs site):** [Sanskrit Studio](docs/guides/sanskrit-studio-guide.md). Viewer guide not written yet.

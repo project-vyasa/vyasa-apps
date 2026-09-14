@@ -2,6 +2,9 @@
 
 Browser-first Lipi / Pāṭha / Varṇa studio. WASM engine: `vyutils/crates/vyasa-sanskrit-wasm` (`@project-vyasa/sanskrit-wasm`).
 
+**Internal notes:** [`docs/guides/sanskrit-studio-guide.md`](../../docs/guides/sanskrit-studio-guide.md) (not published HTML).  
+**Next activities / researcher needs:** [`notes/sanskrit-studio-roadmap.md`](../../notes/sanskrit-studio-roadmap.md)
+
 ```bash
 # In vyutils, once the crate is ready:
 cd crates/vyasa-sanskrit-wasm

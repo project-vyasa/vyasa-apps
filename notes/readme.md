@@ -33,7 +33,10 @@ Design context: [`vyasa/notes/design-notes/vyasa-apps-architecture.md`](../../vy
 | [`explicit-workspace-design.md`](./explicit-workspace-design.md) | **Viewer obligations** — manifest-driven labels, no domain fallbacks (companion to samples doc) |
 | [`TEMPLATE.md`](./TEMPLATE.md) | Blank template — copy or reset from this |
 | [`WORK.md`](./WORK.md) | Live queue — edit together (NOW / NEXT / LATER) |
+| [`defect-rv-grid-packed-stream-names.md`](./defect-rv-grid-packed-stream-names.md) | **Upstream defect (vyasac):** RV pack still names spine `primary`; grid CSS expects `samhita` |
 | [`vyutils/notes/indic-fonts.md`](../../vyutils/notes/indic-fonts.md) | Indic webfonts — Studio tofu, Google Fonts slicing, Starlight docs |
+| [`sanskrit-studio-roadmap.md`](./sanskrit-studio-roadmap.md) | Studio AppBar proposals (Akṣara matrix, Sandhi) and researcher backlog |
+| [`docs/guides/sanskrit-studio-guide.md`](../docs/guides/sanskrit-studio-guide.md) | Internal Studio notes (not published HTML)
 
 ## Conventions
 
