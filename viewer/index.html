@@ -1,19 +1,6 @@
 <!doctype html>
 <html lang="en">
-	<head><script>
-(function () {
-	var site = "/vyasa-apps";
-	var dests = ["viewer","sanskrit","docs"];
-	var viewer = "/vyasa-apps/viewer/";
-	var path = location.pathname;
-	if (path !== site && path.indexOf(site + '/') !== 0) return;
-	var rest = path.slice(site.length).replace(/^\/+/, '');
-	var first = rest.split('/')[0];
-	if (first === 'viewer') return;
-	if (dests.indexOf(first) !== -1) return;
-	location.replace(viewer + rest + location.search + location.hash);
-})();
-</script>
+	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
