@@ -18,7 +18,7 @@ export const PATHA_PATTERNS: PathaPattern[] = [
 		family: 'prakriti',
 		name: 'Saṃhitā',
 		formula: '1 2 3 … n',
-		help: 'Continuous recitation: join the left-pane padas with forward sandhi. Not generated here yet. Going the other way (saṃhitā → pada) is reverse sandhi and is not unique.',
+		help: 'Continuous recitation: join padas with forward sandhi. Not generated here yet. Going the other way (saṃhitā → pada) is reverse sandhi and is not unique.',
 		available: false
 	},
 	{
@@ -26,7 +26,7 @@ export const PATHA_PATTERNS: PathaPattern[] = [
 		family: 'prakriti',
 		name: 'Pada',
 		formula: '1 | 2 | 3 … n',
-		help: 'Isolated words. If the left pane is already Pada-pāṭha, this is essentially identity (parse and re-emit with daṇḍas). It does not split saṃhitā into padas.',
+		help: 'Isolated words. If the editor is already Pada-pāṭha, this is identity (parse and re-emit with daṇḍas). It does not split saṃhitā into padas.',
 		available: false
 	},
 	{
@@ -98,9 +98,26 @@ export const PATHA_PATTERNS: PathaPattern[] = [
 		family: 'vikriti',
 		name: 'Ghana',
 		formula: '1-2, 2-1, 1-2-3, 3-2-1, 1-2-3',
-		help: 'Vikṛti. Not generated yet.',
-		available: false
+		help: 'The densest vikṛti: forward pair, reverse pair, forward triple, reverse triple, forward triple, then step ahead. Listed last in the pattern menu. Generation is in the Sanskrit WASM engine (vyutils).',
+		available: true
 	}
 ];
 
+/** Live menu order: Krama, Jaṭā, Ghana last. The other eight stay in the help overlay. */
+export const LIVE_PATHA_IDS = ['krama', 'jata', 'ghana'] as const;
+
+export type LivePathaId = (typeof LIVE_PATHA_IDS)[number];
+
 export const CURRENT_PATHA_PATTERN = PATHA_PATTERNS.find((p) => p.id === 'krama')!;
+
+export function isLivePathaId(id: string): id is LivePathaId {
+	return (LIVE_PATHA_IDS as readonly string[]).includes(id);
+}
+
+export function livePathaPatterns(): PathaPattern[] {
+	return LIVE_PATHA_IDS.map((id) => PATHA_PATTERNS.find((p) => p.id === id)!);
+}
+
+export function patternsByFamily(family: PathaFamily): PathaPattern[] {
+	return PATHA_PATTERNS.filter((p) => p.family === family);
+}

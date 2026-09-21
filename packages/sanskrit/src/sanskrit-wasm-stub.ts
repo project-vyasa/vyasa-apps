@@ -1,7 +1,9 @@
-/** Ṛgveda 1.1.1 opening — Lipi/Patha fixture from the vyutils handoff. */
+/** Ṛgveda 1.1.1 — Lipi fixture (saṃhitā opening). */
 export const GOLDEN_PADA = 'अ॒ग्निमी॑ळे पु॒रोहि॑तम्';
 
-export const GOLDEN_PADA_PATHA = 'अ॒ग्निम् । ई॒ळे॒ । पु॒रो-हि॑तम् ।';
+/** Ṛgveda 1.1.1 pada-pāṭha (Śākala). */
+export const GOLDEN_PADA_PATHA =
+	'अ॒ग्निम् । ई॒ळे॒ । पु॒रःऽहि॑तम् । य॒ज्ञस्य॑ । दे॒वम् । ऋ॒त्विज॑म् । होता॑रम् । र॒त्न॒ऽधात॑मम् ॥';
 
 export type ScriptInfo = {
 	id: string;
@@ -28,6 +30,19 @@ export type JataStep = {
 	second_index: number | null;
 	forward_text: string;
 	reverse_text: string;
+	sandhied: string;
+	is_parigraha: boolean;
+};
+
+export type GhanaStep = {
+	step_number: number;
+	formula: string;
+	first_index: number;
+	second_index: number | null;
+	third_index?: number | null;
+	forward_text?: string;
+	reverse_text?: string;
+	raw_pada?: string;
 	sandhied: string;
 	is_parigraha: boolean;
 };
@@ -135,6 +150,14 @@ export function generate_jata(_pada: string, _script: string): JataStep[] {
 }
 
 export function generate_jata_text(_pada: string, _script: string): string {
+	return missing();
+}
+
+export function generate_ghana(_pada: string, _script: string): GhanaStep[] {
+	return missing();
+}
+
+export function generate_ghana_text(_pada: string, _script: string): string {
 	return missing();
 }
 

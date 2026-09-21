@@ -50,22 +50,24 @@ Use this when you know a verse in Devanagari (or IAST) and want Grantha, Telugu,
 
 ## Pāṭha — recitation patterns
 
-**What:** Start from **Pada-pāṭha** (words already split, usually with `|` or daṇḍas). The studio can emit **Krama** and **Jaṭā**. Other traditional patterns are listed so you can see the family; they are not generated yet.
+**What:** Start from **Pada-pāṭha** (words already split, usually with `|` or daṇḍas). The studio can emit **Krama**, **Jaṭā**, and **Ghana** (Ghana last; needs current Sanskrit WASM). The other eight traditional patterns are in the **Patterns** overlay, not in the menu.
 
 **Do this:**
 
 1. Open **Pāṭha**.
-2. Put pada text in the **left** editor (a golden pada is there to try).
-3. Pick **Krama** or **Jaṭā**.
-4. Switch **table** vs **trainer**: table is the full expansion; trainer is one step at a time.
-5. Set the **output script** for the generated text (independent of Labels).
+2. Put pada text in the full-width editor (a golden pada is there to try).
+3. Pick **Krama**, **Jaṭā**, or **Ghana** from the dropdown. Open **Patterns** for the 3+8 catalogue.
+4. Read the interlinear under the editor. Krama is one chant line; Jaṭā/Ghana stack pada, raw, and sandhied.
+5. Space highlights the next segment; Shift-Space goes back (not while typing in the editor).
+6. Set the **output script** for the generated text (independent of Labels).
 
 **Mental model:**
 
-- Left pane is **padas**. If you paste continuous saṃhitā, the tool will not magically split it into words.
-- **Pada** as an output pattern would just re-emit those words. **Saṃhitā** would join them with sandhi. Neither is a live button yet.
+- The editor is **padas**. If you paste continuous saṃhitā, the tool will not magically split it into words.
+- **Pada** as an output pattern would just re-emit those words. **Saṃhitā** would join them with sandhi. Neither is a live menu item yet.
 - **Krama** pairs each word with the next, then extra *iti* rows where tradition requires them.
 - **Jaṭā** is the braid on those pairs: forward, reverse, forward.
+- **Ghana** is the dense triple permutation; generation lives in `vyutils`.
 
 ---
 

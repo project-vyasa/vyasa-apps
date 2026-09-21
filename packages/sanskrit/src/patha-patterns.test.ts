@@ -1,16 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { CURRENT_PATHA_PATTERN, PATHA_PATTERNS } from './patha-patterns';
+import { CURRENT_PATHA_PATTERN, livePathaPatterns, PATHA_PATTERNS } from './patha-patterns';
 
 describe('PATHA_PATTERNS', () => {
-	it('lists 3 prakṛti and 8 vikṛti, with Krama and Jaṭā available', () => {
+	it('lists 3 prakṛti and 8 vikṛti, with Krama, Jaṭā, and Ghana live', () => {
 		expect(PATHA_PATTERNS).toHaveLength(11);
 		expect(PATHA_PATTERNS.filter((p) => p.family === 'prakriti').map((p) => p.id)).toEqual([
 			'samhita',
 			'pada',
 			'krama'
 		]);
-		expect(PATHA_PATTERNS.filter((p) => p.available).map((p) => p.id)).toEqual(['krama', 'jata']);
+		expect(PATHA_PATTERNS.filter((p) => p.available).map((p) => p.id)).toEqual([
+			'krama',
+			'jata',
+			'ghana'
+		]);
 		expect(CURRENT_PATHA_PATTERN.formula).toContain('p-iti-p');
 		expect(CURRENT_PATHA_PATTERN.help).toContain('parigraha');
+	});
+
+	it('orders the live menu Krama, Jaṭā, Ghana', () => {
+		expect(livePathaPatterns().map((p) => p.id)).toEqual(['krama', 'jata', 'ghana']);
 	});
 });

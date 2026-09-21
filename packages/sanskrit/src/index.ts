@@ -5,6 +5,7 @@ export { default as EngineBanner } from './components/EngineBanner.svelte';
 export * from './wasm';
 export * from './insert-text';
 export * from './patha-patterns';
+export * from './interlinear';
 export * from './phonetic-sets';
 export * from './chrome-script';
 export { chromeLabels } from './chrome-script.svelte.ts';

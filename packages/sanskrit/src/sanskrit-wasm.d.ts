@@ -9,6 +9,8 @@ declare module '@project-vyasa/sanskrit-wasm' {
 	export function generate_krama_text(pada: string, script: string): string;
 	export function generate_jata(pada: string, script: string): unknown;
 	export function generate_jata_text(pada: string, script: string): string;
+	export function generate_ghana(pada: string, script: string): unknown;
+	export function generate_ghana_text(pada: string, script: string): string;
 	export function get_shiva_sutras(): unknown;
 	export function get_pratyahara_sounds(name: string): unknown;
 	export function inspect_varna(symbol: string): unknown;

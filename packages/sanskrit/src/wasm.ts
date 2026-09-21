@@ -1,5 +1,6 @@
 /// <reference path="./sanskrit-wasm.d.ts" />
 import type {
+	GhanaStep,
 	JataStep,
 	KramaStep,
 	ScriptInfo,
@@ -11,6 +12,7 @@ import type {
 import { ENGINE_MISSING_MESSAGE, FALLBACK_SCRIPTS } from './sanskrit-wasm-stub';
 
 export type {
+	GhanaStep,
 	JataStep,
 	KramaStep,
 	ScriptInfo,
@@ -33,6 +35,8 @@ type SanskritWasmModule = {
 	generate_krama_text?: (pada: string, script: string) => string;
 	generate_jata: (pada: string, script: string) => unknown;
 	generate_jata_text?: (pada: string, script: string) => string;
+	generate_ghana?: (pada: string, script: string) => unknown;
+	generate_ghana_text?: (pada: string, script: string) => string;
 	get_shiva_sutras: () => unknown;
 	get_pratyahara_sounds: (name: string) => unknown;
 	inspect_varna: (symbol: string) => unknown;
@@ -148,6 +152,21 @@ export async function generateKrama(pada: string, script: string): Promise<Krama
 export async function generateJata(pada: string, script: string): Promise<JataStep[]> {
 	const mod = await loadModule();
 	return toArray<JataStep>(mod.generate_jata(pada, script));
+}
+
+export function ghanaSupported(): boolean {
+	return typeof wasmMod?.generate_ghana === 'function';
+}
+
+export const GHANA_ENGINE_MESSAGE =
+	'Ghana is not in this Sanskrit WASM build yet. After vyutils exports generate_ghana, rebuild the package and restart the studio.';
+
+export async function generateGhana(pada: string, script: string): Promise<GhanaStep[]> {
+	const mod = await loadModule();
+	if (typeof mod.generate_ghana !== 'function') {
+		throw new Error(GHANA_ENGINE_MESSAGE);
+	}
+	return toArray<GhanaStep>(mod.generate_ghana(pada, script));
 }
 
 export async function shivaSutras(): Promise<ShivaSutra[]> {
