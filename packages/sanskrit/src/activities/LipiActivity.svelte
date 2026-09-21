@@ -3,9 +3,9 @@
 	import EngineBanner from '../components/EngineBanner.svelte';
 	import { chromeLabels } from '../chrome-script.svelte.ts';
 	import { insertAtCursor, PALETTE_GROUPS, VEDIC_PALETTE, type PaletteMark } from '../insert-text';
+	import { LIPI_SEED } from '../seed-texts';
 	import {
 		ensureEngine,
-		GOLDEN_PADA,
 		roundTripLossless,
 		supportedScripts,
 		transliterate,
@@ -16,8 +16,8 @@
 	let status = $state<EngineStatus>('loading');
 	let scripts = $state<ScriptInfo[]>([]);
 	let sourceScript = $state('devanagari');
-	let targetScript = $state('telugu');
-	let sourceText = $state(GOLDEN_PADA);
+	let targetScript = $state('malayalam');
+	let sourceText = $state(LIPI_SEED);
 	let targetText = $state('');
 	let lossless = $state(true);
 	let convertError = $state('');
