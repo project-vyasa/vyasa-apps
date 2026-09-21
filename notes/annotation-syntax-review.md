@@ -1,7 +1,9 @@
 # Annotation syntax review (linguist-friendly authoring)
 
-> **Status:** Backlog — see `vyasa/notes/BACKLOG.md` §9  
+> **Status:** Follow-on — blocked by [`vyasa/notes/task-annotations-feature-review.md`](../../vyasa/notes/task-annotations-feature-review.md) (BACKLOG §9)  
 > **Repos:** `vyasa` (grammar, graph projection), `vyasa-samples`, publisher workspaces (`sa.wikisource.org`)
+
+Do **not** prototype a new `annotate` surface until the provenance review decides publisher vs SME vs included-pack composition. This note is only about how linguists type facts **after** that model exists.
 
 ## Problem
 

@@ -37,6 +37,7 @@ Design context: [`vyasa/notes/design-notes/vyasa-apps-architecture.md`](../../vy
 | [`defect-rv-grid-packed-stream-names.md`](./defect-rv-grid-packed-stream-names.md) | **Upstream defect (vyasac):** RV pack still names spine `primary`; grid CSS expects `samhita` |
 | [`vyutils/notes/indic-fonts.md`](../../vyutils/notes/indic-fonts.md) | Indic webfonts — Studio tofu, Google Fonts slicing, Starlight docs |
 | [`sanskrit-studio-roadmap.md`](./sanskrit-studio-roadmap.md) | Studio AppBar proposals (Akṣara matrix, Sandhi) and researcher backlog |
+| [`vyasa-studio-plan.md`](./vyasa-studio-plan.md) | **Vyasa Studio** (play area + authoring IDE) — not Sanskrit Studio |
 | [`docs/guides/sanskrit-studio-guide.md`](../docs/guides/sanskrit-studio-guide.md) | Internal Studio notes (agent drafts). Public HTML: `apps/docs` |
 
 ## Conventions
