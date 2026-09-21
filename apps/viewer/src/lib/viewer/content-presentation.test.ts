@@ -18,6 +18,7 @@ describe('applyContentPresentation', () => {
 		expect(out).toContain('--vyasa-gutter-chip-bg');
 		expect(contentThemeOverlayCss()).not.toContain('--vyasa-paper:');
 		expect(out).toContain('--vyasa-content-max-width:none');
+		expect(out).toContain('html:not(.reader-full-width) .content');
 		expect(out).toContain('</style></head>');
 	});
 

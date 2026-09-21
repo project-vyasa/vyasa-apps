@@ -78,9 +78,16 @@ const THEME_CLASS_RE = /\btheme-[a-z0-9-]+\b/gi;
 
 export const READER_FULL_WIDTH_CLASS = 'reader-full-width';
 
-/** Lift publisher measure (`.content`, `body`, `.reading-body`) when the reader iframe is full-bleed. */
-export function readerFullWidthCss(): string {
-	return `html.${READER_FULL_WIDTH_CLASS}{--vyasa-content-max-width:none;}html.${READER_FULL_WIDTH_CLASS} body,html.${READER_FULL_WIDTH_CLASS} .content,html.${READER_FULL_WIDTH_CLASS} .reading-body{max-width:none;width:100%;}`;
+/**
+ * Constrained iframe is already the page measure (900px). Packed `.content { max-width: 48rem }`
+ * (publisher CSS / packer shell) must not nest a second column inside that page.
+ * Full-bleed still lifts the publisher measure so columns can use the pane.
+ */
+export function readerMeasureCss(): string {
+	const fill =
+		'html:not(.reader-full-width) .content,html:not(.reader-full-width) .reading-body{max-width:none;width:100%;}';
+	const full = `html.${READER_FULL_WIDTH_CLASS}{--vyasa-content-max-width:none;}html.${READER_FULL_WIDTH_CLASS} body,html.${READER_FULL_WIDTH_CLASS} .content,html.${READER_FULL_WIDTH_CLASS} .reading-body{max-width:none;width:100%;}`;
+	return fill + full;
 }
 
 export function setReaderFullWidth(doc: Document | null | undefined, full: boolean): void {
@@ -99,7 +106,7 @@ export function applyContentPresentation(
 ): string {
 	const scale = CONTENT_TEXT_SCALES[opts.textSize];
 	const themeClass = opts.theme ? `theme-${opts.theme}` : '';
-	const inject = `<style>html{--vyasa-text-scale:${scale};font-size:calc(1rem * var(--vyasa-text-scale, 1));}${readerFullWidthCss()}${contentThemeOverlayCss()}</style>`;
+	const inject = `<style>html{--vyasa-text-scale:${scale};font-size:calc(1rem * var(--vyasa-text-scale, 1));}${readerMeasureCss()}${contentThemeOverlayCss()}</style>`;
 
 	let out = html.replace(/<html([^>]*)>/i, (_m, attrs: string) => {
 		let next = attrs;

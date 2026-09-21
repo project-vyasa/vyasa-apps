@@ -462,7 +462,7 @@
 		height: 100%;
 		min-height: 100%;
 		flex: 1 1 auto;
-		align-self: stretch;
+		align-self: center;
 		border: 0;
 		border-left: 1px solid var(--border-base);
 		border-right: 1px solid var(--border-base);
@@ -471,6 +471,7 @@
 	}
 	.viewer-iframe.full-width {
 		max-width: none;
+		align-self: stretch;
 	}
 
 	:global(.panel-content .list-view) {
