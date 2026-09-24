@@ -33,7 +33,8 @@
 		...sidebar.items.map((item) => ({
 			id: item.id,
 			title: item.title,
-			subtitle: item.subtitle ?? '',
+			subtitle: item.subtitle,
+			meta: item.meta,
 			group: item.group ?? '',
 			kind: 'container' as const
 		}))
@@ -41,6 +42,8 @@
 
 	const selectedId = $derived(sidebar.selectedContainerId ?? selectedSpanId);
 	const groupBy = $derived(navItems.some((item) => item.group) ? 'group' : undefined);
+	const hasSubtitles = $derived(navItems.some((item) => item.subtitle));
+	const hasMeta = $derived(navItems.some((item) => item.meta));
 
 	function onSelect(item: (typeof navItems)[number]) {
 		if (item.kind === 'span') {
@@ -82,7 +85,8 @@
 					keyField="id"
 					{selectedId}
 					titleField="title"
-					subtitleField="subtitle"
+					subtitleField={hasSubtitles ? 'subtitle' : undefined}
+					metaField={hasMeta ? 'meta' : undefined}
 					{groupBy}
 					onSelect={onSelect}
 				/>

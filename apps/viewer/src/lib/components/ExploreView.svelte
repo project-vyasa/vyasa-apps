@@ -15,7 +15,7 @@
 		containerHasSelectedCoverageGaps,
 		type FacetSelection
 	} from '$lib/explore/facet-index';
-	import { catalogLeafIndices, isCatalogRangesNode } from '$lib/explore/urn-utils';
+	import { parseMapTree, type MapNode } from '$lib/explore/map-nodes';
 	import { publicationReaderPath, catalogLinkToVyasaUri } from '$lib/catalog-ref';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 
@@ -69,74 +69,52 @@
 	let isDragging = $state(false);
 	let dragStartUrn = $state<string | null>(null);
 
-	// --- Structure Parsing ---
-	export type MapNode =
-		| { type: 'branch'; id: string; title: string; children: MapNode[] }
-		| { type: 'leaf-container'; id: string; title: string; leafIndices: number[] };
-
-	function parseTree(tree: any, titles: Record<string, string>, prefix = ''): MapNode[] {
-		if (Array.isArray(tree) || isCatalogRangesNode(tree)) {
-			const leafIndices = catalogLeafIndices(tree);
-			if (leafIndices.length === 0) return [];
-			return [
-				{
-					type: 'leaf-container',
-					id: prefix,
-					title: titles[prefix] || `Container ${prefix}`,
-					leafIndices
-				}
-			];
+	const urnComponents = $derived.by(() => {
+		const raw = packageData?.manifest?.urn_hierarchy;
+		if (!raw) return [] as string[];
+		try {
+			const parsed = JSON.parse(raw);
+			return Array.isArray(parsed) ? (parsed as string[]) : [];
+		} catch {
+			return [];
 		}
-
-		const nodes: MapNode[] = [];
-		const groupKeys = Object.keys(tree).sort((a, b) => Number(a) - Number(b));
-
-		for (const key of groupKeys) {
-			const subNode = tree[key];
-			const fullId = prefix ? `${prefix}:${key}` : key;
-			const title = titles[fullId] || `Node ${fullId}`;
-
-			if (Array.isArray(subNode) || isCatalogRangesNode(subNode)) {
-				const leafIndices = catalogLeafIndices(subNode);
-				if (leafIndices.length === 0) continue;
-				nodes.push({
-					type: 'leaf-container',
-					id: fullId,
-					title: title,
-					leafIndices
-				});
-			} else if (typeof subNode === 'object' && subNode !== null) {
-				nodes.push({
-					type: 'branch',
-					id: fullId,
-					title: title,
-					children: parseTree(subNode, titles, fullId)
-				});
-			}
-		}
-
-		return nodes;
-	}
+	});
 
 	const parsedNodes = $derived.by<MapNode[]>(() => {
 		const tree = packageData?.structure?.catalogTree;
 		if (!tree || typeof tree !== 'object') return [];
 		const primary = (packageData?.manifest as { primary_stream?: string } | undefined)
 			?.primary_stream;
+		const labelStream = viewerSettings.chromeStream || primary || '';
 		const titles = titlesForChromeStream(
 			packageData?.titlesByStream,
 			packageData?.titles,
 			viewerSettings.chromeStream || undefined,
 			primary
 		);
-		return parseTree(tree, titles);
+		const structureLabel = (componentKey: string, fallback: string) => {
+			const loc = getVocabularyLabel(
+				packageData?.vocabulary,
+				'structure',
+				componentKey,
+				labelStream,
+				primary
+			);
+			if (loc) return loc;
+			return fallback.charAt(0).toUpperCase() + fallback.slice(1);
+		};
+		return parseMapTree(tree, { urnComponents, titles, structureLabel });
 	});
 
 	function filterNodes(nodes: MapNode[], query: string): MapNode[] {
 		const result: MapNode[] = [];
 		for (const node of nodes) {
 			if (node.type === 'leaf-container') {
-				if (node.title.toLowerCase().includes(query) || node.id.toLowerCase().includes(query)) {
+				if (
+					node.title.toLowerCase().includes(query) ||
+					node.subtitle?.toLowerCase().includes(query) ||
+					node.id.toLowerCase().includes(query)
+				) {
 					result.push(node);
 				}
 			} else if (node.type === 'branch') {
@@ -145,6 +123,7 @@
 					result.push({ ...node, children: matchingChildren });
 				} else if (
 					node.title.toLowerCase().includes(query) ||
+					node.subtitle?.toLowerCase().includes(query) ||
 					node.id.toLowerCase().includes(query)
 				) {
 					result.push(node);

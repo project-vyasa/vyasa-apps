@@ -1,9 +1,29 @@
 import { describe, it, expect } from 'vitest';
-import { buildSidebarItems } from './sidebar-items';
+import {
+	buildSidebarItems,
+	formatLocatorLabel,
+	isLocatorTitle
+} from './sidebar-items';
 
 const urnComponents = ['mandala', 'sukta', 'rik'];
 const structureLabel = (_key: string, fallback: string) =>
 	fallback.charAt(0).toUpperCase() + fallback.slice(1);
+
+describe('sidebar locator helpers', () => {
+	it('formats colon-separated container locators', () => {
+		expect(formatLocatorLabel(['1', '1'], urnComponents, structureLabel)).toBe('Sukta 1:1');
+		expect(
+			formatLocatorLabel(['1', '2', '1'], ['kanda', 'prasna', 'anuvaka', 'mantra'], structureLabel)
+		).toBe('Anuvaka 1:2:1');
+	});
+
+	it('detects locator-shaped packed titles', () => {
+		const locator = 'Sukta 1:1';
+		expect(isLocatorTitle('Sukta 1:1', locator, ['1', '1'])).toBe(true);
+		expect(isLocatorTitle('Sukta 1.1', locator, ['1', '1'])).toBe(true);
+		expect(isLocatorTitle('Opening Hymn', locator, ['1', '1'])).toBe(false);
+	});
+});
 
 describe('buildSidebarItems', () => {
 	it('lists sukta containers from ranges_v1 tree grouped by mandala', () => {
@@ -24,13 +44,35 @@ describe('buildSidebarItems', () => {
 			{
 				id: '1:1',
 				title: 'Opening Hymn',
-				subtitle: 'Sukta 1',
+				subtitle: 'Sukta 1:1',
+				meta: '3 Riks',
 				group: 'Mandala 1'
 			},
 			{
 				id: '1:2',
 				title: 'Second Hymn',
-				subtitle: 'Sukta 2',
+				subtitle: 'Sukta 1:2',
+				meta: '2 Riks',
+				group: 'Mandala 1'
+			}
+		]);
+	});
+
+	it('omits subtitle when packed title is locator-shaped (RV)', () => {
+		const tree = {
+			'1': {
+				'1': { slots: [0], leaves: [[1, 9]] }
+			}
+		};
+		const titles = {
+			'1:1': 'Sukta 1:1'
+		};
+
+		expect(buildSidebarItems(tree, { urnComponents, titles, structureLabel })).toEqual([
+			{
+				id: '1:1',
+				title: 'Sukta 1:1',
+				meta: '9 Riks',
 				group: 'Mandala 1'
 			}
 		]);
@@ -66,20 +108,20 @@ describe('buildSidebarItems', () => {
 		).toEqual([
 			{
 				id: '1:2:1',
-				title: 'Anuvāka 1.2.1',
-				subtitle: 'Anuvaka 1',
+				title: 'Anuvaka 1:2:1',
+				meta: '1 Mantra',
 				group: 'Kanda 1 : Prasna 2'
 			},
 			{
 				id: '1:2:2',
-				title: 'Anuvāka 1.2.2',
-				subtitle: 'Anuvaka 2',
+				title: 'Anuvaka 1:2:2',
+				meta: '2 Mantras',
 				group: 'Kanda 1 : Prasna 2'
 			},
 			{
 				id: '2:1:1',
-				title: 'Anuvāka 2.1.1',
-				subtitle: 'Anuvaka 1',
+				title: 'Anuvaka 2:1:1',
+				meta: '1 Mantra',
 				group: 'Kanda 2 : Prasna 1'
 			}
 		]);
@@ -94,6 +136,8 @@ describe('buildSidebarItems', () => {
 
 		const items = buildSidebarItems(tree, { urnComponents, titles: {}, structureLabel });
 		expect(items.map((i) => i.id)).toEqual(['1:1']);
+		expect(items[0].title).toBe('Sukta 1:1');
+		expect(items[0].meta).toBe('1 Rik');
 		expect(items.some((i) => /leaves|slots/i.test(i.title))).toBe(false);
 	});
 });

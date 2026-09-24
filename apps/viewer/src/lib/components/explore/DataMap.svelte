@@ -1,7 +1,7 @@
 <script lang="ts">
 	import LeafMatrix from './LeafMatrix.svelte';
 	import { BookOpen } from 'lucide-svelte';
-	import type { MapNode } from '../ExploreView.svelte';
+	import type { MapNode } from '$lib/explore/map-nodes';
 	import type { FacetIndex, FacetSelection } from '$lib/explore/facet-index';
 	import { flattenMapTiles } from '$lib/explore/map-tiles';
 	import SelectionMarquee from './SelectionMarquee.svelte';
@@ -60,10 +60,15 @@
 				<div class="leaf-grid-wrapper">
 					{#each tiles as tile (tile.kind === 'book' ? `book:${tile.id}` : tile.node.id)}
 						{#if tile.kind === 'book'}
-							<section class="book-marker" aria-label={`Book ${tile.title}`}>
+							<section
+								class="book-marker depth-{Math.min(tile.depth, 2)}"
+								aria-label={tile.subtitle ? `${tile.title}, ${tile.subtitle}` : tile.title}
+							>
 								<BookOpen size={14} class="book-marker-icon" aria-hidden="true" />
 								<h3>{tile.title}</h3>
-								<span class="book-id">{tile.id}</span>
+								{#if tile.subtitle}
+									<span class="book-subtitle">{tile.subtitle}</span>
+								{/if}
 							</section>
 						{:else}
 							<LeafMatrix
@@ -121,10 +126,25 @@
 		justify-content: flex-end;
 		gap: 2px;
 		padding: var(--space-2);
-		border: 1px dashed color-mix(in srgb, var(--border-strong) 65%, transparent);
 		border-radius: var(--radius-md);
-		background: color-mix(in srgb, var(--bg-surface-alt) 80%, transparent);
 		color: var(--text-secondary);
+	}
+
+	/* Shallower branch markers stay lighter; deeper levels gain contrast. */
+	.book-marker.depth-0 {
+		border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+		background: color-mix(in srgb, var(--bg-surface-alt) 78%, transparent);
+	}
+
+	.book-marker.depth-1 {
+		border: 1.5px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
+		background: color-mix(in srgb, var(--bg-surface-alt) 88%, transparent);
+	}
+
+	.book-marker.depth-2 {
+		border: 2px solid color-mix(in srgb, var(--border-strong) 90%, var(--text-primary));
+		background: color-mix(in srgb, var(--bg-surface-alt) 95%, var(--bg-body));
+		box-shadow: 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
 	}
 
 	.book-marker :global(.book-marker-icon) {
@@ -141,12 +161,12 @@
 		overflow-wrap: anywhere;
 	}
 
-	.book-marker .book-id {
-		font-family: var(--font-mono, ui-monospace, monospace);
+	.book-marker .book-subtitle {
 		font-size: 0.625rem;
 		font-weight: 400;
-		white-space: nowrap;
+		line-height: 1.2;
 		color: var(--text-secondary);
+		overflow-wrap: anywhere;
 	}
 
 	.map-empty {

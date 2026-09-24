@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MapNode } from '../ExploreView.svelte';
+	import type { MapNode } from '$lib/explore/map-nodes';
 	import type { FacetIndex, FacetSelection } from '$lib/explore/facet-index';
 	import {
 		buildFacetValueColorMap,
@@ -129,9 +129,15 @@
 	});
 </script>
 
-<div class="leaf-matrix-wrapper" class:map-mode={highlightMode}>
+<div
+	class="leaf-matrix-wrapper depth-{Math.min(containerData.depth, 2)}"
+	class:map-mode={highlightMode}
+>
 	<div class="matrix-header">
 		<p class="matrix-title">{containerData.title}</p>
+		{#if containerData.subtitle}
+			<span class="matrix-subtitle">{containerData.subtitle}</span>
+		{/if}
 		<span class="count" title={urnRangeLabel}>{urnRangeLabel}</span>
 	</div>
 
@@ -158,8 +164,27 @@
 	.leaf-matrix-wrapper {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-1);
+		gap: var(--space-2);
 		width: var(--chapter-width, max-content);
+		box-sizing: border-box;
+		padding: var(--space-2);
+		border-radius: var(--radius-md);
+	}
+
+	.leaf-matrix-wrapper.depth-0 {
+		border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+		background: color-mix(in srgb, var(--bg-surface-alt) 78%, transparent);
+	}
+
+	.leaf-matrix-wrapper.depth-1 {
+		border: 1.5px solid color-mix(in srgb, var(--border-strong) 80%, transparent);
+		background: color-mix(in srgb, var(--bg-surface-alt) 88%, transparent);
+	}
+
+	.leaf-matrix-wrapper.depth-2 {
+		border: 2px solid color-mix(in srgb, var(--border-strong) 90%, var(--text-primary));
+		background: color-mix(in srgb, var(--bg-surface-alt) 95%, var(--bg-body));
+		box-shadow: 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
 	}
 
 	.matrix-header {
@@ -171,9 +196,16 @@
 	.matrix-header .matrix-title {
 		margin: 0;
 		font-size: 0.6875rem;
-		font-weight: 400;
+		font-weight: 500;
 		color: var(--text-primary);
 		line-height: 1.2;
+		overflow-wrap: anywhere;
+	}
+
+	.matrix-header .matrix-subtitle {
+		font-size: 0.625rem;
+		line-height: 1.2;
+		color: var(--text-secondary);
 		overflow-wrap: anywhere;
 	}
 

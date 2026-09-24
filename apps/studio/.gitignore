@@ -17,3 +17,8 @@ Thumbs.db
 
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Headless Chrome dumps from local verification
+.chrome-dump.html
+.chrome-err.txt
+.chrome-profile/

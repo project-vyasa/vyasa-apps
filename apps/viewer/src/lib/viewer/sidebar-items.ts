@@ -7,6 +7,64 @@ export interface SidebarItemsOptions {
 	structureLabel: (componentKey: string, fallback: string) => string;
 }
 
+function normalizeLocatorText(value: string): string {
+	return value.trim().toLowerCase().replace(/:/g, '.').replace(/\s+/g, ' ');
+}
+
+/** Container locator for the sidebar row, e.g. `Sukta 1:1` or `Anuvaka 1:2:1`. */
+export function formatLocatorLabel(
+	pathParts: string[],
+	urnComponents: string[],
+	structureLabel: (componentKey: string, fallback: string) => string
+): string {
+	const itemKey = urnComponents[pathParts.length - 1] || 'Item';
+	const itemLabel = structureLabel(itemKey, itemKey);
+	return `${itemLabel} ${pathParts.join(':')}`;
+}
+
+/** True when a packed title is just a locator, not a distinct chapter name. */
+export function isLocatorTitle(
+	title: string,
+	locatorLabel: string,
+	pathParts: string[]
+): boolean {
+	const trimmed = title.trim();
+	if (!trimmed) return true;
+	if (normalizeLocatorText(trimmed) === normalizeLocatorText(locatorLabel)) return true;
+
+	const numericSuffix = trimmed.match(/(\d+(?:[.:]\d+)*)$/)?.[1];
+	if (numericSuffix) {
+		const expected = pathParts.join(':');
+		if (numericSuffix.replace(/:/g, '.') === expected.replace(/:/g, '.')) return true;
+	}
+
+	return false;
+}
+
+export function formatLeafMeta(count: number, leafLabel: string): string {
+	const label = count === 1 ? leafLabel : `${leafLabel}s`;
+	return `${count} ${label}`;
+}
+
+/** Title and optional locator subtitle for a container row (sidebar, explore map, …). */
+export function formatContainerDisplay(
+	pathParts: string[],
+	urnComponents: string[],
+	titles: Record<string, string>,
+	structureLabel: (componentKey: string, fallback: string) => string
+): { title: string; subtitle?: string } {
+	const id = pathParts.join(':');
+	const locatorLabel = formatLocatorLabel(pathParts, urnComponents, structureLabel);
+	const packedTitle = titles[id]?.trim();
+	const hasDistinctTitle =
+		packedTitle && !isLocatorTitle(packedTitle, locatorLabel, pathParts);
+
+	return {
+		title: hasDistinctTitle ? packedTitle! : locatorLabel,
+		subtitle: hasDistinctTitle ? locatorLabel : undefined
+	};
+}
+
 /** Build sidebar navigation items from a catalog tree. */
 export function buildSidebarItems(
 	tree: unknown,
@@ -23,16 +81,15 @@ export function buildSidebarItems(
 
 	const result: SidebarItem[] = [];
 
-	function pushContainerItem(pathParts: string[]) {
+	function pushContainerItem(pathParts: string[], node: unknown) {
 		const id = pathParts.join(':');
-		const lastPart = pathParts[pathParts.length - 1];
-		const itemKey = urnComponents[pathParts.length - 1] || 'Item';
-		const itemLabel = structureLabel(itemKey, itemKey);
-		const semanticTitle = titles[id];
-		const fallbackTitle = `${itemLabel} ${lastPart}`;
-		// Ancestors of the sidebar row as a labeled path (RV: "Mandala 1";
-		// TTS: "Kanda 1 : Prasna 2"). Do not append "(Type n)" — that
-		// tautology is "Mandala 1 (Mandala 1)" when the title is already the locator.
+		const { title, subtitle } = formatContainerDisplay(
+			pathParts,
+			urnComponents,
+			titles,
+			structureLabel
+		);
+
 		const ancestorParts = pathParts.slice(0, -1);
 		const groupTitle =
 			ancestorParts.length > 0
@@ -44,10 +101,15 @@ export function buildSidebarItems(
 						.join(' : ')
 				: undefined;
 
+		const leafComponentKey = urnComponents[pathParts.length] ?? urnComponents.at(-1) ?? 'Item';
+		const leafLabel = structureLabel(leafComponentKey, leafComponentKey);
+		const leafCount = catalogLeafIndices(node).length;
+
 		result.push({
 			id,
-			title: semanticTitle || fallbackTitle,
-			subtitle: semanticTitle ? fallbackTitle : undefined,
+			title,
+			subtitle,
+			meta: leafCount > 0 ? formatLeafMeta(leafCount, leafLabel) : undefined,
 			group: groupTitle
 		});
 	}
@@ -55,7 +117,7 @@ export function buildSidebarItems(
 	function traverse(node: unknown, pathParts: string[]) {
 		if (Array.isArray(node) || isCatalogRangesNode(node)) {
 			if (pathParts.length > 0 && catalogLeafIndices(node).length > 0) {
-				pushContainerItem(pathParts);
+				pushContainerItem(pathParts, node);
 			}
 			return;
 		}

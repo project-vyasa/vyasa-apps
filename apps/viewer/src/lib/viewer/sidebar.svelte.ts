@@ -8,6 +8,8 @@ export interface SidebarItem {
 	id: string;
 	title: string;
 	subtitle?: string;
+	/** Leaf count under this container, e.g. `9 Riks`. */
+	meta?: string;
 	group?: string;
 }
 
