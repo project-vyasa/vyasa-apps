@@ -1,0 +1,1 @@
+import{r as e}from"./eEuAMMbf.js";function t(){return e(`viewer`,{dev:!1})}var n=`https://project-vyasa.github.io/vyasa-docs/`,r=`https://github.com/project-vyasa/vyasa-samples`;export{n,t as r,r as t};

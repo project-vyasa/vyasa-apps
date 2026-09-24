@@ -1,0 +1,1 @@
+import{G as e,lt as t,mt as n,pt as r}from"../chunks/C2nsUJ80.js";import"../chunks/xihTtKlq.js";import{t as i}from"../chunks/DzRfQDT5.js";import{t as a}from"../chunks/Cz8G8YzF.js";function o(o,s){n(s,!0);let c=t(()=>a.params.registry||``),l=t(()=>a.params.catalog||``);i(o,{get registryId(){return e(c)},get catalogId(){return e(l)}}),r()}export{o as component};
