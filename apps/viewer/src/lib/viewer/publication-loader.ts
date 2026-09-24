@@ -28,6 +28,7 @@ import {
 	type PerfTimings
 } from '$lib/viewer/perf-guard';
 import { EXPECTED_VIEWER_API_VERSION } from '$lib/viewer/weave-diagnostics';
+import { rememberViewerApiVersion } from '$lib/viewer/reading-report-state';
 
 export interface PublicationLoadResult {
 	packageData: PackageData;
@@ -58,6 +59,7 @@ export async function loadPublication(
 ): Promise<PublicationLoadResult> {
 	await initWasm();
 	const wasmAbi = api_version();
+	rememberViewerApiVersion(wasmAbi);
 	if (wasmAbi !== EXPECTED_VIEWER_API_VERSION) {
 		console.warn(
 			`[vyasa] viewer WASM ABI is ${wasmAbi}, expected ${EXPECTED_VIEWER_API_VERSION}. Rebuild vyasa/vyasav/pkg.`

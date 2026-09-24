@@ -75,7 +75,7 @@
 			if (key === 'b' || e.code === 'KeyB') {
 				e.preventDefault();
 				viewerSettings.debugMode = !viewerSettings.debugMode;
-			} else if (key === 'u' || e.code === 'KeyU') {
+			} else if ((key === 'u' || e.code === 'KeyU') && (viewerSettings.debugMode || page.url.pathname.includes('/diagnostics'))) {
 				e.preventDefault();
 				if (page.url.pathname.includes('/diagnostics')) {
 					// Toggle back to active publication or library

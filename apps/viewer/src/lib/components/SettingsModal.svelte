@@ -144,7 +144,7 @@
 							id: 'debugMode',
 							label: 'Enable Debug Mode',
 							description:
-								'Show vyasa:// URIs, catalog metadata, and diagnostic URLs in the UI. Toggle with Ctrl+B.',
+								'Show vyasa:// URIs, catalog metadata, and the Diagnostics activity. Toggle with Ctrl+B.',
 							type: 'boolean' as const
 						}
 					]

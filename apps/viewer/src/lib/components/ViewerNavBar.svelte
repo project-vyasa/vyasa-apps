@@ -22,6 +22,8 @@
 	import { formatUrnDisplay } from '$lib/viewer/urn-recents';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
+	import CopyReadingReportButton from './CopyReadingReportButton.svelte';
+	import { rememberReadingView } from '$lib/viewer/reading-report-state';
 
 	interface Props {
 		urn: string;
@@ -163,6 +165,10 @@
 		`Content text size: ${viewerSettings.contentTextSize} (click to cycle)`
 	);
 	const currentView = $derived(activeView ?? availableViews[0] ?? 'grid');
+
+	$effect(() => {
+		rememberReadingView(currentView);
+	});
 	const viewIcon = $derived(
 		currentView === 'grid' ? Columns2 : currentView === 'reading' ? Rows2 : Layers
 	);
@@ -324,6 +330,7 @@
 	{/if}
 
 	<div class="nav-cluster nav-cluster-end">
+		<CopyReadingReportButton />
 		{#if vyasaUri}
 			<CopyVyasaLinkButton {vyasaUri} title="Copy link to this page" />
 		{/if}

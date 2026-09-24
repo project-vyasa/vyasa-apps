@@ -18,6 +18,7 @@
 	import { parseMapTree, type MapNode } from '$lib/explore/map-nodes';
 	import { publicationReaderPath, catalogLinkToVyasaUri } from '$lib/catalog-ref';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
+	import CopyReadingReportButton from './CopyReadingReportButton.svelte';
 
 	interface Props {
 		registryId: string;
@@ -326,16 +327,19 @@
 				/>
 			</div>
 		{/if}
-		{#if selectionVyasaUri}
-			<div class="link-control">
-				<CopyVyasaLinkButton
-					vyasaUri={selectionVyasaUri}
-					title={manualSelections.length > 0
-						? 'Copy shareable link to this selection'
-						: 'Copy shareable link to this publication'}
-				/>
-			</div>
-		{/if}
+		<div class="explore-actions">
+			<CopyReadingReportButton />
+			{#if selectionVyasaUri}
+				<div class="link-control">
+					<CopyVyasaLinkButton
+						vyasaUri={selectionVyasaUri}
+						title={manualSelections.length > 0
+							? 'Copy shareable link to this selection'
+							: 'Copy shareable link to this publication'}
+					/>
+				</div>
+			{/if}
+		</div>
 	</div>
 {/snippet}
 
@@ -420,6 +424,13 @@
 		font-size: 0.85rem;
 		outline: none;
 		width: 100%;
+	}
+
+	.explore-actions {
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		margin-left: auto;
 	}
 
 	.labels-control {

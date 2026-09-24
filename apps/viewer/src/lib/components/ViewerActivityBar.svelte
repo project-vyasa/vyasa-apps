@@ -131,20 +131,22 @@
 				/>
 			{/snippet}
 		</ActivityBarItem>
-		<ActivityBarItem active={active === 'diagnostics'}>
-			{#snippet children()}
-				<Button
-					variant="ghost"
-					size="icon"
-					class="activity-item"
-					icon={Bug}
-					title="Diagnostics (Click or Ctrl+U to toggle)"
-					onclick={() =>
-						activateOrToggle('diagnostics', activePublication.diagnosticsUrl)
-					}
-				/>
-			{/snippet}
-		</ActivityBarItem>
+		{#if viewerSettings.debugMode}
+			<ActivityBarItem active={active === 'diagnostics'}>
+				{#snippet children()}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="activity-item"
+						icon={Bug}
+						title="Diagnostics (debug mode, Ctrl+U)"
+						onclick={() =>
+							activateOrToggle('diagnostics', activePublication.diagnosticsUrl)
+						}
+					/>
+				{/snippet}
+			</ActivityBarItem>
+		{/if}
 		<ActivityBarItem>
 			{#snippet children()}
 				<Button
