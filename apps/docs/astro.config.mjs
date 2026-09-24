@@ -32,6 +32,10 @@ export default defineConfig({
 						items: [{ autogenerate: { directory: 'viewer' } }]
 					},
 					{
+						label: 'Vyasa Studio',
+						items: [{ autogenerate: { directory: 'studio' } }]
+					},
+					{
 						label: 'Sanskrit Studio',
 						items: [{ autogenerate: { directory: 'sanskrit-studio' } }]
 					}

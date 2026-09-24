@@ -90,8 +90,12 @@ export default defineConfig({
 	optimizeDeps: {
 		exclude: [
 			'@project-vyasa/vyasa-ui',
+			'@project-vyasa/platform-chrome',
 			'@project-vyasa/vyasa-viewer-wasm',
 			'@project-vyasa/vyasa-compiler-wasm'
 		]
+	},
+	ssr: {
+		noExternal: ['@project-vyasa/platform-chrome']
 	}
 });

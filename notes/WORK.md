@@ -67,7 +67,8 @@ This repo owns **`@project-vyasa/viewer`**: viewer, explore, library, and diagno
 - [ ] **App locale vs publication language** — shell `en-US` vs work `sa` (BG → `mula`, not English). Chrome stream is not BCP 47. Design: [`locale-and-publication-language.md`](./locale-and-publication-language.md).
 - [ ] **Bitmask facet index** — leaf ordinals + `Uint32Array` bitsets replacing `Map<string, Set<string>>`; speeds Explore today, prerequisite for Atlas.
 - [x] **Facet palette collision** — filter/presence default; top-k + unique palette (no wrap). Remaining Atlas work is still in [`atlas-activity-design.md`](./atlas-activity-design.md).
-- [ ] **Vyasa Studio (play + IDE)** — interest playground and publisher/linguist/SME authoring. Plan: [`vyasa-studio-plan.md`](./vyasa-studio-plan.md). Overlay activity waits on annotation provenance.
+- [x] **Vyasa Studio Phase A (Play)** — `apps/studio` at `/studio/`, port 5376. Play compiles bundled vyasa-bg to HTML. Workspace activity is a placeholder. Plan: [`vyasa-studio-plan.md`](./vyasa-studio-plan.md). Overlay waits on annotation provenance.
+- [ ] **Vyasa Studio Phase B (Workspace IDE)** — source tree, ZIP, template picker, file-linked diagnostics.
 - [ ] **Remove registry legacy shim** — after vyasa-docs GH Pages serves `catalogs[]` / `id: adi`.
 - [ ] **Book activity UX (RV)** — `default_view` manifest key; revisit document layout gutter.
 - [ ] **Manifest-driven vocabulary/localization** — explorer reads `vocabulary/facets` + `manifest.facet_attributes`; full pack-time merge still upstream in vyasac.

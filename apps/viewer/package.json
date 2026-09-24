@@ -20,6 +20,7 @@
 		"@eslint/js": "^10.0.1",
 		"@project-vyasa/vyasa-compiler-wasm": "file:../../../vyasa/vyasac/pkg",
 		"@project-vyasa/vyasa-ui": "file:../../../vyasa-ui/svelte",
+		"@project-vyasa/platform-chrome": "workspace:*",
 		"@project-vyasa/vyasa-viewer-wasm": "file:../../../vyasa/vyasav/pkg",
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.63.0",

@@ -4,6 +4,7 @@
 		ActivityBarItem,
 		AppHeader,
 		AppShell,
+		Badge,
 		Button
 	} from '@project-vyasa/vyasa-ui';
 	import { chromeLabels } from '@project-vyasa/sanskrit';
@@ -11,6 +12,9 @@
 	import { base } from '$app/paths';
 	import { Languages, Mic, LayoutGrid } from 'lucide-svelte';
 	import { brandIconSrc } from '$lib/brand';
+	import { AppSwitcher } from '@project-vyasa/platform-chrome';
+	import { dev } from '$app/environment';
+	import { otherPlatformApps, pagesAppGuideHref } from '../../../../../scripts/gh-pages-apps.mjs';
 	import ChromeScriptSelect from './ChromeScriptSelect.svelte';
 
 	export type StudioActivity = 'lipi' | 'patha' | 'phonetics';
@@ -49,9 +53,16 @@
 			{themeContext}
 		>
 			{#snippet headerRight()}
+				<AppSwitcher
+					apps={otherPlatformApps('sanskrit-studio', { dev })}
+					guideHref={pagesAppGuideHref('sanskrit-studio', { dev })}
+				/>
 				<ChromeScriptSelect />
 			{/snippet}
-			<span class="header-activity font-sanskrit">{titles[activity]}</span>
+			<span class="header-activity">
+				<Badge variant="warning">Experimental</Badge>
+				<span class="font-sanskrit">{titles[activity]}</span>
+			</span>
 		</AppHeader>
 	{/snippet}
 
@@ -105,23 +116,22 @@
 
 <style>
 	.header-activity {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
 		color: var(--text-secondary);
 		font-size: var(--text-sm);
+		min-width: 0;
 	}
 
-	:global(.app-header .app-title)::after {
-		content: 'Experimental';
-		margin-left: 0.35rem;
-		padding: 0.08rem 0.4rem;
-		font-size: 0.65rem;
-		font-weight: 600;
-		letter-spacing: 0.06em;
+	.header-activity :global(.badge.warning) {
+		flex: 0 0 auto;
 		text-transform: uppercase;
-		color: var(--text-tertiary);
-		border: 1px solid var(--border-base);
-		border-radius: var(--control-radius);
-		white-space: nowrap;
-		line-height: 1.3;
+		letter-spacing: 0.06em;
+		font-weight: 700;
+		background: var(--color-yellow-400, #f5c518);
+		color: var(--color-gray-950, #111);
+		border: 1px solid var(--color-yellow-600, #c9a227);
 	}
 
 	.canvas {

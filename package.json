@@ -10,6 +10,8 @@
     "build:viewer": "bun run --cwd apps/viewer build",
     "dev:sanskrit-studio": "bun run --cwd apps/sanskrit-studio dev",
     "build:sanskrit-studio": "bun run --cwd apps/sanskrit-studio build",
+    "dev:studio": "bun run --cwd apps/studio dev",
+    "build:studio": "bun run --cwd apps/studio build",
     "dev:docs": "bun run --cwd apps/docs dev",
     "build:docs": "bun run --cwd apps/docs build",
     "assemble:pages": "node scripts/assemble-gh-pages.mjs",

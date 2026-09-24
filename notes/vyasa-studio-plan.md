@@ -1,6 +1,6 @@
 # Vyasa Studio — play area + authoring IDE
 
-> **Status:** Design — 2026-09-14  
+> **Status:** Phase A (Play) — 2026-09-21  
 > **Repos:** `vyasa-apps` (app), `vyasa` (`vyasac` WASM), `vyasa-samples` (workspaces), `vyasa-docs` (frozen PlayArea prototype only)  
 > **Not this:** [Sanskrit Studio](https://project-vyasa.github.io/vyasa-apps/sanskrit/) (Lipi / Pāṭha / Varṇa). Keep that name and `/sanskrit/` dest.
 
@@ -123,10 +123,10 @@ Success: a publisher can edit `context.vy` / a chapter, Run, and see the change.
 | Overlay pack vs publisher pack | `vyasa` BACKLOG §9 | Blocks Studio Overlay activity |
 | Annotate authoring syntax | this note’s sibling | After provenance, not instead of it |
 
-## Open questions
+## Open questions (closed for A–B)
 
-1. **Default landing:** Play vs Workspace? Recommend Play (interest) as `/studio/`, Workspace behind an activity icon.
-2. **How much editing in Play?** Recommend editable buffer that resets; no save.
+1. **Default landing:** Play as `/studio/`. Workspace is an activity icon (`/studio/workspace/`).
+2. **How much editing in Play?** Editable buffer that resets; no save.
 3. **Pack from the browser?** v1 compile-to-HTML only. Pack/export is a later publisher job (may stay CLI).
 4. **Share PlayArea sqlite VFS?** No for A–B.
 

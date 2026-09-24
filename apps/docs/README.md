@@ -1,6 +1,6 @@
 # Apps documentation site
 
-Astro Starlight for **Viewer** and **Sanskrit Studio** users.
+Astro Starlight for **Viewer**, **Vyasa Studio**, and **Sanskrit Studio** users.
 
 | | |
 |--|--|

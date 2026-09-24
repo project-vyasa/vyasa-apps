@@ -1,0 +1,33 @@
+---
+title: Vyasa Studio
+description: Compile a Vyasa workspace in the browser — play area, not Sanskrit Studio.
+---
+
+Vyasa Studio is at [project-vyasa.github.io/vyasa-apps/studio](https://project-vyasa.github.io/vyasa-apps/studio/). Locally: `cd apps/studio && bun run dev` → http://localhost:5376/
+
+It is a small **experimental** play area for the Vyasa *language*. Open the Bhagavad Gita showcase, edit a file, hit **Run**, and preview compiled HTML. Nothing is saved. It is **not** Sanskrit Studio (Lipi / Pāṭha / Varṇa) and **not** the Viewer (packed publications).
+
+The compiler is WebAssembly from `vyasac`. If the engine is missing, a banner says so — rebuild WASM and restart the dev server.
+
+## Play
+
+1. Open **Play** (the landing screen).
+2. The left **Source** tree is the workspace files. Open one, or edit it. **Reset** restores the sample.
+3. **Run** compiles the whole workspace to HTML in the browser.
+
+Packing a `.vyview` still happens with the CLI. The Workspace activity (ZIP, diagnostics) is next.
+
+## What the preview shows
+
+The tree is files. The preview header names the publication unit those files belong to. A filename is not a chapter unless the workspace says so.
+
+| Addressing | What the header names | Example |
+| --- | --- | --- |
+| **Sequence** (the default; this Gita showcase) | The container of leaf blocks. A verse command is a leaf. The container's name comes from `[urn].path_schema`, and it stops above the last level of `[urn].hierarchy`. | `container · chapter 1` |
+| **Document** (`[build.default] layout = "document"`) | That file's page. When `path_schema` names the path, the address is included. | `document`, or `document · chapter 1 · verse 2` |
+
+In this showcase `path_schema` is `chapter` and each file is that container, so the open file and the preview page are the same. Another workspace can put many leaves in one file, or many files in one container. The header still names the container, not the file.
+
+The menu above the preview switches streams of that same unit (Devanagari and IAST here). Templates and styles are files in the tree, under `templates/`. Play does not assume a particular command alias.
+
+Language and packing docs stay on [vyasa-docs](https://project-vyasa.github.io/vyasa-docs/). Sample workspaces: [vyasa-samples](https://github.com/project-vyasa/vyasa-samples).

@@ -22,6 +22,7 @@ export const SITE_INDEX_REDIRECT_ID = 'viewer';
 export const VIEWER_DEV_URL = 'http://localhost:5373/';
 export const STUDIO_DEV_URL = 'http://localhost:5374/';
 export const DOCS_DEV_URL = 'http://localhost:5375/';
+export const VYASA_STUDIO_DEV_URL = 'http://localhost:5376/';
 
 /** @typedef {{ id: string, dir: string, dest: string, base: string, outDir?: string }} GhPagesApp */
 
@@ -38,6 +39,12 @@ export const GH_PAGES_APPS = [
 		dir: 'apps/sanskrit-studio',
 		dest: 'sanskrit',
 		base: `${GH_PAGES_SITE}/sanskrit`
+	},
+	{
+		id: 'studio',
+		dir: 'apps/studio',
+		dest: 'studio',
+		base: `${GH_PAGES_SITE}/studio`
 	},
 	{
 		id: 'docs',
@@ -60,6 +67,7 @@ export function pagesAppHref(id, { dev }) {
 	if (!app) throw new Error(`Unknown GH Pages app: ${id}`);
 	if (dev) {
 		if (id === 'sanskrit-studio') return STUDIO_DEV_URL;
+		if (id === 'studio') return VYASA_STUDIO_DEV_URL;
 		if (id === 'docs') return DOCS_DEV_URL;
 		return VIEWER_DEV_URL;
 	}
@@ -69,4 +77,57 @@ export function pagesAppHref(id, { dev }) {
 
 export function nestedDests() {
 	return GH_PAGES_APPS.map((app) => app.dest).filter(Boolean);
+}
+
+/** @type {Record<string, string>} */
+const APP_LABELS = {
+	viewer: 'Viewer',
+	studio: 'Vyasa Studio',
+	'sanskrit-studio': 'Sanskrit Studio',
+	docs: 'Docs'
+};
+
+/** Starlight path under the docs dest (`''` = docs hub). */
+/** @type {Record<string, string>} */
+const APP_GUIDE_PATHS = {
+	viewer: 'viewer',
+	studio: 'studio',
+	'sanskrit-studio': 'sanskrit-studio',
+	docs: ''
+};
+
+/**
+ * Sibling apps for the header switcher. Keep this the only growing list.
+ *
+ * @param {{ dev: boolean }} opts
+ * @returns {{ id: string, label: string, href: string }[]}
+ */
+export function platformApps({ dev }) {
+	return GH_PAGES_APPS.map((app) => ({
+		id: app.id,
+		label: APP_LABELS[app.id] || app.id,
+		href: pagesAppHref(app.id, { dev })
+	}));
+}
+
+/**
+ * Header switcher entries: every nested app except the one already open.
+ *
+ * @param {string} currentId
+ * @param {{ dev: boolean }} opts
+ */
+export function otherPlatformApps(currentId, { dev }) {
+	return platformApps({ dev }).filter((app) => app.id !== currentId);
+}
+
+/**
+ * User guide for one nested app (docs dest + section).
+ *
+ * @param {string} id
+ * @param {{ dev: boolean }} opts
+ */
+export function pagesAppGuideHref(id, { dev }) {
+	const hub = pagesAppHref('docs', { dev }).replace(/\/$/, '');
+	const section = APP_GUIDE_PATHS[id];
+	return section ? `${hub}/${section}/` : `${hub}/`;
 }
