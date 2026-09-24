@@ -5,15 +5,16 @@ import {
 	rawLine,
 	segmentsFromSteps,
 	streamsForPattern,
-	tokenizePadas
+	tokenizePadas,
+	windowFormula
 } from './interlinear';
 import { GOLDEN_PADA_PATHA } from './sanskrit-wasm-stub';
 
 describe('streamsForPattern', () => {
-	it('uses one chant stream for Krama and three for Jaṭā/Ghana', () => {
+	it('uses one chant stream for Krama and pada+chant for Jaṭā/Ghana', () => {
 		expect(streamsForPattern('krama')).toEqual(['sandhied']);
-		expect(streamsForPattern('jata')).toEqual(['pada', 'raw', 'sandhied']);
-		expect(streamsForPattern('ghana')).toEqual(['pada', 'raw', 'sandhied']);
+		expect(streamsForPattern('jata')).toEqual(['pada', 'sandhied']);
+		expect(streamsForPattern('ghana')).toEqual(['pada', 'sandhied']);
 	});
 });
 
@@ -51,6 +52,36 @@ describe('rawLine', () => {
 				reverse_text: 'ई॒ळे॒ऽग्निम्'
 			})
 		).toBe('अ॒ग्निमी॑ळे · ई॒ळे॒ऽग्निम् · अ॒ग्निमी॑ळे');
+	});
+});
+
+describe('windowFormula', () => {
+	it('shows the pada window, not the permutation string', () => {
+		expect(
+			windowFormula({
+				step_number: 1,
+				formula: '1-2-2-1-1-2',
+				first_index: 1,
+				second_index: 2
+			})
+		).toBe('1-2');
+		expect(
+			windowFormula({
+				step_number: 1,
+				formula: '1-2-2-1-1-2-3-3-2-1-1-2-3',
+				first_index: 1,
+				second_index: 2,
+				third_index: 3
+			})
+		).toBe('1-2-3');
+		expect(
+			windowFormula({
+				step_number: 3,
+				formula: '3-Par',
+				first_index: 3,
+				is_parigraha: true
+			})
+		).toBe('3-Par');
 	});
 });
 

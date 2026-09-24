@@ -86,6 +86,15 @@ export type VarnaAnalysis = {
 	matra: number;
 };
 
+export type AksharaAnalysis = {
+	surface: string;
+	consonants: VarnaAnalysis[];
+	vowel: VarnaAnalysis | null;
+	ayogavaha: string | null;
+	svara: string | null;
+	total_matra: number;
+};
+
 export const FALLBACK_SCRIPTS: ScriptInfo[] = [
 	{ id: 'devanagari', name: 'Devanagari (देवनागरी)', is_indic: true, has_vedic_pitch: true },
 	{ id: 'telugu', name: 'Telugu (తెలుగు)', is_indic: true, has_vedic_pitch: true },
@@ -141,7 +150,15 @@ export function get_pratyahara_sounds(_name: string): VarnaAnalysis[] {
 	return missing();
 }
 
+export function check_pratyahara_contains(_pratyahara_name: string, _sound_symbol: string): boolean {
+	return missing();
+}
+
 export function inspect_varna(_symbol: string): VarnaAnalysis {
+	return missing();
+}
+
+export function analyze_syllables(_text: string, _script_name: string): AksharaAnalysis[] {
 	return missing();
 }
 

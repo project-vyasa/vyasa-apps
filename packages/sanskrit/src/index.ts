@@ -8,5 +8,7 @@ export * from './insert-text';
 export * from './patha-patterns';
 export * from './interlinear';
 export * from './phonetic-sets';
+export * from './varna-explain';
+export * from './engine-coverage';
 export * from './chrome-script';
 export { chromeLabels } from './chrome-script.svelte.ts';

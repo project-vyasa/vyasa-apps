@@ -9,7 +9,7 @@ Engine: `vyutils` crates `vyasa-lipi`, `vyasa-patha`, `vyasa-phonetics` via WASM
 |------|----------------|--------------|
 | Script conversion | [Aksharamukha](https://www.aksharamukha.com/), [Aksharamukha script-matrix](https://www.aksharamukha.com/script-matrix), Lipyantara, `sanscript` / `indic-transliteration` | **Lipi** — 11 scripts, Vedic pitch, lossless round-trip |
 | Recitation patterns | Printed *patha* manuals; few browsers do Krama/Jaṭā correctly | **Pāṭha** — Krama, Jaṭā, Ghana in a dropdown; 3+8 overlay; interlinear playhead |
-| Phonetics / Śiva-sūtra | ashtadhyayi.com, paper *prātiśākhya* | **Varṇa** — Pāṇini, ṚV-Prātiśākhya, Taittirīya |
+| Phonetics / Śiva-sūtra | ashtadhyayi.com, paper *prātiśākhya* | **Varṇa** — paste a string, click an akṣara; Pāṇini membership, RPr groups, Taittirīya dvitva/svarita examples |
 | Sandhi join / split | UoH [SCL](http://sanskrit.uohyd.ac.in/scl/), [Skrutable](https://skrutable.info/about), Dharmamitra splitters | Join is inside Krama/Jaṭā; no dedicated UI; **split is not in the engine** (non-unique) |
 | Meter / scansion | Skrutable, Heritage Platform extras | Not in crates |
 | Morphology / compounds | SCL पद-विश्लेषिका, Sanskrit Heritage, DCS | Out of scope for current WASM |

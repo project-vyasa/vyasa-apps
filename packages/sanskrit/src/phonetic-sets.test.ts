@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { PRATISAKHYA_GROUPS, PRATYAHARA_CHIPS, SHAISHIRIYA_VOWELS, TAITTIRIYA_CONTEXTS, TAITTIRIYA_GLYPHS } from './phonetic-sets';
+import {
+	PRATISAKHYA_GROUPS,
+	PRATYAHARA_CHIPS,
+	SHAISHIRIYA_VOWELS,
+	SVARITA_EXAMPLES,
+	TAITTIRIYA_GLYPHS,
+	VARNA_EXAMPLES
+} from './phonetic-sets';
 
 describe('Śaiśirīya inventory', () => {
 	it('places ṛ immediately after a, before i', () => {
@@ -30,9 +37,19 @@ describe('PRATYAHARA_CHIPS', () => {
 });
 
 describe('Taittirīya UI catalogs', () => {
-	it('lists seven juncture contexts and inspector glyphs', () => {
-		expect(TAITTIRIYA_CONTEXTS).toHaveLength(7);
+	it('lists worked svarita junctures instead of a context enum', () => {
+		expect(SVARITA_EXAMPLES.map((e) => e.context)).toEqual([
+			'SemivowelSandhi',
+			'AbhinihitaElision',
+			'CoalescentLongVowel',
+			'InternalSemivowelStem'
+		]);
 		expect(TAITTIRIYA_GLYPHS.some((g) => g.glyph_iast === 'ka')).toBe(true);
-		expect(TAITTIRIYA_GLYPHS[0].glyph_iast).toBe('a');
+	});
+});
+
+describe('VARNA_EXAMPLES', () => {
+	it('starts from the same ṚV opening as Lipi', () => {
+		expect(VARNA_EXAMPLES[0].text).toContain('अ॒ग्निमी॑ळे');
 	});
 });

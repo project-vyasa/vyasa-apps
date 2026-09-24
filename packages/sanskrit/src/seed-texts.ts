@@ -10,3 +10,6 @@ export const LIPI_SEED = [
 	`कर्मण्येवाधिकारस्ते मा फलेषु कदाचन ।
 मा कर्मफलहेतुर्भूर्मा ते सङ्गोऽस्त्वकर्मणि ॥`
 ].join('\n\n');
+
+/** Varṇa default: first word of ṚV 1.1.1 saṃhitā — short enough to inspect akṣara by akṣara. */
+export const VARNA_SEED = 'अ॒ग्निमी॑ळे';

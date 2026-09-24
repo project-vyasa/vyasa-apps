@@ -13,7 +13,7 @@ local: http://localhost:5374/
 > **Local:** `cd apps/sanskrit-studio && bun run dev` → http://localhost:5374/  
 > **Viewer** (catalogs and reading) is a different app: https://project-vyasa.github.io/vyasa-apps/docs/viewer/
 
-Sanskrit Studio is a small, **experimental** workbench. It runs in the browser (no account, no upload). The engine is WebAssembly from `vyutils`. If the engine is missing, a banner says so — restart the dev server after `wasm-pack`.
+Sanskrit Studio is a small, **experimental** workbench (yellow **Experimental** badge in the header). Phonology and recitation can be wrong. It runs in the browser (no account, no upload). The engine is WebAssembly from `vyutils`. If the engine is missing, a banner says so — restart the dev server after `wasm-pack`.
 
 It is **not** a reader of packed publications. Use the [Viewer](https://project-vyasa.github.io/vyasa-apps/viewer/) for that.
 
@@ -23,7 +23,7 @@ It is **not** a reader of packed publications. Use the [Viewer](https://project-
 
 | Region | What it is |
 |--------|------------|
-| **Header** | Logo, *Sanskrit Studio*, activity title, **Labels**, theme and density |
+| **Header** | Logo, *Sanskrit Studio*, yellow **Experimental** badge, activity title, **Guide**, **Labels**, theme and density |
 | **Activity bar** (left) | Three tools: Lipi, Pāṭha, Varṇa |
 | **Main pane** | The tool you picked |
 
@@ -57,7 +57,7 @@ Use this when you know a verse in Devanagari (or IAST) and want Grantha, Telugu,
 1. Open **Pāṭha**.
 2. Put pada text in the full-width editor (a golden pada is there to try).
 3. Pick **Krama**, **Jaṭā**, or **Ghana** from the dropdown. Open **Patterns** for the 3+8 catalogue.
-4. Read the interlinear under the editor. Krama is one chant line; Jaṭā/Ghana stack pada, raw, and sandhied.
+4. Read the interlinear under the editor. Krama is one chant line; Jaṭā/Ghana stack isolated padas over the chant (no dotted middle row — it duplicated Jaṭā sandhi, and for Ghana it only showed the forward pair). Ghana windows of three padas are labelled `1-2-3`.
 5. Space highlights the next segment; Shift-Space goes back (not while typing in the editor).
 6. Set the **output script** for the generated text (independent of Labels).
 
@@ -73,16 +73,34 @@ Use this when you know a verse in Devanagari (or IAST) and want Grantha, Telugu,
 
 ## Varṇa — phonetics
 
-**What:** Inspect one sound (or a short string) against a tradition: **Pāṇini**, **Ṛgveda-Prātiśākhya**, or **Taittirīya**.
+Inspect **one string** against a tradition: **Pāṇini**, **Ṛgveda-Prātiśākhya**, or **Taittirīya**.
 
 **Do this:**
 
-1. Open **Varṇa**.
-2. Pick a tradition.
-3. Type a syllable or use the inspector.
-4. Read place of articulation, effort, quantity, and (where the engine knows it) dvitva / juncture notes.
+1. Open **Varṇa**. The seed is the first word of ṚV 1.1.1 (same opening as Lipi).
+2. Paste a short string, or pick an example (arkaḥ, kanyā).
+3. Click a sound in the akṣara strip (mātrā, pitch, visarga on each block).
+4. Switch tradition — the same text is re-described.
+5. Read **Engine / Label only / Not in engine** for that tradition. Those citations are coverage of this WASM build, not a critical edition.
 
-Use this when a grammar or prātiśākhya line talks about a *varṇa* and you want the articulatory description, not when you want a translation of a verse.
+| Tradition | What you get |
+|-----------|----------------|
+| **Pāṇini** | Pratyāhāra membership (1.1.71), Śiva-sūtra highlight, Śikṣā inspector |
+| **Ṛgveda-Prātiśākhya** | Inventory groups (Śaiśirīya, samānākṣara, nāmin as a label). Nati is not applied |
+| **Taittirīya** | Karaṇa; worked svarita junctures; dvitva with TPr 14.1 / 14.4 / 14.8 |
+
+Source of the coverage list: [`engine-coverage.ts`](../../packages/sanskrit/src/engine-coverage.ts) (same data as the activity). Public HTML: `apps/docs` → `/sanskrit-studio/`.
+
+| Tradition | Citation | Status |
+|-----------|----------|--------|
+| Pāṇini | Śiva-sūtras 1–14; Aṣṭ. 1.1.71; Śikṣā inspect; akṣara split | Live |
+| Pāṇini | Named sandhi sūtras (6.1.77 ff.) as a trace | Not in engine |
+| RPr | 1.1–2 inventories; Śaiśirīya order; 1.65 nāmin | Label only |
+| RPr | Nati (retroflexion) | Not in engine |
+| TPr | Ch. 2 karaṇa/sthāna; 14.1 / 14.4 / 14.8 dvitva; Ch. 20 class from a named juncture | Live |
+| TPr | Svarita from a recited string; Raṅga (Ch. 17) | Not in engine |
+
+Use this when a grammar or prātiśākhya line talks about a *varṇa*. Sandhi *rewrites* belong with Pāṭha / a future Sandhi activity.
 
 ---
 

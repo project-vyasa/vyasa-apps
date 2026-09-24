@@ -105,14 +105,83 @@ export const PRATYAHARA_CHIPS: PratyaharaChip[] = [
 	}
 ];
 
-export const TAITTIRIYA_CONTEXTS: { id: string; label: string }[] = [
-	{ id: 'InternalSemivowelStem', label: 'Internal semivowel stem' },
-	{ id: 'SemivowelSandhi', label: 'Semivowel sandhi' },
-	{ id: 'AbhinihitaElision', label: 'Abhinihita elision' },
-	{ id: 'CoalescentLongVowel', label: 'Coalescent long vowel' },
-	{ id: 'PostUdattaConsonant', label: 'Post-udātta consonant' },
-	{ id: 'HiatusWithoutSandhi', label: 'Hiatus without sandhi' },
-	{ id: 'AcrossVirama', label: 'Across virāma' }
+export type VarnaExample = {
+	id: string;
+	label: string;
+	text: string;
+	hint: string;
+};
+
+/** Short strings to drop into the Varṇa input. Same RV opening as Lipi. */
+export const VARNA_EXAMPLES: VarnaExample[] = [
+	{
+		id: 'agnimile',
+		label: 'ṚV 1.1.1',
+		text: 'अ॒ग्निमी॑ळे',
+		hint: 'First word of the Lipi seed. Cluster + pitch.'
+	},
+	{
+		id: 'arkah',
+		label: 'arkaḥ',
+		text: 'अ॒र्कः',
+		hint: 'Taittirīya dvitva: k after r (TPr 14.4).'
+	},
+	{
+		id: 'kanya',
+		label: 'kanyā',
+		text: 'क॒न्या॑',
+		hint: 'Inherent svarita (jātya) on the stem.'
+	}
+];
+
+export type SvaritaExample = {
+	id: string;
+	context: string;
+	classIast: string;
+	before: string;
+	after: string;
+	afterDeva: string;
+	hint: string;
+};
+
+/** Worked junctures instead of asking the user to name the rule. */
+export const SVARITA_EXAMPLES: SvaritaExample[] = [
+	{
+		id: 'kshaipra',
+		context: 'SemivowelSandhi',
+		classIast: 'Kṣaipra',
+		before: 'ví + abravīt',
+		after: 'vyàbravīt',
+		afterDeva: 'व्य॒ब्र॒वीत्',
+		hint: 'Accented i/u becomes y/v before a vowel.'
+	},
+	{
+		id: 'abhinihita',
+		context: 'AbhinihitaElision',
+		classIast: 'Abhinihita',
+		before: 'té + abruvan',
+		after: "té 'bruvan",
+		afterDeva: 'ते ऽब्रु॑वन्',
+		hint: 'Accented e/o absorbs an initial a- (avagraha).'
+	},
+	{
+		id: 'prashlishta',
+		context: 'CoalescentLongVowel',
+		classIast: 'Praśliṣṭa',
+		before: 'diví + iva',
+		after: 'divī̀va',
+		afterDeva: 'दि॒वीव॑',
+		hint: 'Two short vowels contract; the result is svarita.'
+	},
+	{
+		id: 'jatya',
+		context: 'InternalSemivowelStem',
+		classIast: 'Jātya',
+		before: 'kanyā (stem)',
+		after: 'kanyā̀',
+		afterDeva: 'क॒न्या॑',
+		hint: 'Circumflex built into the stem, not from sandhi.'
+	}
 ];
 
 /** Inspector / dvitva glyphs for Taittirīya-Prātiśākhya (IAST is the chrome source). */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LIPI_SEED } from './seed-texts';
+import { LIPI_SEED, VARNA_SEED } from './seed-texts';
 
 describe('LIPI_SEED', () => {
 	it('has three blank-line-separated excerpts', () => {
@@ -9,5 +9,11 @@ describe('LIPI_SEED', () => {
 		expect(blocks[1]).toContain('नम॑स्ते रु॒द्र');
 		expect(blocks[1]).toContain('नमः॑ ।\nनम॑स्ते अस्तु॒');
 		expect(blocks[2]).toContain('कर्मण्येवाधिकारस्ते');
+	});
+});
+
+describe('VARNA_SEED', () => {
+	it('is the first word of the Lipi ṚV excerpt', () => {
+		expect(LIPI_SEED.startsWith(VARNA_SEED)).toBe(true);
 	});
 });

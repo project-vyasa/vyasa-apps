@@ -1,5 +1,6 @@
 /// <reference path="./sanskrit-wasm.d.ts" />
 import type {
+	AksharaAnalysis,
 	GhanaStep,
 	JataStep,
 	KramaStep,
@@ -12,6 +13,7 @@ import type {
 import { ENGINE_MISSING_MESSAGE, FALLBACK_SCRIPTS } from './sanskrit-wasm-stub';
 
 export type {
+	AksharaAnalysis,
 	GhanaStep,
 	JataStep,
 	KramaStep,
@@ -39,7 +41,9 @@ type SanskritWasmModule = {
 	generate_ghana_text?: (pada: string, script: string) => string;
 	get_shiva_sutras: () => unknown;
 	get_pratyahara_sounds: (name: string) => unknown;
+	check_pratyahara_contains?: (pratyahara_name: string, sound_symbol: string) => boolean;
 	inspect_varna: (symbol: string) => unknown;
+	analyze_syllables?: (text: string, script_name: string) => unknown;
 	get_taittiriya_svaritas: () => unknown;
 	inspect_taittiriya_varna: (symbol: string) => unknown;
 	check_taittiriya_dvitva: (
@@ -182,6 +186,45 @@ export async function pratyaharaSounds(name: string): Promise<VarnaAnalysis[]> {
 export async function inspectVarna(symbol: string): Promise<VarnaAnalysis> {
 	const mod = await loadModule();
 	return mod.inspect_varna(symbol) as VarnaAnalysis;
+}
+
+export function guessScript(text: string): string {
+	if (/[\u0900-\u097F]/.test(text)) return 'devanagari';
+	return 'iast';
+}
+
+export async function detectScript(text: string): Promise<string> {
+	if (!text.trim()) return 'devanagari';
+	try {
+		const mod = await loadModule();
+		return mod.detect_script?.(text) || guessScript(text);
+	} catch {
+		return guessScript(text);
+	}
+}
+
+export async function analyzeSyllables(text: string, script?: string): Promise<AksharaAnalysis[]> {
+	const mod = await loadModule();
+	if (typeof mod.analyze_syllables !== 'function') {
+		throw new Error(
+			'Syllable analysis is not in this Sanskrit WASM build. Rebuild vyasa-sanskrit-wasm and restart the studio.'
+		);
+	}
+	const resolved = script || (await detectScript(text));
+	return toArray<AksharaAnalysis>(mod.analyze_syllables(text, resolved));
+}
+
+export async function checkPratyaharaContains(
+	pratyaharaName: string,
+	soundSymbol: string
+): Promise<boolean> {
+	const mod = await loadModule();
+	if (typeof mod.check_pratyahara_contains !== 'function') return false;
+	try {
+		return Boolean(mod.check_pratyahara_contains(pratyaharaName, soundSymbol));
+	} catch {
+		return false;
+	}
 }
 
 export async function taittiriyaSvaritas(): Promise<TaittiriyaSvarita[]> {

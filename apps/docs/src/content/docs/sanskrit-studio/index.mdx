@@ -3,17 +3,25 @@ title: Sanskrit Studio
 description: Lipi, Pāṭha, and Varṇa in the browser — not a publication reader.
 ---
 
+import { Aside } from '@astrojs/starlight/components';
+
 Sanskrit Studio is at [project-vyasa.github.io/vyasa-apps/sanskrit](https://project-vyasa.github.io/vyasa-apps/sanskrit/). Locally: `cd apps/sanskrit-studio && bun run dev` → http://localhost:5374/
 
-It is a small **experimental** workbench. No account, no upload. The engine is WebAssembly from `vyutils`. If the engine is missing, a banner says so — rebuild WASM and restart the dev server.
+<Aside type="caution" title="Experimental">
+Phonology and recitation output can be wrong. The yellow **Experimental** badge in the Studio header is the product status. The **Engine / Label only / Not in engine** list in Varṇa is what this WASM build evaluates — not a critical edition of Pāṇini or the Prātiśākhyas.
+</Aside>
+
+No account, no upload. The engine is WebAssembly from `vyutils`. If the engine is missing, a banner says so — rebuild WASM and restart the dev server.
 
 It is **not** a reader of packed publications. Use the [Viewer](../viewer/) for that.
+
+The **Guide** control in the Studio header opens this page (a sibling app on GitHub Pages; locally it is the docs server on port 5375).
 
 ## The window
 
 | Region | What it is |
 |--------|------------|
-| **Header** | Logo, *Sanskrit Studio*, activity title, **Labels**, theme and density |
+| **Header** | Logo, **Experimental** badge, activity title, **Guide**, **Labels**, theme and density |
 | **Activity bar** (left) | Three tools: Lipi, Pāṭha, Varṇa |
 | **Main pane** | The tool you picked |
 
@@ -28,6 +36,8 @@ Rewrite the same Sanskrit between **11 scripts**, keeping Vedic pitch marks.
 3. Type or paste in the left box (or tap a Vedic mark from the palette).
 4. Read the right box. The **lossless** badge means a round-trip matches the source script.
 
+The seed is ṚV 1.1.1, Śrī Rudram (TS 4.5.1.1), and BG 2.47, blank-line separated. Default target script is Malayalam.
+
 ## Pāṭha — recitation patterns
 
 Start from **Pada-pāṭha** (words already split, usually with `|` or daṇḍas). The studio can emit **Krama**, **Jaṭā**, and **Ghana**. The other eight traditional patterns are in the **Patterns** overlay.
@@ -35,24 +45,47 @@ Start from **Pada-pāṭha** (words already split, usually with `|` or daṇḍa
 1. Open **Pāṭha**.
 2. Put pada text in the full-width editor.
 3. Pick **Krama**, **Jaṭā**, or **Ghana**.
-4. Read the interlinear (Krama: one chant line; Jaṭā/Ghana: pada, raw, sandhied). Space moves the highlight; Shift-Space goes back.
+4. Read the interlinear (Krama: one chant line; Jaṭā/Ghana: isolated padas over the chant). Space moves the highlight; Shift-Space goes back. Ghana units that cover three padas are labelled `1-2-3`.
 5. Set **output script** for the generated text (independent of Labels).
 
 The editor is **padas**. Pasting continuous saṃhitā will not split it into words.
 
 ## Varṇa — phonetics
 
-Inspect one sound against a tradition: **Pāṇini**, **Ṛgveda-Prātiśākhya**, or **Taittirīya**.
+Inspect **one string** against a tradition. The seed is the first word of ṚV 1.1.1 (same opening as Lipi).
 
 1. Open **Varṇa**.
-2. Pick a tradition.
-3. Type a syllable or use the inspector.
-4. Read place of articulation, effort, quantity, and juncture notes where the engine knows them.
+2. Paste a short string, or pick an example (arkaḥ, kanyā).
+3. Click a sound in the **akṣara strip** (each block is a syllable: mātrā, pitch, visarga).
+4. Switch **Pāṇini** / **Ṛgveda-Prātiśākhya** / **Taittirīya** — the same selection is re-described.
+5. Read the **Engine / Label only / Not in engine** list for that tradition. Citations there are the honest coverage of this build.
+
+| Tradition | What you get |
+|-----------|----------------|
+| **Pāṇini** | Which pratyāhāras contain this sound (1.1.71), which Śiva-sūtra it sits on, Śikṣā inspector |
+| **Ṛgveda-Prātiśākhya** | Inventory groups (Śaiśirīya order, samānākṣara, nāmin as a **label**). Nati (s → ṣ, n → ṇ) is **not** applied |
+| **Taittirīya** | Karaṇa in the inspector; worked svarita junctures (class from a named context, not from raw verse); dvitva on the selected consonant with TPr 14.1 / 14.4 / 14.8 |
+
+Sandhi *rewrites* with a rule trace are not in Varṇa. Forward join already happens inside Pāṭha; a dedicated Sandhi activity is later work.
+
+### What the engine implements
+
+**Live** means WASM evaluates it. **Label only** means a classification or inventory with no rewrite. **Not in engine** is a known traditional rule this build does not run.
+
+| Tradition | Citation | Status |
+|-----------|----------|--------|
+| Pāṇini | Śiva-sūtras 1–14; Aṣṭ. 1.1.71; Śikṣā inspect; akṣara split | Live |
+| Pāṇini | Named sandhi sūtras (6.1.77 ff.) as a trace | Not in engine |
+| RPr | 1.1–2 inventories; Śaiśirīya order; 1.65 nāmin | Label only |
+| RPr | Nati (retroflexion) | Not in engine |
+| TPr | Ch. 2 karaṇa/sthāna; 14.1 / 14.4 / 14.8 dvitva; Ch. 20 class from a named juncture | Live |
+| TPr | Svarita from a recited string; Raṅga (Ch. 17) | Not in engine |
 
 ## What this app is not
 
 - Not a dictionary, morphology analyser, or meter scanner.
 - Not a full Vedic recitation trainer for every traditional pattern.
 - Not the place to open a packed Ṛgveda or Gītā — that is the Viewer.
+- Not a critical edition of the Prātiśākhyas.
 
 If a script shows tofu (empty boxes), the webfont is not loaded yet. Conversion still runs; the glyph may be missing.
