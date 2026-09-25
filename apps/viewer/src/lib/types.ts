@@ -80,6 +80,8 @@ export interface Manifest {
 	catalog_tree: string;
 	catalog_tree_encoding?: string;
 	streams_config?: string;
+	/** JSON object packed-stream-id → { language, script, kind } (RFC-022). */
+	streams_meta?: string;
 	urn_hierarchy?: string;
 	urn_bit_layout?: string;
 	/** JSON array of block_attribute keys to index as explorer facets (graph annotate always ingested). */
@@ -102,6 +104,13 @@ export interface AnnotationEntry {
 	attributes: Record<string, any>;
 }
 
+/** Pack-time stream descriptor (RFC-022). Opaque strings; keyed by packed stream id. */
+export interface StreamDescriptor {
+	language: string;
+	script: string;
+	kind: string;
+}
+
 export interface PackageData {
 	manifest: Manifest;
 	structure: {
@@ -117,6 +126,8 @@ export interface PackageData {
 	/** Relative leaf URN → stream ids with html_blocks */
 	streamsByUrn?: Record<string, string[]>;
 	streams?: Array<{ id: string; label: string; count: number }>;
+	/** Packed stream id → language / script / kind. Empty when the pack predates RFC-022. */
+	streamsMeta?: Record<string, StreamDescriptor>;
 	/** Per-stream SegmentBreak join characters from manifest `stream_separators`. */
 	streamSeparators?: Record<string, string>;
 	vocabulary?: VocabularyEntry[];

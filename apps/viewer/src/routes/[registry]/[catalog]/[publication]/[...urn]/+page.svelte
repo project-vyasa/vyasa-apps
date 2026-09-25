@@ -378,6 +378,7 @@
 			{availableViews}
 			{availableStreams}
 			bind:customGridLayoutJson
+			streamsMeta={packageData?.streamsMeta}
 			vyasaUri={readerVyasaUri}
 			isDocumentLayout={(packageData?.manifest as { layout?: string })?.layout === 'document'}
 			onNavigatePrev={navigatePrev}

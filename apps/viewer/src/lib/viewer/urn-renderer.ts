@@ -23,6 +23,8 @@ import { toRelativeUrn } from '$lib/explore/urn-utils';
 import { annotationsCoveringUrn } from '$lib/viewer/graph-weave-context';
 import { toSequenceId } from '$lib/viewer/sequence-id';
 import { parseWeaveDiagnostics, reportWeaveDiagnostics } from '$lib/viewer/weave-diagnostics';
+import { layoutJsonForWeave } from '$lib/viewer/grid-pipe-parser';
+import { applyGridPipes } from '$lib/viewer/grid-pipes';
 
 function normalizeBlockContent(content: unknown): Uint8Array {
 	if (content instanceof Uint8Array) return content;
@@ -195,6 +197,7 @@ export async function renderUrn(
 		packageData.streamSeparators
 	);
 	let viewNodes: any[];
+	let gridCells: ReturnType<typeof layoutJsonForWeave>['cells'] = [];
 	if (currentActiveView === 'grid') {
 		let layoutJson =
 			customGridLayoutJson ||
@@ -203,7 +206,9 @@ export async function renderUrn(
 		if (!layoutJson) {
 			layoutJson = buildDefaultGridLayoutJson(orderedStreams);
 		}
-		viewNodes = graphRuntime.weave_layout(rowsJson, layoutJson, optionsJson);
+		const prepared = layoutJsonForWeave(layoutJson);
+		gridCells = prepared.cells;
+		viewNodes = graphRuntime.weave_layout(rowsJson, prepared.weaveJson, optionsJson);
 	} else {
 		viewNodes = graphRuntime.weave_view(rowsJson, templatesJson, currentActiveView, optionsJson);
 	}
@@ -218,6 +223,14 @@ export async function renderUrn(
 			urn: targetUrn
 		}
 	);
+
+	if (currentActiveView === 'grid' && gridCells.some((cell) => (cell.pipe?.length ?? 0) > 0)) {
+		for (const node of viewNodes) {
+			if (typeof node.content === 'string') {
+				node.content = await applyGridPipes(node.content, gridCells, packageData.streamsMeta);
+			}
+		}
+	}
 
 	// 8. Theme shell wraps all views; craft `{view}_layout` wraps items first.
 	let itemsHtml = '';
@@ -336,6 +349,11 @@ ${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 	filter: brightness(1.08);
 }
 /* Stream typography and white-space: publisher theme via .vyasa-block-{stream} (see theme_layout). */
+.vyasa-pipe-error-msg {
+	color: var(--vyasa-error, #b42318);
+	font-family: var(--font-sans, sans-serif);
+	font-size: 0.8rem;
+}
 </style>`;
 		if (finalHtml.includes('</head>')) {
 			finalHtml = finalHtml.replace('</head>', `${viewerChromeCss}</head>`);

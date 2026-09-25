@@ -8,6 +8,12 @@ import { GH_PAGES_APPS } from '../../scripts/gh-pages-apps.mjs';
 const pagesBase = GH_PAGES_APPS.find((app) => app.id === 'viewer')?.base;
 const workspaceRoot = path.resolve(__dirname, '../../..');
 const vyasaUiDist = path.join(workspaceRoot, 'vyasa-ui/svelte/dist');
+const sanskritPkg = path.resolve(__dirname, '../../packages/sanskrit/src');
+const sanskritWasmPkg = path.join(workspaceRoot, 'vyutils/crates/vyasa-sanskrit-wasm/pkg');
+const sanskritWasmJs = path.join(sanskritWasmPkg, 'vyasa_sanskrit_wasm.js');
+const sanskritWasmEntry = fs.existsSync(sanskritWasmJs)
+	? sanskritWasmPkg
+	: path.join(sanskritPkg, 'sanskrit-wasm-stub.ts');
 
 export default defineConfig({
 	plugins: [
@@ -84,7 +90,8 @@ export default defineConfig({
 		alias: {
 			// Linked package is copied into Bun's store; point at live dist after `prepack`.
 			'@project-vyasa/vyasa-ui/style': path.join(vyasaUiDist, 'style'),
-			'@project-vyasa/vyasa-ui': path.join(vyasaUiDist, 'index.js')
+			'@project-vyasa/vyasa-ui': path.join(vyasaUiDist, 'index.js'),
+			'@project-vyasa/sanskrit-wasm': sanskritWasmEntry
 		}
 	},
 	optimizeDeps: {
@@ -92,7 +99,8 @@ export default defineConfig({
 			'@project-vyasa/vyasa-ui',
 			'@project-vyasa/platform-chrome',
 			'@project-vyasa/vyasa-viewer-wasm',
-			'@project-vyasa/vyasa-compiler-wasm'
+			'@project-vyasa/vyasa-compiler-wasm',
+			'@project-vyasa/sanskrit-wasm'
 		]
 	},
 	ssr: {

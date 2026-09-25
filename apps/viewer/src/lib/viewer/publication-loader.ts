@@ -1,4 +1,4 @@
-import initWasm, { api_version, VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
+import initWasm, { api_version, evaluate_load_integrity, VyasaViewerRuntime } from '@project-vyasa/vyasa-viewer-wasm';
 import {
 	resolveCatalogUrl,
 	fetchCatalog,
@@ -12,6 +12,7 @@ import { activePublication } from '$lib/viewer/active-publication.svelte';
 import { shouldReuseResolvedCatalogUrl } from './catalog-url-cache';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
+import { parseStreamsMeta } from '$lib/viewer/stream-meta';
 import { collectLeafUrns, toRelativeUrn } from '$lib/explore/urn-utils';
 import { initialReaderUrn } from '$lib/viewer/reader-navigation';
 import { parseAnnotationRows } from '$lib/viewer/annotation-rows';
@@ -129,6 +130,8 @@ export async function loadPublication(
 	const graphRuntime = new VyasaViewerRuntime(hierarchyJson, bitLayoutJson, globalPrefix);
 
 	// 8b. Load block attributes (titles) per stream — Language chrome selects which set to show
+
+	// 8b. Load block attributes (titles) per stream — Language chrome selects which set to show
 	const attrRows = await viewerDb.query(
 		'SELECT s.name, ba.sequence_id, ba.attributes FROM block_attributes ba JOIN streams s ON ba.stream_id = s.id'
 	);
@@ -182,6 +185,42 @@ export async function loadPublication(
 		});
 	}
 
+	if (typeof evaluate_load_integrity === 'function') {
+		const templatesPayload = tplRows
+			.filter((row) => row[1] === 'layout')
+			.map((row) => ({
+				view_name: row[0],
+				block_type: row[1],
+				content: row[2]
+			}));
+		const integrity = JSON.parse(
+			evaluate_load_integrity(
+				JSON.stringify({
+					package_type: manifest.package_type,
+					primary_stream: manifest.primary_stream,
+					streams_meta: manifest.streams_meta ?? ''
+				}),
+				JSON.stringify(streams.map((s) => s.id)),
+				JSON.stringify(templatesPayload)
+			)
+		) as {
+			usable?: boolean;
+			issues?: Array<{ severity: string; code: string; detail: string }>;
+		};
+		console.info('[vyasa load]', integrity);
+		if (integrity.usable === false) {
+			const first =
+				integrity.issues?.find((i) => i.severity === 'error')?.detail ||
+				'publication is not usable in this runtime';
+			throw new Error(first);
+		}
+		for (const issue of integrity.issues ?? []) {
+			if (issue.severity === 'error' || issue.severity === 'warn') {
+				console.warn('[vyasa load]', issue);
+			}
+		}
+	}
+
 	// 8c2. Per-leaf stream presence for explore facets
 	const streamsByUrn: Record<string, string[]> = {};
 	try {
@@ -231,6 +270,7 @@ export async function loadPublication(
 	}
 
 	const streamSeparators = parseStreamSeparators(manifest['stream_separators']);
+	const streamsMeta = parseStreamsMeta(manifest.streams_meta);
 	warnManifestPerfStats(manifest);
 
 	const weaveBlockAttributesByUrn = measurePerfPhaseSync(
@@ -261,6 +301,7 @@ export async function loadPublication(
 		annotationsByUrn,
 		streamsByUrn,
 		streams,
+		streamsMeta,
 		streamSeparators,
 		vocabulary,
 		annotations,

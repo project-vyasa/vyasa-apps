@@ -226,7 +226,8 @@ function buildStreamCoverageType(
 	leafUrns: string[],
 	streamsByUrn: Record<string, string[]>,
 	primaryStream: string | undefined,
-	packageStreams?: Array<{ id: string }>
+	packageStreams?: Array<{ id: string }>,
+	streamsMeta?: PackageData['streamsMeta']
 ): FacetType | null {
 	if (!primaryStream || leafUrns.length === 0) return null;
 
@@ -243,7 +244,7 @@ function buildStreamCoverageType(
 		}
 		values.push({
 			id: streamId,
-			label: streamGapLabel(streamId),
+			label: streamGapLabel(streamId, streamsMeta?.[streamId]),
 			count: gapCount
 		});
 	}
@@ -270,9 +271,13 @@ function buildStreamCoverageType(
 	};
 }
 
-function streamGapLabel(streamId: string): string {
+function streamGapLabel(
+	streamId: string,
+	desc?: { kind: string; language: string }
+): string {
 	const name = streamId.charAt(0).toUpperCase() + streamId.slice(1);
-	return `Missing ${name}`;
+	if (!desc) return `Missing ${name}`;
+	return `Missing ${name} (${desc.kind} · ${desc.language})`;
 }
 
 function aggregateTypes(
@@ -542,7 +547,13 @@ export function buildFacetIndex(
 	const categoricalTypes = aggregateTypes(leafFacetKeys, packageData.vocabulary, chromeStream);
 	const streamType =
 		streamsByUrn && primaryStream
-			? buildStreamCoverageType(leafUrns, streamsByUrn, primaryStream, packageData.streams)
+			? buildStreamCoverageType(
+					leafUrns,
+					streamsByUrn,
+					primaryStream,
+					packageData.streams,
+					packageData.streamsMeta
+				)
 			: null;
 
 	return {

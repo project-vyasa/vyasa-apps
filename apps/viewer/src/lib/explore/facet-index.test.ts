@@ -198,6 +198,31 @@ describe('buildFacetIndex', () => {
 		expect(stream?.values.find((v) => v.id === 'iast')?.count).toBe(0);
 	});
 
+	it('labels stream coverage gaps with packed kind and language', () => {
+		const withMeta: PackageData = {
+			...packageData,
+			streams: [
+				{ id: 'mula', label: 'Mula', count: 4 },
+				{ id: 'sayana', label: 'Sayana', count: 3 }
+			],
+			streamsMeta: {
+				mula: { language: 'sa', script: 'Deva', kind: 'source' },
+				sayana: { language: 'sa', script: 'Deva', kind: 'commentary' }
+			},
+			streamsByUrn: {
+				'1:1': ['mula', 'sayana'],
+				'1:2': ['mula'],
+				'1:3': ['mula', 'sayana'],
+				'1:4': ['mula', 'sayana']
+			}
+		};
+		const index = buildFacetIndex(withMeta);
+		const stream = index.types.find((t) => t.id === 'stream');
+		expect(stream?.values.find((v) => v.id === 'sayana')?.label).toBe(
+			'Missing Sayana (commentary · sa)'
+		);
+	});
+
 	it('treats stream as a gap coverage facet with multi-select corner colors', () => {
 		const withStreams: PackageData = {
 			...packageData,

@@ -18,12 +18,17 @@
 	import { untrack } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { defaultGridTextFromStreams } from '$lib/viewer/grid-default-layout';
+	import { parseGridCustomizerText } from '$lib/viewer/grid-pipe-parser';
+	import { streamFilterTokens, streamMatchesFilters } from '$lib/viewer/stream-meta';
 	import { cycleContentTextSize, cycleContentTheme } from '$lib/viewer/content-presentation';
 	import { formatUrnDisplay } from '$lib/viewer/urn-recents';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import CopyVyasaLinkButton from './CopyVyasaLinkButton.svelte';
 	import CopyReadingReportButton from './CopyReadingReportButton.svelte';
 	import { rememberReadingView } from '$lib/viewer/reading-report-state';
+	import type { StreamDescriptor } from '$lib/types';
+
+	const PIPE_INSERTS = ['lipi(Mlym)', 'krama', 'jata'] as const;
 
 	interface Props {
 		urn: string;
@@ -32,6 +37,7 @@
 		activeView?: string;
 		availableViews?: string[];
 		availableStreams?: string[];
+		streamsMeta?: Record<string, StreamDescriptor>;
 		customGridLayoutJson?: string;
 		isDocumentLayout?: boolean;
 		vyasaUri?: string;
@@ -53,6 +59,7 @@
 		activeView = $bindable(),
 		availableViews = [],
 		availableStreams = [],
+		streamsMeta = {},
 		customGridLayoutJson = $bindable(),
 		isDocumentLayout = false,
 		vyasaUri = '',
@@ -70,8 +77,25 @@
 	let showCustomizer = $state(false);
 	let customGridText = $state('');
 	let customColumnCount = $state<number>(0);
+	let customizerError = $state('');
+	let kindFilter = $state('');
+	let languageFilter = $state('');
 	let textareaEl = $state<HTMLTextAreaElement | null>(null);
 	let lastStreamsKey = $state('');
+
+	const kindTokens = $derived(streamFilterTokens(streamsMeta, 'kind'));
+	const languageTokens = $derived(streamFilterTokens(streamsMeta, 'language'));
+	const filteredStreams = $derived(
+		(availableStreams || []).filter((id) =>
+			streamMatchesFilters(id, streamsMeta, kindFilter, languageFilter)
+		)
+	);
+
+	function streamChipTitle(id: string): string {
+		const desc = streamsMeta[id];
+		if (!desc) return id;
+		return `${desc.kind} · ${desc.language} · ${desc.script}`;
+	}
 
 	function defaultGridTextForStreams(streams: string[]): string {
 		return defaultGridTextFromStreams(streams);
@@ -88,52 +112,45 @@
 		});
 	});
 
-	function insertStreamChip(stream: string) {
+	function insertAtCursor(insertText: string) {
 		if (textareaEl && typeof textareaEl.selectionStart === 'number') {
 			const start = textareaEl.selectionStart;
 			const end = textareaEl.selectionEnd;
 			const before = customGridText.slice(0, start);
 			const after = customGridText.slice(end);
-			const needsComma = before.length > 0 && !before.endsWith('\n') && !before.endsWith(', ');
-			const insertText = (needsComma ? ', ' : '') + stream;
 			customGridText = before + insertText + after;
 			setTimeout(() => {
 				textareaEl?.focus();
 				textareaEl?.setSelectionRange(start + insertText.length, start + insertText.length);
 			}, 0);
 		} else {
-			customGridText = customGridText ? `${customGridText}, ${stream}` : stream;
+			customGridText = customGridText ? `${customGridText}${insertText}` : insertText.trim();
 		}
 		parseCustomGridText();
 	}
 
+	function insertStreamChip(stream: string) {
+		const before =
+			textareaEl && typeof textareaEl.selectionStart === 'number'
+				? customGridText.slice(0, textareaEl.selectionStart)
+				: customGridText;
+		const needsComma = before.length > 0 && !before.endsWith('\n') && !before.endsWith(', ');
+		insertAtCursor((needsComma ? ', ' : '') + stream);
+	}
+
+	function insertPipeChip(expr: string) {
+		insertAtCursor(` | ${expr}`);
+	}
+
+	function toggleFilter(field: 'kind' | 'language', token: string) {
+		if (field === 'kind') kindFilter = kindFilter === token ? '' : token;
+		else languageFilter = languageFilter === token ? '' : token;
+	}
+
 	function parseCustomGridText() {
-		const lines = customGridText
-			.split('\n')
-			.map((l) => l.trim())
-			.filter(Boolean);
-		let derivedMaxCols = 1;
-		const rowsRaw: string[][] = [];
-		for (const line of lines) {
-			const cols = line
-				.split(',')
-				.map((c) => c.trim())
-				.filter(Boolean);
-			if (cols.length > derivedMaxCols) derivedMaxCols = cols.length;
-			rowsRaw.push(cols);
-		}
-		const effectiveCols = customColumnCount > 0 ? customColumnCount : derivedMaxCols;
-		const rows = rowsRaw.map((cols) => {
-			const span = cols.length < effectiveCols && effectiveCols > 1 ? effectiveCols : 1;
-			return cols.map((col, idx) => {
-				const item: { block: string; span?: number } = { block: col };
-				if (idx === 0 && span > 1 && cols.length === 1) item.span = span;
-				return item;
-			});
-		});
-		const layoutObj: any = { rows };
-		if (customColumnCount > 0) layoutObj.columns = customColumnCount;
-		customGridLayoutJson = JSON.stringify(layoutObj);
+		const parsed = parseGridCustomizerText(customGridText, customColumnCount);
+		customizerError = parsed.error ?? '';
+		customGridLayoutJson = JSON.stringify(parsed.layout);
 	}
 
 	function cycleTypeSize() {
@@ -363,8 +380,9 @@
 			</div>
 			<div class="customizer-body">
 				<p class="customizer-instructions">
-					Click stream chips below to add them into the layout input (prevents typos). Each line
-					defines a row; comma-separate columns on the same row.
+					Each line is a row; comma-separate columns. Append a pipe after a packed stream id:
+					<code>mula | lipi(Mlym)</code>, <code>padapatha | krama</code>. Weave still uses the
+					stream id; the pipe runs after.
 				</p>
 				<div
 					class="col-selector"
@@ -388,10 +406,54 @@
 						{/each}
 					</div>
 				</div>
+				{#if kindTokens.length > 0 || languageTokens.length > 0}
+					<div class="stream-filters">
+						{#if kindTokens.length > 0}
+							<div class="filter-row">
+								<span class="filter-label">Kind</span>
+								{#each kindTokens as token (token)}
+									<button
+										type="button"
+										class={['filter-chip', kindFilter === token && 'active']}
+										onclick={() => toggleFilter('kind', token)}
+									>
+										{token}
+									</button>
+								{/each}
+							</div>
+						{/if}
+						{#if languageTokens.length > 0}
+							<div class="filter-row">
+								<span class="filter-label">Language</span>
+								{#each languageTokens as token (token)}
+									<button
+										type="button"
+										class={['filter-chip', languageFilter === token && 'active']}
+										onclick={() => toggleFilter('language', token)}
+									>
+										{token}
+									</button>
+								{/each}
+							</div>
+						{/if}
+					</div>
+				{/if}
 				<div class="stream-chips">
-					{#each availableStreams as s (s)}
-						<button type="button" class="stream-chip" onclick={() => insertStreamChip(s)}
-							>+ {s}</button
+					{#each filteredStreams as s (s)}
+						<button
+							type="button"
+							class="stream-chip"
+							title={streamChipTitle(s)}
+							onclick={() => insertStreamChip(s)}>+ {s}</button
+						>
+					{:else}
+						<span class="filter-empty">No streams match these filters.</span>
+					{/each}
+				</div>
+				<div class="stream-chips pipe-chips">
+					{#each PIPE_INSERTS as expr (expr)}
+						<button type="button" class="stream-chip pipe-chip" onclick={() => insertPipeChip(expr)}
+							>| {expr}</button
 						>
 					{/each}
 				</div>
@@ -401,7 +463,10 @@
 					oninput={parseCustomGridText}
 					class="custom-grid-textarea"
 					rows="4"
-					placeholder="mula, devanagari&#10;translation&#10;purport"></textarea>
+					placeholder={"mula | lipi(Mlym), translation\npadapatha | krama"}></textarea>
+				{#if customizerError}
+					<p class="customizer-error">{customizerError}</p>
+				{/if}
 			</div>
 			<div class="customizer-footer">
 				<span class="customizer-hint">Changes apply instantly to the grid view below.</span>
@@ -598,6 +663,50 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-1);
+	}
+	.pipe-chips {
+		margin-top: 2px;
+	}
+	.stream-filters {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-1);
+	}
+	.filter-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-1);
+	}
+	.filter-label {
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+		font-weight: 500;
+		margin-right: 2px;
+	}
+	.filter-chip {
+		background: var(--bg-surface-alt);
+		border: 1px solid var(--border-base);
+		color: var(--text-secondary);
+		padding: 2px 8px;
+		border-radius: 999px;
+		font-size: var(--text-xs);
+		cursor: pointer;
+	}
+	.filter-chip:hover,
+	.filter-chip.active {
+		background: var(--bg-primary);
+		color: var(--text-on-primary);
+		border-color: var(--bg-primary);
+	}
+	.filter-empty {
+		font-size: var(--text-xs);
+		color: var(--text-secondary);
+	}
+	.customizer-error {
+		margin: 0;
+		font-size: var(--text-xs);
+		color: var(--vyasa-error, #b42318);
 	}
 	.stream-chip {
 		background: var(--bg-surface-alt);
