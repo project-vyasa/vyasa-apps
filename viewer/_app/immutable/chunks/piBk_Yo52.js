@@ -1,0 +1,1 @@
+var e=``+new URL(`../assets/wa-sqlite-async.DY3_ptqa.wasm`,import.meta.url).href;export{e as default};
