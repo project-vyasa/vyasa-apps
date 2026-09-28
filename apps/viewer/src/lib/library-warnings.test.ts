@@ -19,12 +19,12 @@ describe('library warning guards', () => {
 		).toBe(false);
 	});
 
-	it('counts catalogs under the local registry', () => {
+	it('counts catalogs under every local registry', () => {
 		expect(
 			countLocalCatalogs([
 				{ registryId: 'local' },
 				{ registryId: 'adi' },
-				{ registryId: 'local' }
+				{ registryId: 'local-localhost-9100-registry' }
 			])
 		).toBe(2);
 	});

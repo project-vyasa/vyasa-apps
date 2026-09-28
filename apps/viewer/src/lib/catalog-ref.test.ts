@@ -9,7 +9,8 @@ import {
 	catalogLibraryPath,
 	registryLibraryPath,
 	catalogListingKey,
-	RESERVED_REGISTRY_IDS
+	RESERVED_REGISTRY_IDS,
+	assignLocalRegistryIds
 } from './catalog-ref';
 
 describe('catalog-ref', () => {
@@ -55,5 +56,25 @@ describe('catalog-ref', () => {
 		expect(RESERVED_REGISTRY_IDS.has('studio')).toBe(true);
 		expect(RESERVED_REGISTRY_IDS.has('docs')).toBe(true);
 		expect(RESERVED_REGISTRY_IDS.has('apps')).toBe(false);
+	});
+});
+
+describe('assignLocalRegistryIds', () => {
+	it('prefixes a registry id and falls back to the URL', () => {
+		expect(
+			assignLocalRegistryIds([
+				{ url: 'http://localhost:8080/registry.json' },
+				{ url: 'http://localhost:9100/registry.json', id: 'wikisource' }
+			])
+		).toEqual(['local-localhost-8080-registry', 'local-wikisource']);
+	});
+
+	it('keeps a repeated id distinct by appending the URL', () => {
+		expect(
+			assignLocalRegistryIds([
+				{ url: 'http://localhost:8080/registry.json', id: 'samples' },
+				{ url: 'http://localhost:9100/registry.json', id: 'samples' }
+			])
+		).toEqual(['local-samples', 'local-localhost-9100-registry']);
 	});
 });

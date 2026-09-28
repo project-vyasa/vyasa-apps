@@ -14,7 +14,12 @@ import {
 } from './registry-document';
 import { viewerSettings } from './settings.svelte';
 import { appendCacheBuster } from './cache-bust';
-import { ADI_REGISTRY_ID, LOCAL_REGISTRY_ID } from './catalog-ref';
+import {
+	ADI_REGISTRY_ID,
+	LOCAL_REGISTRY_ID,
+	assignLocalRegistryIds,
+	isLocalRegistryId
+} from './catalog-ref';
 import { classifyLocalSourceDocument } from './local-source';
 
 export const DEFAULT_REGISTRY_URL = 'https://project-vyasa.github.io/vyasa-docs/registry.json';
@@ -50,18 +55,13 @@ export function normalizeCatalogRegistryEntry(raw: CatalogRegistryEntry): Catalo
 	};
 }
 
-function registryIdFromDocument(data: RegistryDocument, sourceUrl: string, forcedLocal = false): string {
-	if (forcedLocal) return LOCAL_REGISTRY_ID;
+function registryIdFromDocument(data: RegistryDocument, sourceUrl: string): string {
 	if (data.id) return data.id;
 	return sourceUrl === DEFAULT_REGISTRY_URL ? ADI_REGISTRY_ID : LOCAL_REGISTRY_ID;
 }
 
-function registryInfoFromDocument(
-	data: RegistryDocument,
-	sourceUrl: string,
-	forcedLocal = false
-): RegistryInfo {
-	const id = registryIdFromDocument(data, sourceUrl, forcedLocal);
+function registryInfoFromDocument(data: RegistryDocument, sourceUrl: string): RegistryInfo {
+	const id = registryIdFromDocument(data, sourceUrl);
 	return {
 		id,
 		title: registryTitle(data, id),
@@ -94,11 +94,12 @@ export async function resolveCatalogUrl(registryId: string, catalogId: string): 
 		return normalizeCatalogRegistryEntry(entry).catalog_url;
 	}
 
-	if (registryId !== LOCAL_REGISTRY_ID) {
+	if (!isLocalRegistryId(registryId)) {
 		throw new Error(`Unknown registry "${registryId}".`);
 	}
 
 	const fetchErrors: string[] = [];
+	const loaded: { url: string; data: RegistryDocument; kind: 'registry' | 'catalog' }[] = [];
 
 	for (const url of viewerSettings.localSourceUrls) {
 		try {
@@ -108,22 +109,38 @@ export async function resolveCatalogUrl(registryId: string, catalogId: string): 
 				continue;
 			}
 			const kind = classifyLocalSourceDocument(result.data);
-			if (kind === 'catalog') {
-				const resolvedId =
-					(result.data.id as string | undefined) ??
-					(result.data.identifier as string | undefined);
-				if (resolvedId === catalogId) return url;
-			} else if (kind === 'registry') {
-				const entry = catalogEntriesFromRegistry(result.data as unknown as RegistryDocument).find(
-					(c) => c.id === catalogId
-				);
-				if (entry) return normalizeCatalogRegistryEntry(entry).catalog_url;
+			if (kind === 'catalog' || kind === 'registry') {
+				loaded.push({
+					url,
+					data: result.data as unknown as RegistryDocument,
+					kind
+				});
 			} else {
 				fetchErrors.push(`${url} (unrecognized JSON)`);
 			}
 		} catch (e: unknown) {
 			fetchErrors.push(`${url} (${e instanceof Error ? e.message : String(e)})`);
 		}
+	}
+
+	const ids = assignLocalRegistryIds(
+		loaded.map((item) =>
+			item.kind === 'registry'
+				? { url: item.url, id: item.data.id, name: item.data.name }
+				: { url: item.url }
+		)
+	);
+	let index = ids.indexOf(registryId);
+	if (index < 0 && registryId === LOCAL_REGISTRY_ID && loaded.length > 0) {
+		index = 0;
+	}
+	const match = index >= 0 ? loaded[index] : undefined;
+	if (match?.kind === 'catalog') {
+		const resolvedId = match.data.id ?? (match.data as { identifier?: string }).identifier;
+		if (resolvedId === catalogId) return match.url;
+	} else if (match?.kind === 'registry') {
+		const entry = catalogEntriesFromRegistry(match.data).find((c) => c.id === catalogId);
+		if (entry) return normalizeCatalogRegistryEntry(entry).catalog_url;
 	}
 
 	const detail = fetchErrors.length > 0 ? ` Errors: ${fetchErrors.join('; ')}` : '';
@@ -199,53 +216,15 @@ export async function getAllCatalogs(): Promise<AllCatalogsResult> {
 		});
 	};
 
-	const ingestLocalCatalog = (
-		url: string,
-		data: { id?: string; identifier?: string; title?: string },
-		ok: boolean,
-		status?: number
-	) => {
-		let catalogId = 'unknown';
-		if (ok) {
-			catalogId = data.id ?? data.identifier ?? 'unknown';
-			const title = data.title || catalogId;
-			rememberRegistry({ id: LOCAL_REGISTRY_ID, title: 'Local', sourceUrl: url });
-			pushListing(
-				LOCAL_REGISTRY_ID,
-				{ id: catalogId, title, catalog_url: url },
-				url,
-				'local-catalog'
-			);
-		} else {
-			sourceErrors.push({ url, error: `HTTP ${status}`, kind: 'catalog' });
-			pushListing(
-				LOCAL_REGISTRY_ID,
-				{ id: catalogId, title: `Local Catalog (${url})`, catalog_url: url },
-				url,
-				'local-catalog'
-			);
-		}
-	};
+	type LoadedLocal =
+		| { url: string; kind: 'registry'; data: RegistryDocument }
+		| {
+				url: string;
+				kind: 'catalog';
+				data: { id?: string; identifier?: string; title?: string };
+		  };
 
-	const ingestLocalRegistry = (url: string, data: RegistryDocument, ok: boolean, status?: number) => {
-		const entries = ok ? catalogEntriesFromRegistry(data) : [];
-		if (ok && entries.length) {
-			const info = registryInfoFromDocument(data, url, true);
-			rememberRegistry(info);
-			for (const c of entries) {
-				pushListing(LOCAL_REGISTRY_ID, c, url, 'local-registry');
-			}
-		} else if (ok) {
-			sourceErrors.push({
-				url,
-				error: 'Registry JSON loaded but has no catalogs',
-				kind: 'registry'
-			});
-		} else {
-			sourceErrors.push({ url, error: `HTTP ${status}`, kind: 'registry' });
-		}
-	};
-
+	const loaded: LoadedLocal[] = [];
 	for (const url of viewerSettings.localSourceUrls) {
 		try {
 			const result = await fetchJson<Record<string, unknown>>(url);
@@ -255,13 +234,13 @@ export async function getAllCatalogs(): Promise<AllCatalogsResult> {
 			}
 			const kind = classifyLocalSourceDocument(result.data);
 			if (kind === 'catalog') {
-				ingestLocalCatalog(
+				loaded.push({
 					url,
-					result.data as { id?: string; identifier?: string; title?: string },
-					true
-				);
+					kind,
+					data: result.data as { id?: string; identifier?: string; title?: string }
+				});
 			} else if (kind === 'registry') {
-				ingestLocalRegistry(url, result.data as unknown as RegistryDocument, true);
+				loaded.push({ url, kind, data: result.data as unknown as RegistryDocument });
 			} else {
 				sourceErrors.push({
 					url,
@@ -274,6 +253,47 @@ export async function getAllCatalogs(): Promise<AllCatalogsResult> {
 			sourceErrors.push({ url, error: msg, kind: 'catalog' });
 		}
 	}
+
+	const localIds = assignLocalRegistryIds(
+		loaded.map((item) =>
+			item.kind === 'registry' ? { url: item.url, id: item.data.id, name: item.data.name } : { url: item.url }
+		)
+	);
+
+	loaded.forEach((item, index) => {
+		const registryId = localIds[index];
+		if (item.kind === 'catalog') {
+			const catalogId = item.data.id ?? item.data.identifier ?? 'unknown';
+			const title = item.data.title || catalogId;
+			rememberRegistry({ id: registryId, title, sourceUrl: item.url });
+			pushListing(
+				registryId,
+				{ id: catalogId, title, catalog_url: item.url },
+				item.url,
+				'local-catalog'
+			);
+			return;
+		}
+		const entries = catalogEntriesFromRegistry(item.data);
+		if (!entries.length) {
+			sourceErrors.push({
+				url: item.url,
+				error: 'Registry JSON loaded but has no catalogs',
+				kind: 'registry'
+			});
+			return;
+		}
+		rememberRegistry({
+			id: registryId,
+			title: registryTitle(item.data, registryId),
+			description: item.data.description,
+			homepage: item.data.homepage,
+			sourceUrl: item.url
+		});
+		for (const entry of entries) {
+			pushListing(registryId, entry, item.url, 'local-registry');
+		}
+	});
 
 	try {
 		const result = await fetchJson<Registry>(DEFAULT_REGISTRY_URL);
@@ -289,10 +309,6 @@ export async function getAllCatalogs(): Promise<AllCatalogsResult> {
 		}
 	} catch (e) {
 		console.warn('Failed to fetch global registry:', e);
-	}
-
-	if (!registryInfoMap.has(LOCAL_REGISTRY_ID) && viewerSettings.localSourceUrls.length > 0) {
-		rememberRegistry({ id: LOCAL_REGISTRY_ID, title: 'Local', sourceUrl: '' });
 	}
 
 	return {

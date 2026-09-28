@@ -125,7 +125,7 @@
 						{
 							id: 'localSources',
 							label: 'Local source URLs',
-							description: `The Adi global registry (${DEFAULT_REGISTRY_URL}) is always loaded. Optionally add semicolon- or comma-separated local registry or catalog URLs (e.g. http://localhost:8080/registry.json). Each URL is autodetected.`,
+							description: `The Adi global registry (${DEFAULT_REGISTRY_URL}) is always loaded. Optionally add semicolon- or comma-separated local registry or catalog URLs (e.g. http://localhost:8080/registry.json; http://localhost:9100/registry.json). Each URL is its own registry: local-{id} when the JSON has an id, otherwise local-{host}-{port}-{file}.`,
 							type: 'text' as const
 						}
 					]

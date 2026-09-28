@@ -5,7 +5,7 @@
 	import type { RegistryInfo, LibraryCatalogData } from '$lib/types';
 	import LibraryView from '$lib/components/LibraryView.svelte';
 	import BrandMark from '$lib/components/BrandMark.svelte';
-	import { LOCAL_REGISTRY_ID, registryLibraryPath } from '$lib/catalog-ref';
+	import { isLocalRegistryId, registryLibraryPath } from '$lib/catalog-ref';
 	import { viewerSettings } from '$lib/settings.svelte';
 
 	interface Props {
@@ -60,8 +60,9 @@
 			} else if (catalogId && filtered.length === 0 && registryId) {
 				const catalogUrl = await resolveCatalogUrl(registryId, catalogId);
 				const catalogData = await fetchCatalog(catalogUrl);
-				const sourceKind =
-					registryId === LOCAL_REGISTRY_ID ? ('local-registry' as const) : ('global' as const);
+				const sourceKind = isLocalRegistryId(registryId)
+					? ('local-registry' as const)
+					: ('global' as const);
 				libraryData = [
 					{
 						registryId,
