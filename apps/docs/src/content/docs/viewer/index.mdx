@@ -26,9 +26,12 @@ In the reader or Explore, use **Copy a report** (the flag beside the link button
 | **Grid / Reading** | Grid is columns of streams. Reading (when the pack includes a craft view) is the publisher’s stacked layout. |
 | **Language** | Chrome labels (titles, speaker names) from packed vocabulary streams. |
 | **Text size / paper** | Size of the **content** iframe, separate from app chrome density. Paper themes come from the pack when present. |
-| **Gutter** | URN badges and annotation marks beside each block. |
+| **Gutter** | URN badges and annotation marks beside each block. `kind="uncertain"` is a mark whose tooltip is the note; verse HTML is unchanged. `kind="gap"` is not a verse badge. |
+| **Edition** | Info control next to the title (when the pack has a complete `edition` object or `work_notes`). Opens description, license, source, snapshot, and work-scope sentences. Incomplete edition objects are omitted — nothing is filled in. |
 
 Grid column order and stream names come from the **pack** (`streams_config`, `primary_stream`). The viewer does not invent publication-specific stream ids.
+
+The contents list keeps **absent** chapters in order, labelled **Missing**, with no verse children. Opening that row shows the publisher’s `kind="gap"` sentence on the container, not invented verses. Publisher contract: [Edition identity and gaps](https://project-vyasa.github.io/vyasa-docs/guides/edition-identity/).
 
 ## Explore
 

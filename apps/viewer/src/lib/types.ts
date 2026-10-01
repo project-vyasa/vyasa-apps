@@ -104,6 +104,24 @@ export interface AnnotationEntry {
 	attributes: Record<string, any>;
 }
 
+/** Packed `manifest.edition`. All fields are required; an incomplete object is omitted. */
+export interface Edition {
+	title: string;
+	description: string;
+	license: string;
+	source: string;
+	source_root: string;
+	snapshot: string;
+}
+
+/** Packed `manifest.work_notes` entry (`scope = work`). */
+export interface WorkNote {
+	kind: string;
+	content: string;
+	detail?: string;
+	href?: string;
+}
+
 /** Pack-time stream descriptor (RFC-022). Opaque strings; keyed by packed stream id. */
 export interface StreamDescriptor {
 	language: string;
@@ -140,4 +158,8 @@ export interface PackageData {
 	templatesJson?: string;
 	/** Load-phase performance timings (ms). */
 	perfTimings?: Record<string, number>;
+	/** Omitted when the pack has no complete `edition` object. */
+	edition?: Edition;
+	/** Work-scope notes. Empty when the pack has none. */
+	workNotes?: WorkNote[];
 }

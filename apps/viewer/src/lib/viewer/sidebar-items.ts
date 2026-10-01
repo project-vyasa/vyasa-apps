@@ -1,10 +1,12 @@
 import { catalogLeafIndices, isCatalogRangesNode } from '$lib/explore/urn-utils';
+import { isAbsentContainer } from '$lib/viewer/edition';
 import type { SidebarItem } from './sidebar.svelte';
 
 export interface SidebarItemsOptions {
 	urnComponents: string[];
 	titles: Record<string, string>;
 	structureLabel: (componentKey: string, fallback: string) => string;
+	blockAttributesByUrn?: Record<string, Record<string, string>>;
 }
 
 function normalizeLocatorText(value: string): string {
@@ -65,10 +67,40 @@ export function formatContainerDisplay(
 	};
 }
 
+/** True when every key under this branch is `0` and no verse leaves are stored. */
+function isZeroPaddedEmpty(node: unknown): boolean {
+	if (Array.isArray(node) || isCatalogRangesNode(node)) {
+		return catalogLeafIndices(node).length === 0;
+	}
+	if (typeof node !== 'object' || node === null) return false;
+	const record = node as Record<string, unknown>;
+	const keys = Object.keys(record);
+	if (keys.length === 0) return false;
+	return keys.every((key) => key === '0' && isZeroPaddedEmpty(record[key]));
+}
+
+function locatorChain(
+	pathParts: string[],
+	urnComponents: string[],
+	structureLabel: (componentKey: string, fallback: string) => string
+): string {
+	return pathParts
+		.map((part, i) => {
+			const key = urnComponents[i] || 'Group';
+			return `${structureLabel(key, key)} ${part}`;
+		})
+		.join(' : ');
+}
+
 /** Build sidebar navigation items from a catalog tree. */
 export function buildSidebarItems(
 	tree: unknown,
-	{ urnComponents, titles, structureLabel }: SidebarItemsOptions
+	{
+		urnComponents,
+		titles,
+		structureLabel,
+		blockAttributesByUrn
+	}: SidebarItemsOptions
 ): SidebarItem[] {
 	if (Array.isArray(tree)) {
 		const key = urnComponents[0] || 'Item';
@@ -81,7 +113,7 @@ export function buildSidebarItems(
 
 	const result: SidebarItem[] = [];
 
-	function pushContainerItem(pathParts: string[], node: unknown) {
+	function pushContainerItem(pathParts: string[], node: unknown, groupIncludesSelf = false) {
 		const id = pathParts.join(':');
 		const { title, subtitle } = formatContainerDisplay(
 			pathParts,
@@ -90,38 +122,50 @@ export function buildSidebarItems(
 			structureLabel
 		);
 
-		const ancestorParts = pathParts.slice(0, -1);
+		const groupParts = groupIncludesSelf ? pathParts : pathParts.slice(0, -1);
 		const groupTitle =
-			ancestorParts.length > 0
-				? ancestorParts
-						.map((part, i) => {
-							const key = urnComponents[i] || 'Group';
-							return `${structureLabel(key, key)} ${part}`;
-						})
-						.join(' : ')
-				: undefined;
+			groupParts.length > 0 ? locatorChain(groupParts, urnComponents, structureLabel) : undefined;
 
 		const leafComponentKey = urnComponents[pathParts.length] ?? urnComponents.at(-1) ?? 'Item';
 		const leafLabel = structureLabel(leafComponentKey, leafComponentKey);
-		const leafCount = catalogLeafIndices(node).length;
+		const leafCount =
+			Array.isArray(node) || isCatalogRangesNode(node) ? catalogLeafIndices(node).length : 0;
+		const absent = isAbsentContainer(blockAttributesByUrn, id);
 
-		result.push({
-			id,
-			title,
-			subtitle,
-			meta: leafCount > 0 ? formatLeafMeta(leafCount, leafLabel) : undefined,
-			group: groupTitle
-		});
+		const item: SidebarItem = { id, title };
+		if (groupTitle) item.group = groupTitle;
+		if (subtitle) item.subtitle = subtitle;
+		if (absent) {
+			item.absent = true;
+			item.meta = 'Missing';
+		} else if (leafCount > 0) {
+			item.meta = formatLeafMeta(leafCount, leafLabel);
+		}
+		result.push(item);
 	}
 
 	function traverse(node: unknown, pathParts: string[]) {
 		if (Array.isArray(node) || isCatalogRangesNode(node)) {
-			if (pathParts.length > 0 && catalogLeafIndices(node).length > 0) {
+			if (pathParts.length === 0) return;
+			const leafCount = catalogLeafIndices(node).length;
+			// The synthetic `:0` child (`'0': { slots:[0], leaves:[] }`) is not a chapter.
+			const hole =
+				leafCount === 0 &&
+				pathParts[pathParts.length - 1] !== '0' &&
+				isCatalogRangesNode(node);
+			if (leafCount > 0 || hole) {
 				pushContainerItem(pathParts, node);
 			}
 			return;
 		}
 		if (typeof node === 'object' && node !== null) {
+			// Absent praśna (and similar) is stored as `3:10` → `0` → empty slot,
+			// because the container URN is padded (`3:10:0:0`). That is the row.
+			// A sibling `'0'` next to real children is only a header slot.
+			if (pathParts.length > 0 && isZeroPaddedEmpty(node)) {
+				pushContainerItem(pathParts, node, true);
+				return;
+			}
 			const keys = Object.keys(node as Record<string, unknown>).sort(
 				(a, b) => Number(a) - Number(b)
 			);

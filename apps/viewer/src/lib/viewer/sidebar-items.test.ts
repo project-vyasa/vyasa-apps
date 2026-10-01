@@ -140,4 +140,80 @@ describe('buildSidebarItems', () => {
 		expect(items[0].meta).toBe('1 Rik');
 		expect(items.some((i) => /leaves|slots/i.test(i.title))).toBe(false);
 	});
+
+	it('lists a padded absent praśna between its neighbors', () => {
+		const tree = {
+			'3': {
+				'9': {
+					'1': { slots: [0], leaves: [[1, 2]] }
+				},
+				'10': {
+					'0': { slots: [0], leaves: [] }
+				},
+				'11': {
+					'0': { slots: [0], leaves: [] }
+				},
+				'12': {
+					'0': { slots: [0], leaves: [] }
+				},
+				'13': {
+					'1': { slots: [0], leaves: [[1, 1]] }
+				}
+			}
+		};
+		const items = buildSidebarItems(tree, {
+			urnComponents: ['kanda', 'prasna', 'anuvaka', 'mantra'],
+			titles: {},
+			structureLabel,
+			blockAttributesByUrn: {
+				'3:10': { absent: 'true' },
+				'3:11': { absent: 'true' },
+				'3:12': { absent: 'true' }
+			}
+		});
+		expect(items.map((item) => item.id)).toEqual(['3:9:1', '3:10', '3:11', '3:12', '3:13:1']);
+		expect(items[1]).toMatchObject({
+			id: '3:10',
+			title: 'Prasna 3:10',
+			meta: 'Missing',
+			group: 'Kanda 3 : Prasna 10',
+			absent: true
+		});
+		expect(items.some((item) => item.id.endsWith(':0'))).toBe(false);
+	});
+
+	it('lists an absent chapter in order as a locator with Missing, and no verses', () => {
+		const tree = {
+			'1': { slots: [0], leaves: [[1, 2]] },
+			'2': { slots: [0], leaves: [] },
+			'3': { slots: [0], leaves: [[1, 1]] }
+		};
+		const items = buildSidebarItems(tree, {
+			urnComponents: ['adhyaya', 'verse'],
+			titles: {},
+			structureLabel,
+			blockAttributesByUrn: { '2': { absent: 'true' } }
+		});
+		expect(items.map((item) => item.id)).toEqual(['1', '2', '3']);
+		expect(items[1]).toMatchObject({
+			id: '2',
+			title: 'Adhyaya 2',
+			meta: 'Missing',
+			absent: true
+		});
+		expect(items.some((item) => item.id.startsWith('2:'))).toBe(false);
+	});
+
+	it('keeps an empty chapter that is not marked absent, without a verse count', () => {
+		const tree = {
+			'2': { slots: [0], leaves: [] }
+		};
+		const items = buildSidebarItems(tree, {
+			urnComponents: ['adhyaya', 'verse'],
+			titles: {},
+			structureLabel
+		});
+		expect(items).toEqual([{ id: '2', title: 'Adhyaya 2' }]);
+	});
+
 });

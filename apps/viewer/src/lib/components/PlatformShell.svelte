@@ -2,7 +2,9 @@
 	import { AppShell, AppHeader } from '@project-vyasa/vyasa-ui';
 	import { setContext, getContext, type Snippet } from 'svelte';
 	import { MediaQuery } from 'svelte/reactivity';
+	import EditionBanner from '$lib/components/EditionBanner.svelte';
 	import ViewerActivityBar from '$lib/components/ViewerActivityBar.svelte';
+	import { Info } from 'lucide-svelte';
 	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
 	import { goto } from '$app/navigation';
@@ -32,6 +34,7 @@
 	let bottomVisible = $state(false);
 	let leftWidth = $state(320);
 	let chromeHidden = $state(false);
+	let editionOpen = $state(false);
 
 	const handsetQuery = new MediaQuery('max-width: 48rem');
 	let wasHandset = $state(false);
@@ -69,7 +72,21 @@
 		}
 	});
 
+	function closeEdition() {
+		editionOpen = false;
+	}
+
+	$effect(() => {
+		activePublication.publicationId;
+		editionOpen = false;
+	});
+
 	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape' && editionOpen) {
+			e.preventDefault();
+			closeEdition();
+			return;
+		}
 		if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
 			const key = e.key.toLowerCase();
 			if (key === 'b' || e.code === 'KeyB') {
@@ -139,8 +156,23 @@
 			{/snippet}
 			{#if activePublication.publicationId}
 				{@const displayTitle = activePublication.title || activePublication.publicationId}
+				{@const hasEditionDetails =
+					Boolean(activePublication.edition) || activePublication.workNotes.length > 0}
 				<div class="header-center-info">
-					<strong class="pub-title">{displayTitle}</strong>
+					<div class="pub-title-row">
+						<strong class="pub-title">{displayTitle}</strong>
+						{#if hasEditionDetails}
+							<button
+								type="button"
+								class="edition-cue"
+								aria-label="Edition details"
+								aria-expanded={editionOpen}
+								onclick={() => (editionOpen = !editionOpen)}
+							>
+								<Info size={15} strokeWidth={2} />
+							</button>
+						{/if}
+					</div>
 					{#if viewerSettings.debugMode}
 						<div class="debug-meta">
 							<span class="debug-item">
@@ -210,6 +242,15 @@
 	{@render children?.()}
 </AppShell>
 
+{#if editionOpen && (activePublication.edition || activePublication.workNotes.length > 0)}
+	<div class="edition-layer">
+		<button type="button" class="edition-backdrop" aria-label="Close edition details" onclick={closeEdition}></button>
+		<div class="edition-popover" role="dialog" aria-label="Edition details">
+			<EditionBanner edition={activePublication.edition} workNotes={activePublication.workNotes} />
+		</div>
+	</div>
+{/if}
+
 <style>
 	.header-center-info {
 		display: flex;
@@ -223,6 +264,14 @@
 		font-size: var(--text-xs);
 		color: var(--text-secondary);
 	}
+	.pub-title-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.15rem;
+		max-width: 100%;
+		min-width: 0;
+	}
 	.pub-title {
 		font-weight: 600;
 		color: var(--text-primary);
@@ -232,6 +281,57 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		max-width: 100%;
+		min-width: 0;
+	}
+	.edition-cue {
+		flex: 0 0 auto;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		border-radius: 999px;
+		background: transparent;
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+	.edition-cue:hover,
+	.edition-cue[aria-expanded='true'] {
+		color: var(--text-primary);
+		background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+	}
+	.edition-layer {
+		position: fixed;
+		inset: 0;
+		z-index: 80;
+	}
+	.edition-backdrop {
+		position: absolute;
+		inset: 0;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		cursor: default;
+	}
+	.edition-popover {
+		position: absolute;
+		top: 2.75rem;
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(28rem, calc(100vw - 1rem));
+		max-height: min(70dvh, 22rem);
+		overflow: auto;
+		margin: 0;
+		padding: 0.75rem 0.9rem;
+		border: 1px solid var(--border-base);
+		border-radius: 6px;
+		background: var(--bg-surface);
+		color: var(--text-primary);
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 	}
 	.debug-meta {
 		display: flex;

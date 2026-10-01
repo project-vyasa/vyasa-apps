@@ -30,7 +30,22 @@ export function leafContainerDepth(leafDepth: number): number {
 	return Math.max(0, leafDepth - 1);
 }
 
-function orderedPrefixes(flatUrns: string[], depth: number): string[] {
+function compareUrn(a: string, b: string): number {
+	const ap = a.split(':');
+	const bp = b.split(':');
+	const n = Math.max(ap.length, bp.length);
+	for (let i = 0; i < n; i++) {
+		const av = ap[i] ?? '';
+		const bv = bp[i] ?? '';
+		const an = Number(av);
+		const bn = Number(bv);
+		if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return an - bn;
+		if (av !== bv) return av < bv ? -1 : 1;
+	}
+	return 0;
+}
+
+function orderedPrefixes(flatUrns: string[], depth: number, containerUrns: string[] = []): string[] {
 	const out: string[] = [];
 	const seen = new Set<string>();
 	for (const urn of flatUrns) {
@@ -41,7 +56,21 @@ function orderedPrefixes(flatUrns: string[], depth: number): string[] {
 		seen.add(key);
 		out.push(key);
 	}
+	for (const urn of containerUrns) {
+		if (seen.has(urn) || urn.split(':').length !== depth) continue;
+		seen.add(urn);
+		let index = out.findIndex((existing) => compareUrn(existing, urn) > 0);
+		if (index < 0) index = out.length;
+		out.splice(index, 0, urn);
+	}
 	return out;
+}
+
+function absentAddress(urn: string, containerUrns: string[]): string | null {
+	if (containerUrns.includes(urn)) return urn;
+	const stripped = urn.replace(/:0$/, '');
+	if (stripped !== urn && containerUrns.includes(stripped)) return stripped;
+	return null;
 }
 
 /** First leaf-container (RV sukta, BG chapter) after opening a publication. */
@@ -64,14 +93,15 @@ export function readerWeaveUrn(
 	raw: string,
 	flatUrns: string[],
 	leafDepth: number,
-	spanContainerUrn?: string | null
+	spanContainerUrn?: string | null,
+	containerUrns: string[] = []
 ): string | null {
 	if (spanContainerUrn) return spanContainerUrn;
 	const urn = normalizeUrnInput(raw);
 	if (!urn || urn === 'root') {
 		return initialReaderUrn(flatUrns, leafDepth);
 	}
-	return resolveReaderAddress(urn, flatUrns, leafDepth)?.urn ?? null;
+	return resolveReaderAddress(urn, flatUrns, leafDepth, containerUrns)?.urn ?? null;
 }
 
 /**
@@ -81,18 +111,25 @@ export function readerWeaveUrn(
 export function resolveReaderAddress(
 	raw: string,
 	flatUrns: string[],
-	leafDepth: number
+	leafDepth: number,
+	containerUrns: string[] = []
 ): ReaderAddress | null {
 	const urn = normalizeUrnInput(raw);
 	if (!urn || urn === 'root') return null;
 	if (leafDepth < 1 || flatUrns.length === 0) {
+		const absent = absentAddress(urn, containerUrns);
+		if (absent) return { urn: absent, mode: 'container' };
 		return { urn, mode: 'leaf' };
 	}
 
 	const parts = urn.split(':');
 	const hasRange = parts.some((part) => part.includes('-'));
 	const matches = matchUrns(urn, flatUrns);
-	if (matches.length === 0) return null;
+	if (matches.length === 0) {
+		const absent = absentAddress(urn, containerUrns);
+		if (absent) return { urn: absent, mode: 'container' };
+		return null;
+	}
 
 	if (hasRange || parts.length >= leafDepth) {
 		return { urn, mode: 'leaf' };
@@ -129,14 +166,15 @@ function stepContainer(
 	leafDepth: number,
 	direction: 1 | -1,
 	goto: (url: string) => void,
-	urlFor: (urn: string) => string
+	urlFor: (urn: string) => string,
+	containerUrns: string[] = []
 ): void {
 	const depth = leafContainerDepth(leafDepth);
 	if (depth === 0) {
 		stepLeaf(flatUrns, currentUrn, direction, goto, urlFor);
 		return;
 	}
-	const prefixes = orderedPrefixes(flatUrns, depth);
+	const prefixes = orderedPrefixes(flatUrns, depth, containerUrns);
 	const idx = prefixes.indexOf(currentUrn);
 	if (idx < 0) return;
 	const nextIdx = idx + direction;
@@ -150,16 +188,17 @@ function stepFromAddress(
 	leafDepth: number,
 	direction: 1 | -1,
 	goto: (url: string) => void,
-	urlFor: (urn: string) => string
+	urlFor: (urn: string) => string,
+	containerUrns: string[] = []
 ): void {
-	if (!flatUrns.length) return;
-	const address = resolveReaderAddress(rawUrn, flatUrns, leafDepth);
+	if (!flatUrns.length && containerUrns.length === 0) return;
+	const address = resolveReaderAddress(rawUrn, flatUrns, leafDepth, containerUrns);
 	if (!address) return;
 	if (address.mode === 'leaf') {
 		stepLeaf(flatUrns, address.urn, direction, goto, urlFor);
 		return;
 	}
-	stepContainer(flatUrns, address.urn, leafDepth, direction, goto, urlFor);
+	stepContainer(flatUrns, address.urn, leafDepth, direction, goto, urlFor, containerUrns);
 }
 
 export function navigateReaderNext(
@@ -167,9 +206,10 @@ export function navigateReaderNext(
 	currentUrn: string,
 	leafDepth: number,
 	goto: (url: string) => void,
-	urlFor: (urn: string) => string
+	urlFor: (urn: string) => string,
+	containerUrns: string[] = []
 ): void {
-	stepFromAddress(flatUrns, currentUrn, leafDepth, 1, goto, urlFor);
+	stepFromAddress(flatUrns, currentUrn, leafDepth, 1, goto, urlFor, containerUrns);
 }
 
 export function navigateReaderPrev(
@@ -177,7 +217,8 @@ export function navigateReaderPrev(
 	currentUrn: string,
 	leafDepth: number,
 	goto: (url: string) => void,
-	urlFor: (urn: string) => string
+	urlFor: (urn: string) => string,
+	containerUrns: string[] = []
 ): void {
-	stepFromAddress(flatUrns, currentUrn, leafDepth, -1, goto, urlFor);
+	stepFromAddress(flatUrns, currentUrn, leafDepth, -1, goto, urlFor, containerUrns);
 }

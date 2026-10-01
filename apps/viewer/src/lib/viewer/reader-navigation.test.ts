@@ -47,6 +47,17 @@ describe('reader-navigation', () => {
 		expect(resolveReaderAddress('9', rvLeaves, 3)).toBeNull();
 	});
 
+	it('opens an absent chapter that has no verse leaves', () => {
+		const leaves = ['1:1', '3:1'];
+		expect(resolveReaderAddress('2', leaves, 2)).toBeNull();
+		expect(resolveReaderAddress('2', leaves, 2, ['2'])).toEqual({ urn: '2', mode: 'container' });
+		expect(resolveReaderAddress('2:0', leaves, 2, ['2'])).toEqual({ urn: '2', mode: 'container' });
+		expect(readerWeaveUrn('2', leaves, 2, null, ['2'])).toBe('2');
+		const visited: string[] = [];
+		navigateReaderNext(leaves, '1', 2, (url) => visited.push(url), (urn) => urn, ['2']);
+		expect(visited).toEqual(['2']);
+	});
+
 	it('steps by leaf when the address is a leaf', () => {
 		const visited: string[] = [];
 		navigateReaderNext(bgLeaves, '1:1', 2, (url) => visited.push(url), (urn) => urn);

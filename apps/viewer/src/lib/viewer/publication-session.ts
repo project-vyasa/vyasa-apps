@@ -30,12 +30,16 @@ function rememberLoaded(ref: CatalogRef, result: PublicationLoadResult) {
 		result.diagCatalogUrl,
 		result.catalogUpdated
 	);
+	activePublication.setEdition(result.packageData.edition, result.packageData.workNotes);
 }
 
 /** Load once per publication; Book and Explore share the SQLite + package. */
 export async function ensurePublication(ref: CatalogRef): Promise<PublicationLoadResult> {
 	const key = catalogRefKey(ref);
-	if (cached && cachedKey === key) return cached;
+	if (cached && cachedKey === key) {
+		rememberLoaded(ref, cached);
+		return cached;
+	}
 	if (inflight && cachedKey === key) return inflight;
 
 	const requestKey = key;

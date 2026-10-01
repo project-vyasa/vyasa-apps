@@ -32,6 +32,7 @@
 	import ReaderNavigationPanel from '$lib/components/ReaderNavigationPanel.svelte';
 	import LoadingBrand from '$lib/components/LoadingBrand.svelte';
 	import { viewerSettings } from '$lib/settings.svelte';
+	import { activePublication } from '$lib/viewer/active-publication.svelte';
 	import { chromeStreamsFromVocabulary } from '$lib/viewer/vocabulary';
 	import {
 		catalogRefFromParams,
@@ -169,6 +170,9 @@
 		() => urn,
 		() => chromeStream || undefined
 	);
+	const absentContainers = $derived(
+		sidebar.items.filter((item) => item.absent).map((item) => item.id)
+	);
 	const activeSpan = $derived(
 		findNamedSpan(sidebar.namedSpans, spanParam || null, normalizeUrnInput(urn))
 	);
@@ -260,6 +264,7 @@
 						: labelStreams[0] || '';
 
 			packageData = result.packageData;
+			activePublication.setEdition(result.packageData.edition, result.packageData.workNotes);
 		} catch (err: unknown) {
 			console.error('Failed to load publication:', err);
 			errorMessage = err instanceof Error ? err.message : String(err);
@@ -279,7 +284,8 @@
 			targetUrn,
 			sidebar.flatUrns,
 			urnComponents.length,
-			span?.containerUrn
+			span?.containerUrn,
+			absentContainers
 		);
 		if (!weaveUrn) return;
 		if (weaveUrn !== targetUrn) {
@@ -346,7 +352,12 @@
 			goToSpan(span);
 			return;
 		}
-		const resolved = resolveReaderAddress(target, sidebar.flatUrns, urnComponents.length);
+		const resolved = resolveReaderAddress(
+			target,
+			sidebar.flatUrns,
+			urnComponents.length,
+			absentContainers
+		);
 		if (!resolved) return;
 		urnRecents = rememberUrnRecent(urnRecentKey, resolved.urn);
 		goto(navUrl(resolved.urn));
@@ -354,17 +365,36 @@
 
 	function toggleFavorite(target?: string) {
 		const raw = target ?? urn;
-		const resolved = resolveReaderAddress(raw, sidebar.flatUrns, urnComponents.length);
+		const resolved = resolveReaderAddress(
+			raw,
+			sidebar.flatUrns,
+			urnComponents.length,
+			absentContainers
+		);
 		const pin = resolved?.urn ?? raw;
 		urnFavorites = toggleUrnFavorite(urnRecentKey, pin);
 	}
 
 	function navigateNext() {
-		navigateReaderNext(sidebar.flatUrns, urn, urnComponents.length, goto, navUrl);
+		navigateReaderNext(
+			sidebar.flatUrns,
+			urn,
+			urnComponents.length,
+			goto,
+			navUrl,
+			absentContainers
+		);
 	}
 
 	function navigatePrev() {
-		navigateReaderPrev(sidebar.flatUrns, urn, urnComponents.length, goto, navUrl);
+		navigateReaderPrev(
+			sidebar.flatUrns,
+			urn,
+			urnComponents.length,
+			goto,
+			navUrl,
+			absentContainers
+		);
 	}
 </script>
 
@@ -419,14 +449,16 @@
 	{:else if fetchingPack || !weaveReady}
 		<LoadingBrand message="Loading {publicationId}…" />
 	{:else}
-		<iframe
-			bind:this={viewerFrame}
-			srcdoc={srcdocContent}
-			title="Vyasa Content"
-			class="viewer-iframe"
-			class:full-width={isFullWidth}
-			onload={bindChromeGestures}
-		></iframe>
+		<div class="reader-column" class:full-width={isFullWidth}>
+			<iframe
+				bind:this={viewerFrame}
+				srcdoc={srcdocContent}
+				title="Vyasa Content"
+				class="viewer-iframe"
+				class:full-width={isFullWidth}
+				onload={bindChromeGestures}
+			></iframe>
+		</div>
 	{/if}
 </div>
 
@@ -457,22 +489,30 @@
 		border: 1px solid var(--color-red-200);
 		border-radius: var(--control-radius);
 	}
-	.viewer-iframe {
+	.reader-column {
 		width: 100%;
 		max-width: 900px;
 		height: 100%;
 		min-height: 100%;
 		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
 		align-self: center;
+	}
+	.reader-column.full-width {
+		max-width: none;
+		align-self: stretch;
+	}
+	.viewer-iframe {
+		width: 100%;
+		height: 100%;
+		min-height: 0;
+		flex: 1 1 auto;
 		border: 0;
 		border-left: 1px solid var(--border-base);
 		border-right: 1px solid var(--border-base);
 		background-color: var(--color-white);
 		box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-	}
-	.viewer-iframe.full-width {
-		max-width: none;
-		align-self: stretch;
 	}
 
 	:global(.panel-content .list-view) {

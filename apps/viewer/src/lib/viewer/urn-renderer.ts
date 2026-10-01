@@ -25,6 +25,14 @@ import { toSequenceId } from '$lib/viewer/sequence-id';
 import { parseWeaveDiagnostics, reportWeaveDiagnostics } from '$lib/viewer/weave-diagnostics';
 import { layoutJsonForWeave } from '$lib/viewer/grid-pipe-parser';
 import { applyGridPipes } from '$lib/viewer/grid-pipes';
+import {
+	escapeNoticeText,
+	gapNoteForContainer,
+	gapNoticeHtml,
+	isAbsentContainer,
+	manifestPrefix,
+	noteMarkKind
+} from '$lib/viewer/edition';
 
 function normalizeBlockContent(content: unknown): Uint8Array {
 	if (content instanceof Uint8Array) return content;
@@ -93,13 +101,18 @@ export async function renderUrn(
 		(packageData.manifest as any).attributes?.layout === 'document';
 	// 1. Determine which leaf URNs to fetch
 	const matchingUrns = matchUrns(targetUrn, flatUrns);
+	const absentHole =
+		matchingUrns.length === 0 &&
+		isAbsentContainer(packageData.blockAttributesByUrn, targetUrn);
 	const queryUrn =
 		targetUrn === 'root' || !targetUrn ? (matchingUrns[0] ?? targetUrn) : targetUrn;
 	const limit = viewportLeafFetchLimit(matchingUrns.length);
 
-	// 2. Query content rows from SQLite
-	const query = graphRuntime.build_viewport_query(queryUrn, limit);
-	const rawRows = await viewerDb.query(query);
+	// 2. Query content rows from SQLite. An absent container has no leaves;
+	// querying it would pull the next chapter.
+	const rawRows = absentHole
+		? []
+		: await viewerDb.query(graphRuntime.build_viewport_query(queryUrn, limit));
 	const prefix =
 		(packageData.manifest as { prefix?: string; global_prefix?: string }).prefix ||
 		(packageData.manifest as { global_prefix?: string }).global_prefix ||
@@ -196,9 +209,11 @@ export async function renderUrn(
 		packageData.weaveBlockAttributesByUrn ?? packageData.blockAttributesByUrn,
 		packageData.streamSeparators
 	);
-	let viewNodes: any[];
+	let viewNodes: any[] = [];
 	let gridCells: ReturnType<typeof layoutJsonForWeave>['cells'] = [];
-	if (currentActiveView === 'grid') {
+	if (absentHole) {
+		viewNodes = [];
+	} else if (currentActiveView === 'grid') {
 		let layoutJson =
 			customGridLayoutJson ||
 			packageData.projections?.['grid_layout_json'] ||
@@ -212,7 +227,7 @@ export async function renderUrn(
 	} else {
 		viewNodes = graphRuntime.weave_view(rowsJson, templatesJson, currentActiveView, optionsJson);
 	}
-	reportWeaveDiagnostics(
+	if (!absentHole) reportWeaveDiagnostics(
 		parseWeaveDiagnostics(
 			typeof graphRuntime.last_weave_diagnostics === 'function'
 				? graphRuntime.last_weave_diagnostics()
@@ -279,11 +294,18 @@ export async function renderUrn(
 						) || facetAttr;
 					annotationBadgesHtml += `<span class="entity-badge" title="${facetLabelLoc}: ${entityLoc}">🏷️ ${entityLoc}</span>`;
 				} else if (ann.label === 'Note' && ann.attributes) {
+					const kind = noteMarkKind(ann.attributes);
+					if (kind === 'gap') continue;
 					const noteText =
 						ann.attributes.content ||
 						ann.attributes.text ||
 						ann.attributes.value ||
 						'Editorial Note';
+					const safeText = escapeNoticeText(String(noteText));
+					if (kind === 'uncertain') {
+						annotationBadgesHtml += `<span class="uncertain-mark" title="${safeText}">uncertain</span>`;
+						continue;
+					}
 					const noteLabelLoc =
 						getVocabularyLabel(
 							packageData.vocabulary,
@@ -292,7 +314,7 @@ export async function renderUrn(
 							currentActiveStream,
 							primaryStream
 						) || 'Note';
-					annotationBadgesHtml += `<span class="note-badge" title="${noteLabelLoc}: ${noteText}">📝</span>`;
+					annotationBadgesHtml += `<span class="note-badge" title="${noteLabelLoc}: ${safeText}">📝</span>`;
 				}
 			}
 		}
@@ -310,6 +332,13 @@ export async function renderUrn(
 	<div class="urn-content"><div class="urn-text">${displayContent}</div></div>
 </div>`;
 		}
+	}
+
+	if (!itemsHtml && isAbsentContainer(packageData.blockAttributesByUrn, targetUrn)) {
+		const packedPrefix = manifestPrefix(packageData.manifest);
+		const gap = gapNoteForContainer(packageData.annotations, targetUrn, packedPrefix);
+		const label = toRelativeUrn(targetUrn, packedPrefix) || targetUrn;
+		itemsHtml = gapNoticeHtml(label, gap);
 	}
 
 	let finalHtml = applyLayoutShells(itemsHtml, currentActiveView, packageData.projections);
@@ -330,7 +359,7 @@ ${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 	filter: brightness(1.08);
 }
 /* Neutral badge styling (no red borders!) */
-.entity-badge, .note-badge {
+.entity-badge, .note-badge, .uncertain-mark {
 	display: inline-flex;
 	align-items: center;
 	gap: 0.25rem;
@@ -344,6 +373,21 @@ ${viewerGutterChromeCss(showReferenceGutter, showAnnotationGutter)}
 	font-family: var(--font-sans, sans-serif);
 	word-break: break-word;
 	max-width: 100%;
+}
+.uncertain-mark {
+	font-variant: small-caps;
+	letter-spacing: 0.02em;
+}
+.gap-note {
+	margin: 0;
+	font-family: var(--font-sans, sans-serif);
+}
+.gap-note a {
+	color: inherit;
+}
+.gap-note-detail {
+	display: block;
+	margin-top: 0.35rem;
 }
 .entity-badge:hover, .note-badge:hover {
 	filter: brightness(1.08);

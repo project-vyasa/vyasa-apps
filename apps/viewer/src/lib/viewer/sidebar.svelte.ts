@@ -8,9 +8,11 @@ export interface SidebarItem {
 	id: string;
 	title: string;
 	subtitle?: string;
-	/** Leaf count under this container, e.g. `9 Riks`. */
+	/** Leaf count under this container, e.g. `9 Riks`, or `Missing` for an absent chapter. */
 	meta?: string;
 	group?: string;
+	/** Catalog hole: empty leaves and `absent=true` on the container block. */
+	absent?: boolean;
 }
 
 /**
@@ -67,7 +69,12 @@ export class SidebarState {
 			return fallback.charAt(0).toUpperCase() + fallback.slice(1);
 		};
 
-		return buildSidebarItems(tree, { urnComponents, titles, structureLabel });
+		return buildSidebarItems(tree, {
+			urnComponents,
+			titles,
+			structureLabel,
+			blockAttributesByUrn: pd.blockAttributesByUrn
+		});
 	});
 
 	readonly namedSpans: NamedSpan[] = $derived.by(() => {

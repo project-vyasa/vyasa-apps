@@ -1,6 +1,7 @@
 	import { publicationExplorePath, publicationReaderPath, catalogLinkToVyasaUri, catalogLinkToHttp, type CatalogRef } from '$lib/catalog-ref';
 	import { base } from '$app/paths';
 	import { browser } from '$app/environment';
+	import type { Edition, WorkNote } from '$lib/types';
 
 export class ActivePublicationState {
 	private _registryId = $state('');
@@ -12,6 +13,8 @@ export class ActivePublicationState {
 	private _vyviewUrl = $state('');
 	private _timestamp = $state('');
 	private _catalogUpdated = $state<number | undefined>(undefined);
+	private _edition = $state<Edition | undefined>(undefined);
+	private _workNotes = $state<WorkNote[]>([]);
 
 	setPublication(ref: CatalogRef, catalogUrl?: string | null) {
 		if (!ref.registryId || !ref.catalogId || !ref.publicationId) return;
@@ -39,7 +42,14 @@ export class ActivePublicationState {
 			this._vyviewUrl = '';
 			this._timestamp = '';
 			this._catalogUpdated = undefined;
+			this._edition = undefined;
+			this._workNotes = [];
 		}
+	}
+
+	setEdition(edition: Edition | undefined, workNotes: WorkNote[] | undefined) {
+		this._edition = edition;
+		this._workNotes = workNotes ?? [];
 	}
 
 	setMetadata(
@@ -105,6 +115,14 @@ export class ActivePublicationState {
 
 	get catalogUpdated() {
 		return this._catalogUpdated;
+	}
+
+	get edition() {
+		return this._edition;
+	}
+
+	get workNotes() {
+		return this._workNotes;
 	}
 
 	get readerUrl() {

@@ -13,6 +13,7 @@ import { shouldReuseResolvedCatalogUrl } from './catalog-url-cache';
 import { ViewerDb } from '$lib/ViewerDb';
 import type { PackageData, Manifest, Catalog, VocabularyEntry, AnnotationEntry } from '$lib/types';
 import { parseStreamsMeta } from '$lib/viewer/stream-meta';
+import { parseEdition, parseWorkNotes } from '$lib/viewer/edition';
 import { collectLeafUrns, toRelativeUrn } from '$lib/explore/urn-utils';
 import { initialReaderUrn } from '$lib/viewer/reader-navigation';
 import { parseAnnotationRows } from '$lib/viewer/annotation-rows';
@@ -269,6 +270,8 @@ export async function loadPublication(
 		console.warn('Vyasa Load: Annotations extraction failed or table missing:', e);
 	}
 
+	const edition = parseEdition(manifest.edition);
+	const workNotes = parseWorkNotes(manifest.work_notes);
 	const streamSeparators = parseStreamSeparators(manifest['stream_separators']);
 	const streamsMeta = parseStreamsMeta(manifest.streams_meta);
 	warnManifestPerfStats(manifest);
@@ -305,7 +308,9 @@ export async function loadPublication(
 		streamSeparators,
 		vocabulary,
 		annotations,
-		perfTimings
+		perfTimings,
+		edition,
+		workNotes
 	};
 
 	recordPerfPhase(perfTimings, 'loadPublication', performance.now() - loadT0);
