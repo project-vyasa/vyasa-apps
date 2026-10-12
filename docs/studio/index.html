@@ -78,33 +78,13 @@
 <div class="sl-heading-wrapper level-h2"><h2 id="play">Play</h2><a class="sl-anchor-link" href="#play"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore>Section titled “Play”</span></a></div>
 <ol>
 <li>Open <strong>Play</strong> (the landing screen).</li>
-<li>The left <strong>Source</strong> tree is the workspace files. Open one, or edit it. <strong>Reset</strong> restores the sample.</li>
-<li><strong>Run</strong> compiles the whole workspace to HTML in the browser.</li>
+<li>The workspace menu lists the sample workspaces. <strong>Import zip</strong> loads another workspace from a <code dir="auto">.zip</code>. <strong>Reset</strong> restores the open workspace.</li>
+<li>The left <strong>Source</strong> tree is the workspace files. Open one, or edit it. <strong>Wrap</strong>, above the editor, turns line wrapping on or off. <strong>Run</strong>, beside it, compiles after the source changes. It stays quiet while the source matches the preview.</li>
+<li>The template menu, above the preview, chooses <strong>AST</strong> (the parse tree), <strong>Built-in HTML</strong>, or an HTML template from the workspace. Changing it compiles immediately.</li>
+<li><strong>Output</strong> lists every compiled file. Previous and next, above the preview, step through that list and name the file you are looking at.</li>
+<li>The <strong>Console</strong> records compile timing and errors. Copy or clear it from that strip.</li>
 </ol>
-<p>Packing a <code dir="auto">.vyview</code> still happens with the CLI. The Workspace activity (ZIP, diagnostics) is next.</p>
+<p>Packing a <code dir="auto">.vyview</code> still happens with the CLI.</p>
 <div class="sl-heading-wrapper level-h2"><h2 id="what-the-preview-shows">What the preview shows</h2><a class="sl-anchor-link" href="#what-the-preview-shows"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore>Section titled “What the preview shows”</span></a></div>
-<p>The tree is files. The preview header names the publication unit those files belong to. A filename is not a chapter unless the workspace says so.</p>
-<table>
-<thead>
-<tr>
-<th>Addressing</th>
-<th>What the header names</th>
-<th>Example</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>Sequence</strong> (the default; this Gita showcase)</td>
-<td>The container of leaf blocks. A verse command is a leaf. The container’s name comes from <code dir="auto">[urn].path_schema</code>, and it stops above the last level of <code dir="auto">[urn].hierarchy</code>.</td>
-<td><code dir="auto">container · chapter 1</code></td>
-</tr>
-<tr>
-<td><strong>Document</strong> (<code dir="auto">[build.default] layout = "document"</code>)</td>
-<td>That file’s page. When <code dir="auto">path_schema</code> names the path, the address is included.</td>
-<td><code dir="auto">document</code>, or <code dir="auto">document · chapter 1 · verse 2</code></td>
-</tr>
-</tbody>
-</table>
-<p>In this showcase <code dir="auto">path_schema</code> is <code dir="auto">chapter</code> and each file is that container, so the open file and the preview page are the same. Another workspace can put many leaves in one file, or many files in one container. The header still names the container, not the file.</p>
-<p>The menu above the preview switches streams of that same unit (Devanagari and IAST here). Templates and styles are files in the tree, under <code dir="auto">templates/</code>. Play does not assume a particular command alias.</p>
+<p>The tree is files. The bar above the preview names the compiled file, such as <code dir="auto">build/html/mula/1.html</code>. In this Gita showcase each file is one chapter, so the open file and the preview page are the same. Another workspace can put many leaves in one file, or many files in one container. Pick another stream or another file from <strong>Output</strong>, or with previous and next. Templates and styles are files in the tree, under <code dir="auto">templates/</code>. Play does not assume a particular command alias.</p>
 <p>Language and packing docs stay on <a href="https://project-vyasa.github.io/vyasa-docs/">vyasa-docs</a>. Sample workspaces: <a href="https://github.com/project-vyasa/vyasa-samples">vyasa-samples</a>.</p></div><footer class="sl-flex astro-bfuzzfyh"><div class="meta sl-flex astro-bfuzzfyh"></div><div class="pagination-links print:hidden astro-5hh2gg6m" dir="ltr"></div></footer></div></div></main></div></div></div></div></body></html>
